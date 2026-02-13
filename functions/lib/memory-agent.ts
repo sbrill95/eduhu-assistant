@@ -52,7 +52,7 @@ export async function extractMemories(
     env,
     MEMORY_SYSTEM_PROMPT,
     [{ role: 'user', content: conversationContext }],
-    'claude-sonnet-4-5-20250514', // Use Sonnet for now; switch to Haiku when available
+    'claude-sonnet-4-20250514', // Use Sonnet for now; switch to Haiku when available
     2048,
   );
 

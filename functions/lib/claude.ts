@@ -14,7 +14,7 @@ export async function chatWithClaude(
   env: Env,
   systemPrompt: string,
   messages: ClaudeMessage[],
-  model = 'claude-sonnet-4-5-20250514',
+  model = 'claude-sonnet-4-20250514',
   maxTokens = 4096,
 ): Promise<{ text: string; usage: { input: number; output: number } }> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
