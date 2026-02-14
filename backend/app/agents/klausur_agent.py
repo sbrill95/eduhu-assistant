@@ -1,13 +1,11 @@
 """Klausur-Agent — generates structured exams with AFB I-III tasks."""
 
 import logging
-import os
-
-from pydantic_ai import Agent, RunContext
-from pydantic_ai.models.anthropic import AnthropicModel
 from dataclasses import dataclass
 
-from app.config import get_settings
+from pydantic_ai import Agent, RunContext
+
+from app.agents.llm import get_haiku
 from app.models import ExamStructure
 from app.agents.curriculum_agent import curriculum_search
 
@@ -36,18 +34,24 @@ Erstelle eine vollständige, realistische Klassenarbeit mit allen Bestandteilen.
 @dataclass
 class KlausurDeps:
     teacher_id: str
+    teacher_context: str = ""
+
+
+async def _klausur_system_prompt(ctx: RunContext[KlausurDeps]) -> str:
+    prompt = KLAUSUR_SYSTEM_PROMPT
+    if ctx.deps.teacher_context:
+        prompt += f"\n\n## Kontext der Lehrkraft\n{ctx.deps.teacher_context}"
+    return prompt
 
 
 def create_klausur_agent() -> Agent[KlausurDeps, ExamStructure]:
-    settings = get_settings()
-    os.environ["ANTHROPIC_API_KEY"] = settings.anthropic_api_key
-    model = AnthropicModel("claude-3-5-haiku-20241022")
+    model = get_haiku()
 
     agent = Agent(
         model,
         deps_type=KlausurDeps,
         output_type=ExamStructure,
-        system_prompt=KLAUSUR_SYSTEM_PROMPT,
+        instructions=_klausur_system_prompt,
     )
 
     @agent.tool

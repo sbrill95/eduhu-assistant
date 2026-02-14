@@ -7,10 +7,9 @@ updates class summaries and wissenskarte.
 import json
 import logging
 from pydantic_ai import Agent
-from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic import BaseModel
 
-from app.config import get_settings
+from app.agents.llm import get_haiku
 from app import db
 
 logger = logging.getLogger(__name__)
@@ -55,13 +54,8 @@ async def run_memory_agent(
         f"{m['role']}: {m['content']}" for m in recent_messages[-6:]
     )
 
-    import os
-    settings = get_settings()
-    os.environ["ANTHROPIC_API_KEY"] = settings.anthropic_api_key
-    model = AnthropicModel("claude-3-5-haiku-20241022")
-
     agent = Agent(
-        model,
+        get_haiku(),
         instructions=MEMORY_SYSTEM,
         output_type=str,
     )

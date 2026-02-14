@@ -4,10 +4,8 @@ import logging
 from dataclasses import dataclass
 
 from pydantic_ai import Agent, RunContext
-import os
-from pydantic_ai.models.anthropic import AnthropicModel
 
-from app.config import get_settings
+from app.agents.llm import get_sonnet
 from app.agents.system_prompt import build_system_prompt
 from app.agents.curriculum_agent import curriculum_search
 from app.agents.research_agent import web_search
@@ -25,10 +23,7 @@ class AgentDeps:
 
 def create_agent() -> Agent[AgentDeps, str]:
     """Create the main eduhu agent with tools."""
-    settings = get_settings()
-    # Pydantic AI reads ANTHROPIC_API_KEY from env
-    os.environ["ANTHROPIC_API_KEY"] = settings.anthropic_api_key
-    model = AnthropicModel("claude-sonnet-4-20250514")
+    model = get_sonnet()
 
     agent = Agent(
         model,
@@ -93,76 +88,22 @@ def create_agent() -> Agent[AgentDeps, str]:
         - "klausur" für Klassenarbeiten, Klausuren, Tests, Prüfungen
         - "differenzierung" für differenziertes Material (Basis/Mittel/Erweitert)
         Gibt eine Zusammenfassung mit Download-Link zurück."""
-        from app.models import MaterialRequest, ExamStructure, DifferenzierungStructure
-        from app.agents.material_agent import run_material_agent
-        from app.docx_generator import generate_exam_docx, generate_diff_docx
-        from pathlib import Path
-        import uuid
-
-        # Normalize type
-        type_map = {
-            "klassenarbeit": "klausur",
-            "test": "klausur",
-            "prüfung": "klausur",
-            "pruefung": "klausur",
-            "klausur": "klausur",
-            "differenzierung": "differenzierung",
-            "differenziert": "differenzierung",
-        }
-        resolved_type = type_map.get(material_type.lower(), "klausur")
-        logger.info(f"Generating material: {resolved_type} (from '{material_type}') {fach} {klasse} {thema}")
-
-        request = MaterialRequest(
-            type=resolved_type,
-            fach=fach,
-            klasse=klasse,
-            thema=thema,
-            teacher_id=ctx.deps.teacher_id,
-            dauer_minuten=dauer_minuten,
-            zusatz_anweisungen=zusatz_anweisungen or None,
-        )
+        from app.services.material_service import generate_material as gen_mat
 
         try:
-            result = await run_material_agent(request)
+            result = await gen_mat(
+                teacher_id=ctx.deps.teacher_id,
+                fach=fach,
+                klasse=klasse,
+                thema=thema,
+                material_type=material_type,
+                dauer_minuten=dauer_minuten,
+                zusatz_anweisungen=zusatz_anweisungen,
+            )
+            return result.summary
         except Exception as e:
             logger.error(f"Material generation failed: {e}")
             return f"Fehler bei der Materialerstellung: {str(e)}"
-
-        # Save DOCX
-        materials_dir = Path("/tmp/materials")
-        materials_dir.mkdir(exist_ok=True)
-        material_id = str(uuid.uuid4())
-
-        if isinstance(result, ExamStructure):
-            docx_bytes = generate_exam_docx(result)
-            tasks_summary = "\n".join(
-                f"  {i}. {t.aufgabe} (AFB {t.afb_level}, {t.punkte}P)"
-                for i, t in enumerate(result.aufgaben, 1)
-            )
-            summary = (
-                f"✅ Klassenarbeit erstellt!\n\n"
-                f"**{result.fach} — {result.thema}** (Klasse {result.klasse})\n"
-                f"Dauer: {result.dauer_minuten} Min. | Gesamtpunkte: {result.gesamtpunkte}\n\n"
-                f"**Aufgaben:**\n{tasks_summary}\n\n"
-                f"📥 Download: /api/materials/{material_id}/docx"
-            )
-        elif isinstance(result, DifferenzierungStructure):
-            docx_bytes = generate_diff_docx(result)
-            niveaus_summary = "\n".join(
-                f"  • {n.niveau}: {len(n.aufgaben)} Aufgaben, {n.zeitaufwand_minuten} Min."
-                for n in result.niveaus
-            )
-            summary = (
-                f"✅ Differenziertes Material erstellt!\n\n"
-                f"**{result.fach} — {result.thema}** (Klasse {result.klasse})\n\n"
-                f"**Niveaustufen:**\n{niveaus_summary}\n\n"
-                f"📥 Download: /api/materials/{material_id}/docx"
-            )
-        else:
-            return "Fehler: Unbekannter Material-Typ"
-
-        (materials_dir / f"{material_id}.docx").write_bytes(docx_bytes)
-        return summary
 
     return agent
 

@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     # Chunking defaults
     chunk_size: int = 1500
     chunk_overlap: int = 200
+    # Sub-agent resilience
+    sub_agent_timeout_seconds: int = 120
+    sub_agent_max_retries: int = 1
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

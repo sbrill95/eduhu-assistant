@@ -1,13 +1,11 @@
 """Differenzierungs-Agent — generates multi-level differentiated materials."""
 
 import logging
-import os
 from dataclasses import dataclass
 
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.models.anthropic import AnthropicModel
 
-from app.config import get_settings
+from app.agents.llm import get_haiku
 from app.models import DifferenzierungStructure
 from app.agents.curriculum_agent import curriculum_search
 
@@ -50,18 +48,24 @@ Du erstellst Material in drei Niveaustufen:
 @dataclass
 class DiffDeps:
     teacher_id: str
+    teacher_context: str = ""
+
+
+async def _diff_system_prompt(ctx: RunContext[DiffDeps]) -> str:
+    prompt = DIFF_SYSTEM_PROMPT
+    if ctx.deps.teacher_context:
+        prompt += f"\n\n## Kontext der Lehrkraft\n{ctx.deps.teacher_context}"
+    return prompt
 
 
 def create_diff_agent() -> Agent[DiffDeps, DifferenzierungStructure]:
-    settings = get_settings()
-    os.environ["ANTHROPIC_API_KEY"] = settings.anthropic_api_key
-    model = AnthropicModel("claude-3-5-haiku-20241022")
+    model = get_haiku()
 
     agent = Agent(
         model,
         deps_type=DiffDeps,
         output_type=DifferenzierungStructure,
-        system_prompt=DIFF_SYSTEM_PROMPT,
+        instructions=_diff_system_prompt,
     )
 
     @agent.tool

@@ -5,9 +5,8 @@ Triggered when message count > 10. Uses Sonnet with a short prompt.
 
 import logging
 from pydantic_ai import Agent
-from pydantic_ai.models.anthropic import AnthropicModel
 
-from app.config import get_settings
+from app.agents.llm import get_haiku
 from app import db
 
 logger = logging.getLogger(__name__)
@@ -37,11 +36,7 @@ async def maybe_summarize(
         for m in messages[:-2]  # Summarize all but last 2 messages
     )
 
-    import os
-    settings = get_settings()
-    os.environ["ANTHROPIC_API_KEY"] = settings.anthropic_api_key
-    model = AnthropicModel("claude-3-5-haiku-20241022")
-    agent = Agent(model, instructions=SUMMARY_PROMPT, output_type=str)
+    agent = Agent(get_haiku(), instructions=SUMMARY_PROMPT, output_type=str)
 
     try:
         result = await agent.run(text)
