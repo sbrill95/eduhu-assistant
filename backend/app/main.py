@@ -710,7 +710,7 @@ async def get_public_page(code: str):
         exercise_records = []
 
     exercises = [
-        PublicExercise(id=row["id"], title=row["title"], h5p_type=row["h5p_type"], created_at=row["created_at"].isoformat())
+        PublicExercise(id=row["id"], title=row["title"], h5p_type=row["h5p_type"], created_at=str(row["created_at"]))
         for row in exercise_records
     ]
 
@@ -733,5 +733,5 @@ async def get_public_exercise(exercise_id: str):
         title=record["title"],
         h5p_type=record["h5p_type"],
         h5p_content=record["h5p_content"],
-        created_at=record["created_at"].isoformat()
+        created_at=str(record["created_at"])
     )

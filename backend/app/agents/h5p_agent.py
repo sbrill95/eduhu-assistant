@@ -51,8 +51,8 @@ Altersgerecht für die angegebene Klassenstufe.
 def _create_agent() -> Agent[None, ExerciseSet]:
     return Agent(
         get_haiku(),
-        result_type=ExerciseSet,
-        system_prompt=H5P_SYSTEM_PROMPT,
+        output_type=ExerciseSet,
+        instructions=H5P_SYSTEM_PROMPT,
     )
 
 
@@ -74,4 +74,4 @@ async def run_h5p_agent(
     
     logger.info(f"H5P Agent: {fach} {klasse} {thema} ({exercise_type})")
     result = await agent.run(prompt)
-    return result.data
+    return result.output
