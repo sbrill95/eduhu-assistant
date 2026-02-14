@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: eduhu-assistant
+Version: 0.1.0
+Summary: AI Teaching Assistant with Memory
+Requires-Python: >=3.12
+Requires-Dist: fastapi[standard]>=0.115
+Requires-Dist: uvicorn[standard]>=0.34
+Requires-Dist: pydantic-ai>=0.2
+Requires-Dist: anthropic>=0.52
+Requires-Dist: httpx>=0.28
+Requires-Dist: logfire>=3
+Requires-Dist: python-multipart>=0.0.20
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: ruff>=0.9; extra == "dev"

@@ -1,0 +1,11 @@
+fastapi[standard]>=0.115
+uvicorn[standard]>=0.34
+pydantic-ai>=0.2
+anthropic>=0.52
+httpx>=0.28
+logfire>=3
+python-multipart>=0.0.20
+
+[dev]
+pytest>=8
+ruff>=0.9

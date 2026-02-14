@@ -1,0 +1,250 @@
+"""eduhu-assistant — FastAPI Backend."""
+
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+
+from app import db
+from app.models import (
+    LoginRequest, LoginResponse,
+    ChatRequest, ChatResponse, ChatMessageOut,
+    ProfileUpdate, ConversationOut,
+)
+from app.agents.main_agent import get_agent, AgentDeps
+from app.agents.memory_agent import run_memory_agent
+from app.agents.summary_agent import maybe_summarize
+
+# ── Logging ──
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("eduhu.log"),
+    ],
+)
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("🦉 eduhu-assistant starting...")
+    # Pre-create agent
+    get_agent()
+    logger.info("✅ Agent ready")
+    yield
+    logger.info("🦉 eduhu-assistant shutting down")
+
+
+app = FastAPI(
+    title="eduhu-assistant",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+# CORS for frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Restrict in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ═══════════════════════════════════════
+# Auth
+# ═══════════════════════════════════════
+
+@app.post("/api/auth/login", response_model=LoginResponse)
+async def login(req: LoginRequest):
+    teacher = await db.select(
+        "teachers",
+        columns="id, name",
+        filters={"password": req.password.strip()},
+        single=True,
+    )
+    if not teacher:
+        raise HTTPException(401, "Falsches Passwort")
+
+    # Ensure profile exists
+    await db.upsert(
+        "user_profiles",
+        {"id": teacher["id"], "name": teacher["name"]},
+        on_conflict="id",
+    )
+
+    return LoginResponse(teacher_id=teacher["id"], name=teacher["name"])
+
+
+# ═══════════════════════════════════════
+# Chat
+# ═══════════════════════════════════════
+
+@app.post("/api/chat/send", response_model=ChatResponse)
+async def chat_send(req: ChatRequest):
+    teacher_id = req.teacher_id
+    conversation_id = req.conversation_id
+
+    # Create conversation if new
+    if not conversation_id:
+        conv = await db.insert(
+            "conversations",
+            {"user_id": teacher_id, "title": req.message[:80]},
+        )
+        conversation_id = conv["id"]
+
+    # Store user message
+    await db.insert("messages", {
+        "conversation_id": conversation_id,
+        "role": "user",
+        "content": req.message,
+    })
+
+    # Load history
+    history = await db.select(
+        "messages",
+        columns="role, content",
+        filters={"conversation_id": conversation_id},
+        order="created_at.asc",
+        limit=20,
+    )
+    messages = history if isinstance(history, list) else []
+
+    # Maybe summarize if conversation is long
+    summary = await maybe_summarize(conversation_id, teacher_id, messages)
+
+    # Run the agent
+    agent = get_agent()
+    deps = AgentDeps(teacher_id=teacher_id, conversation_id=conversation_id)
+
+    # Build message history for Pydantic AI
+    from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse
+    from pydantic_ai.messages import UserPromptPart, TextPart
+
+    # The agent.run() takes a user prompt + message_history
+    # We pass all but the last message as history, last as prompt
+    message_history: list[ModelMessage] = []
+    for m in messages[:-1]:
+        if m["role"] == "user":
+            message_history.append(
+                ModelRequest(parts=[UserPromptPart(content=m["content"])])
+            )
+        else:
+            message_history.append(
+                ModelResponse(parts=[TextPart(content=m["content"])])
+            )
+
+    try:
+        result = await agent.run(
+            req.message,
+            deps=deps,
+            message_history=message_history,
+        )
+        assistant_text = result.output
+    except Exception as e:
+        logger.error(f"Agent error: {e}")
+        raise HTTPException(500, "KI-Antwort fehlgeschlagen")
+
+    # Store assistant message
+    saved = await db.insert("messages", {
+        "conversation_id": conversation_id,
+        "role": "assistant",
+        "content": assistant_text,
+    })
+
+    # Fire-and-forget: memory agent
+    asyncio.create_task(
+        run_memory_agent(teacher_id, conversation_id, messages + [
+            {"role": "assistant", "content": assistant_text}
+        ])
+    )
+
+    return ChatResponse(
+        conversation_id=conversation_id,
+        message=ChatMessageOut(
+            id=saved.get("id", f"msg-{conversation_id}"),
+            role="assistant",
+            content=assistant_text,
+            timestamp=saved.get("created_at", ""),
+        ),
+    )
+
+
+# ═══════════════════════════════════════
+# History
+# ═══════════════════════════════════════
+
+@app.get("/api/chat/history")
+async def chat_history(conversation_id: str):
+    messages = await db.select(
+        "messages",
+        columns="id, role, content, created_at",
+        filters={"conversation_id": conversation_id},
+        order="created_at.asc",
+    )
+    return {
+        "messages": [
+            {"id": m["id"], "role": m["role"], "content": m["content"], "timestamp": m["created_at"]}
+            for m in (messages if isinstance(messages, list) else [])
+        ]
+    }
+
+
+@app.get("/api/chat/conversations")
+async def chat_conversations(teacher_id: str):
+    convs = await db.select(
+        "conversations",
+        columns="id, title, updated_at",
+        filters={"user_id": teacher_id},
+        order="updated_at.desc",
+        limit=20,
+    )
+    return [
+        ConversationOut(id=c["id"], title=c.get("title"), updated_at=c["updated_at"])
+        for c in (convs if isinstance(convs, list) else [])
+    ]
+
+
+# ═══════════════════════════════════════
+# Profile
+# ═══════════════════════════════════════
+
+@app.get("/api/profile/{teacher_id}")
+async def get_profile(teacher_id: str):
+    profile = await db.select(
+        "user_profiles",
+        filters={"id": teacher_id},
+        single=True,
+    )
+    if not profile:
+        raise HTTPException(404, "Profil nicht gefunden")
+    return profile
+
+
+@app.patch("/api/profile/{teacher_id}")
+async def update_profile(teacher_id: str, req: ProfileUpdate):
+    data: dict = {"id": teacher_id}
+    if req.bundesland is not None:
+        data["bundesland"] = req.bundesland
+    if req.schulform is not None:
+        data["schulform"] = req.schulform
+    if req.faecher is not None:
+        data["faecher"] = req.faecher
+    if req.jahrgaenge is not None:
+        data["jahrgaenge"] = req.jahrgaenge
+
+    result = await db.upsert("user_profiles", data, on_conflict="id")
+    return result
+
+
+# ═══════════════════════════════════════
+# Health
+# ═══════════════════════════════════════
+
+@app.get("/api/health")
+async def health():
+    return {"status": "ok", "version": "0.1.0"}

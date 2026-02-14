@@ -4,3 +4,9 @@ dist
 .env.local
 .wrangler
 test-results
+backend/.env
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+*.pyc
+eduhu.log
