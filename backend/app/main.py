@@ -629,7 +629,7 @@ async def generate_h5p_exercise(req: H5PExerciseRequest):
                 "teacher_id": req.teacher_id,
                 "title": title,
                 "h5p_type": h5p_type,
-                "h5p_content": json.dumps(h5p_content)
+                "h5p_content": h5p_content
             }
         )
 
@@ -728,10 +728,13 @@ async def get_public_exercise(exercise_id: str):
     if not record:
         raise HTTPException(status_code=404, detail="Exercise not found")
 
+    h5p_content = record["h5p_content"]
+    if isinstance(h5p_content, str):
+        h5p_content = json.loads(h5p_content)
     return PublicExerciseWithContent(
         id=record["id"],
         title=record["title"],
         h5p_type=record["h5p_type"],
-        h5p_content=record["h5p_content"],
+        h5p_content=h5p_content,
         created_at=str(record["created_at"])
     )

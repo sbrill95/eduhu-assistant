@@ -161,7 +161,7 @@ def create_agent() -> Agent[AgentDeps, str]:
                 "teacher_id": ctx.deps.teacher_id,
                 "title": title,
                 "h5p_type": h5p_type,
-                "h5p_content": json.dumps(h5p_content),
+                "h5p_content": h5p_content,
             })
 
             base = ctx.deps.base_url or ""
