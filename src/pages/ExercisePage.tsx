@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-
+import { ExercisePlayer } from '../components/exercises/ExercisePlayer';
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
 const getPageData = async (code: string) => {
@@ -64,9 +64,7 @@ const ExercisePage: React.FC = () => {
     return (
       <div style={{ backgroundColor: '#F5F0EB', minHeight: '100vh', padding: '20px', fontFamily: 'Inter, sans-serif' }}>
         <button onClick={() => setSelectedExercise(null)} style={{ marginBottom: '20px', backgroundColor: '#C8552D', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}>Zurück</button>
-        <pre style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px' }}>
-          {JSON.stringify(selectedExercise, null, 2)}
-        </pre>
+        <ExercisePlayer h5pType={selectedExercise.h5p_type} content={selectedExercise.h5p_content} />
       </div>
     );
   }
