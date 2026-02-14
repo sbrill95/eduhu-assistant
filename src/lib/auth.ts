@@ -22,7 +22,7 @@ export function clearSession(): void {
 
 export async function login(password: string): Promise<Teacher> {
   const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
-  const baseUrl = apiUrl ?? 'https://eduhu-assistant.onrender.com';
+  const baseUrl = apiUrl ?? '';
   
   const res = await fetch(`${baseUrl}/api/auth/login`, {
     method: 'POST',

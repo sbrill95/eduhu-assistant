@@ -176,6 +176,14 @@ async def chat_send(req: ChatRequest):
         "content": assistant_text,
     })
 
+    # Update conversation timestamp
+    from datetime import datetime, timezone
+    await db.update(
+        "conversations",
+        {"updated_at": datetime.now(timezone.utc).isoformat()},
+        filters={"id": conversation_id},
+    )
+
     # Fire-and-forget: memory agent
     asyncio.create_task(
         run_memory_agent(teacher_id, conversation_id, messages + [

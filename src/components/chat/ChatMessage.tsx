@@ -1,4 +1,6 @@
 import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { ChatMessage as ChatMessageType } from '@/lib/types';
 import { ChipSelector } from './ChipSelector';
 import { FilePreview } from './FilePreview';
@@ -32,8 +34,40 @@ export function ChatMessage({ message, onChipSelect }: Props) {
           {isUser ? (
             <p className="whitespace-pre-wrap text-sm">{message.content}</p>
           ) : (
-            <div className="prose prose-sm max-w-none text-text-default prose-headings:text-text-strong prose-strong:text-text-strong prose-a:text-primary prose-code:bg-bg-subtle prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm">
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+            <div className="prose prose-sm max-w-none text-text-default prose-headings:text-text-strong prose-strong:text-text-strong prose-a:text-primary">
+              <ReactMarkdown
+                components={{
+                  code({ node, inline, className, children, ...props }: any) {
+                    const match = /language-(\w+)/.exec(className || '');
+                    const language = match ? match[1] : '';
+                    
+                    if (!inline && language) {
+                      return (
+                        <SyntaxHighlighter
+                          style={oneLight}
+                          language={language}
+                          PreTag="div"
+                          className="rounded-lg overflow-auto text-sm"
+                          {...props}
+                        >
+                          {String(children).replace(/\n$/, '')}
+                        </SyntaxHighlighter>
+                      );
+                    }
+                    
+                    return (
+                      <code
+                        className="bg-bg-subtle rounded px-1 py-0.5 text-sm"
+                        {...props}
+                      >
+                        {children}
+                      </code>
+                    );
+                  },
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
             </div>
           )}
 

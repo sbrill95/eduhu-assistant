@@ -1,7 +1,7 @@
 import type { ChatMessage, Conversation } from './types';
 import { getSession } from './auth';
 
-const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'https://eduhu-assistant.onrender.com';
+const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
 export async function sendMessage(
   message: string,
