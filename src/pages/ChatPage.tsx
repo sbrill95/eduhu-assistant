@@ -131,13 +131,20 @@ export default function ChatPage() {
         </div>
 
         {/* Mobile sidebar */}
-        <ConversationSidebar
-          currentId={conversationId}
-          onSelect={(id) => void loadConversation(id)}
-          onNewChat={handleNewChat}
-          open={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-        />
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-50 sm:hidden">
+            <div className="absolute inset-0 bg-black/30" onClick={() => setSidebarOpen(false)} />
+            <div className="relative h-full w-72">
+              <ConversationSidebar
+                currentId={conversationId}
+                onSelect={(id) => { void loadConversation(id); setSidebarOpen(false); }}
+                onNewChat={() => { handleNewChat(); setSidebarOpen(false); }}
+                open={true}
+                onClose={() => setSidebarOpen(false)}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Chat area */}
         <div className="flex flex-1 flex-col">
