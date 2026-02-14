@@ -1,3 +1,4 @@
 name = "eduhu-assistant"
 compatibility_date = "2025-01-01"
 pages_build_output_dir = "dist"
+compatibility_flags = ["nodejs_compat"]
