@@ -536,4 +536,31 @@ async def download_material_docx(material_id: str):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": "0.2.0"}
+
+
+@app.get("/api/debug/imports")
+async def debug_imports():
+    """Debug: test if all material imports work."""
+    errors = []
+    try:
+        from app.agents.material_agent import run_material_agent
+    except Exception as e:
+        errors.append(f"material_agent: {e}")
+    try:
+        from app.agents.klausur_agent import get_klausur_agent
+    except Exception as e:
+        errors.append(f"klausur_agent: {e}")
+    try:
+        from app.agents.differenzierung_agent import get_diff_agent
+    except Exception as e:
+        errors.append(f"differenzierung_agent: {e}")
+    try:
+        from app.docx_generator import generate_exam_docx, generate_diff_docx
+    except Exception as e:
+        errors.append(f"docx_generator: {e}")
+    try:
+        from app.models import ExamStructure, DifferenzierungStructure
+    except Exception as e:
+        errors.append(f"models: {e}")
+    return {"errors": errors, "ok": len(errors) == 0}
