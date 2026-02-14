@@ -40,7 +40,7 @@ async def maybe_summarize(
     import os
     settings = get_settings()
     os.environ["ANTHROPIC_API_KEY"] = settings.anthropic_api_key
-    model = AnthropicModel("claude-sonnet-4-20250514")
+    model = AnthropicModel("claude-haiku-3-5-20241022")
     agent = Agent(model, instructions=SUMMARY_PROMPT, output_type=str)
 
     try:
