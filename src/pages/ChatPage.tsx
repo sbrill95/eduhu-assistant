@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSession } from '@/lib/auth';
-import { sendMessage } from '@/lib/api';
+import { sendMessage, getHistory } from '@/lib/api';
 import { AppShell } from '@/components/layout/AppShell';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { ChipSelector } from '@/components/chat/ChipSelector';
+import { ConversationSidebar } from '@/components/chat/ConversationSidebar';
 import type { ChatMessage as MessageType, Chip } from '@/lib/types';
 
 const WELCOME_CHIPS: Chip[] = [
@@ -23,6 +24,7 @@ export default function ChatPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [showWelcomeChips, setShowWelcomeChips] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Redirect if not logged in
@@ -37,24 +39,55 @@ export default function ChatPage() {
     }
   }, [messages, isTyping]);
 
-  // Welcome message
+  // Welcome message for new chat
+  const showWelcome = useCallback(() => {
+    if (teacher) {
+      setMessages([{
+        id: 'welcome',
+        role: 'assistant',
+        content: `Hallo ${teacher.name}! 👋\n\nWas kann ich heute für dich tun?`,
+        timestamp: new Date().toISOString(),
+      }]);
+      setShowWelcomeChips(true);
+    }
+  }, [teacher]);
+
   useEffect(() => {
     if (teacher && messages.length === 0) {
-      setMessages([
-        {
-          id: 'welcome',
-          role: 'assistant',
-          content: `Hallo ${teacher.name}! 👋\n\nWas kann ich heute für dich tun?`,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
+      showWelcome();
     }
   }, [teacher]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load existing conversation
+  const loadConversation = useCallback(async (convId: string) => {
+    setConversationId(convId);
+    setShowWelcomeChips(false);
+    try {
+      const history = await getHistory(convId);
+      setMessages(history.map((m) => ({
+        ...m,
+        timestamp: m.timestamp || new Date().toISOString(),
+      })));
+    } catch {
+      setMessages([{
+        id: 'error',
+        role: 'assistant',
+        content: 'Gespräch konnte nicht geladen werden.',
+        timestamp: new Date().toISOString(),
+      }]);
+    }
+  }, []);
+
+  // New chat
+  const handleNewChat = useCallback(() => {
+    setConversationId(null);
+    setMessages([]);
+    showWelcome();
+  }, [showWelcome]);
 
   const handleSend = useCallback(async (text: string) => {
     setShowWelcomeChips(false);
 
-    // Add user message
     const userMsg: MessageType = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -91,39 +124,68 @@ export default function ChatPage() {
 
   return (
     <AppShell>
-      <div className="flex h-full flex-col">
-        {/* Messages */}
-        <div
-          ref={scrollRef}
-          className="flex-1 overflow-y-auto px-4 py-4"
-        >
-          <div className="mx-auto max-w-3xl space-y-4">
-            {messages.map((msg) => (
-              <ChatMessage
-                key={msg.id}
-                message={msg}
-                onChipSelect={handleChipSelect}
-              />
-            ))}
-
-            {/* Welcome chips */}
-            {showWelcomeChips && messages.length > 0 && (
-              <div className="ml-11">
-                <ChipSelector
-                  chips={WELCOME_CHIPS}
-                  onSelect={(chip) => handleChipSelect(chip.label)}
-                />
-              </div>
-            )}
-
-            {/* Typing indicator */}
-            {isTyping && <TypingIndicator />}
-          </div>
+      <div className="flex h-full">
+        {/* Sidebar */}
+        <div className="hidden sm:block">
+          <ConversationSidebar
+            currentId={conversationId}
+            onSelect={(id) => void loadConversation(id)}
+            onNewChat={handleNewChat}
+            open={true}
+            onClose={() => {}}
+          />
         </div>
 
-        {/* Input */}
-        <div className="mx-auto w-full max-w-3xl">
-          <ChatInput onSend={(t) => void handleSend(t)} disabled={isTyping} />
+        {/* Mobile sidebar */}
+        <ConversationSidebar
+          currentId={conversationId}
+          onSelect={(id) => void loadConversation(id)}
+          onNewChat={handleNewChat}
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
+
+        {/* Chat area */}
+        <div className="flex flex-1 flex-col">
+          {/* Mobile sidebar toggle */}
+          <div className="flex h-10 items-center border-b border-border px-3 sm:hidden">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="text-sm text-text-secondary"
+            >
+              ☰ Gespräche
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
+            <div className="mx-auto max-w-3xl space-y-4">
+              {messages.map((msg) => (
+                <ChatMessage
+                  key={msg.id}
+                  message={msg}
+                  onChipSelect={handleChipSelect}
+                />
+              ))}
+
+              {showWelcomeChips && messages.length > 0 && (
+                <div className="ml-11">
+                  <ChipSelector
+                    chips={WELCOME_CHIPS}
+                    onSelect={(chip) => handleChipSelect(chip.label)}
+                  />
+                </div>
+              )}
+
+              {isTyping && <TypingIndicator />}
+            </div>
+          </div>
+
+          {/* Input */}
+          <div className="mx-auto w-full max-w-3xl">
+            <ChatInput onSend={(t) => void handleSend(t)} disabled={isTyping} />
+          </div>
         </div>
       </div>
     </AppShell>

@@ -52,6 +52,13 @@ export function Header() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => { setMenuOpen(false); void navigate('/profile'); }}
+                  className="w-full px-4 py-2 text-left text-sm text-text-default hover:bg-bg-subtle"
+                >
+                  ⚙️ Profil
+                </button>
+                <button
+                  type="button"
                   onClick={() => { setMenuOpen(false); handleLogout(); }}
                   className="w-full px-4 py-2 text-left text-sm text-error hover:bg-bg-subtle"
                 >
