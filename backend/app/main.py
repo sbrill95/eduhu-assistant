@@ -4,10 +4,11 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import db
+from app.config import get_settings
 from app.models import (
     LoginRequest, LoginResponse,
     ChatRequest, ChatResponse, ChatMessageOut,
@@ -16,6 +17,18 @@ from app.models import (
 from app.agents.main_agent import get_agent, AgentDeps
 from app.agents.memory_agent import run_memory_agent
 from app.agents.summary_agent import maybe_summarize
+from app.ingestion import ingest_curriculum
+
+# ── Logfire ──
+try:
+    import logfire
+    settings = get_settings()
+    if settings.logfire_token:
+        logfire.configure(token=settings.logfire_token)
+        logfire.instrument_fastapi(None)  # Will be set after app creation
+        logging.info("Logfire configured")
+except Exception:
+    logfire = None  # type: ignore
 
 # ── Logging ──
 logging.basicConfig(
@@ -44,6 +57,13 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Instrument FastAPI with Logfire
+if logfire is not None:
+    try:
+        logfire.instrument_fastapi(app)
+    except Exception:
+        pass
 
 # CORS for frontend
 app.add_middleware(
@@ -239,6 +259,74 @@ async def update_profile(teacher_id: str, req: ProfileUpdate):
 
     result = await db.upsert("user_profiles", data, on_conflict="id")
     return result
+
+
+# ═══════════════════════════════════════
+# Curriculum Upload
+# ═══════════════════════════════════════
+
+@app.post("/api/curriculum/upload")
+async def upload_curriculum(
+    file: UploadFile = File(...),
+    teacher_id: str = Form(...),
+    fach: str = Form(...),
+    jahrgang: str = Form(""),
+    bundesland: str = Form(""),
+):
+    """Upload a curriculum PDF for ingestion (text → chunks → embeddings)."""
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(400, "Nur PDF-Dateien werden unterstützt")
+
+    pdf_bytes = await file.read()
+    if len(pdf_bytes) > 20 * 1024 * 1024:  # 20 MB limit
+        raise HTTPException(400, "Datei zu groß (max 20 MB)")
+
+    try:
+        result = await ingest_curriculum(
+            teacher_id=teacher_id,
+            fach=fach,
+            jahrgang=jahrgang,
+            bundesland=bundesland,
+            pdf_bytes=pdf_bytes,
+            filename=file.filename,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        logger.error(f"Ingestion failed: {e}")
+        raise HTTPException(500, f"Ingestion fehlgeschlagen: {str(e)}")
+
+
+@app.get("/api/curriculum/list")
+async def list_curricula(teacher_id: str):
+    """List all curricula for a teacher."""
+    curricula = await db.select(
+        "user_curricula",
+        columns="id, fach, jahrgang, bundesland, status, filename, created_at",
+        filters={"user_id": teacher_id},
+        order="created_at.desc",
+    )
+    return curricula if isinstance(curricula, list) else []
+
+
+@app.delete("/api/curriculum/{curriculum_id}")
+async def delete_curriculum(curriculum_id: str, teacher_id: str):
+    """Delete a curriculum and its chunks."""
+    settings = get_settings()
+    # Delete chunks first
+    url = f"{settings.supabase_url}/rest/v1/curriculum_chunks?curriculum_id=eq.{curriculum_id}"
+    headers = {
+        "apikey": settings.supabase_service_role_key,
+        "Authorization": f"Bearer {settings.supabase_service_role_key}",
+    }
+    async with __import__("httpx").AsyncClient() as client:
+        await client.delete(url, headers=headers)
+    # Delete curriculum
+    url2 = f"{settings.supabase_url}/rest/v1/user_curricula?id=eq.{curriculum_id}&user_id=eq.{teacher_id}"
+    async with __import__("httpx").AsyncClient() as client:
+        await client.delete(url2, headers=headers)
+    return {"deleted": True}
 
 
 # ═══════════════════════════════════════

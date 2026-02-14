@@ -38,10 +38,17 @@ export function Header() {
               <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-[var(--radius-card)] bg-bg-card py-1 shadow-elevated">
                 <button
                   type="button"
-                  onClick={() => { setMenuOpen(false); /* TODO: new chat */ }}
+                  onClick={() => { setMenuOpen(false); void navigate('/chat'); }}
                   className="w-full px-4 py-2 text-left text-sm text-text-default hover:bg-bg-subtle"
                 >
                   💬 Neuer Chat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMenuOpen(false); void navigate('/curriculum'); }}
+                  className="w-full px-4 py-2 text-left text-sm text-text-default hover:bg-bg-subtle"
+                >
+                  📚 Lehrpläne
                 </button>
                 <button
                   type="button"

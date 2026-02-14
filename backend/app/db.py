@@ -58,6 +58,20 @@ async def insert(table: str, data: dict[str, Any]) -> dict[str, Any]:
         return result[0] if isinstance(result, list) else result
 
 
+async def update(
+    table: str, data: dict[str, Any], filters: dict[str, str],
+) -> Any:
+    """Update rows matching filters."""
+    url = _url(table)
+    params = {}
+    for col, val in filters.items():
+        params[col] = f"eq.{val}"
+    async with httpx.AsyncClient() as client:
+        r = await client.patch(url, json=data, params=params, headers=_headers())
+        r.raise_for_status()
+        return r.json()
+
+
 async def upsert(
     table: str, data: dict[str, Any] | list[dict[str, Any]], on_conflict: str = ""
 ) -> Any:

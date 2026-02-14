@@ -1,64 +1,134 @@
 """Curriculum-Agent — RAG over teacher's curriculum data.
 
-Searches curriculum_chunks by keyword matching (Phase 1).
-pgvector embedding search comes in Phase 2.
+Uses pgvector similarity search via Supabase RPC function.
+Falls back to keyword search if embedding fails.
 """
 
+import json
 import logging
+
+import httpx
+
 from app import db
+from app.config import get_settings
+from app.ingestion import get_embeddings
 
 logger = logging.getLogger(__name__)
 
 
 async def curriculum_search(teacher_id: str, query: str) -> str:
-    """Search curriculum data for the given teacher.
-    
-    Phase 1: Simple text search over curriculum content.
-    Phase 2: pgvector embedding similarity search.
-    """
-    # Check if teacher has any curricula
+    """Search curriculum chunks using embedding similarity."""
+    # 1. Get teacher's curriculum IDs
     curricula = await db.select(
         "user_curricula",
-        columns="id, fach, jahrgang, content_md, wissenskarte",
+        columns="id, fach, jahrgang, bundesland",
         filters={"user_id": teacher_id},
     )
 
     if not curricula or not isinstance(curricula, list) or len(curricula) == 0:
         return "Die Lehrkraft hat noch keine Lehrpläne hochgeladen. Bitte empfehle den PDF-Upload im Profil."
 
-    # Simple keyword search in content_md
-    results: list[str] = []
-    query_lower = query.lower()
+    curriculum_ids = [c["id"] for c in curricula]
+    curriculum_map = {c["id"]: c for c in curricula}
 
-    for c in curricula:
-        content = (c.get("content_md") or "").lower()
-        if query_lower in content or any(
-            word in content for word in query_lower.split()
-        ):
-            # Extract relevant section (±500 chars around match)
-            idx = content.find(query_lower)
-            if idx == -1:
-                for word in query_lower.split():
-                    idx = content.find(word)
-                    if idx != -1:
-                        break
+    # 2. Try embedding-based search first
+    try:
+        return await _embedding_search(query, curriculum_ids, curriculum_map)
+    except Exception as e:
+        logger.warning(f"Embedding search failed, falling back to keyword: {e}")
+        return await _keyword_search(query, curriculum_ids, curriculum_map)
 
-            if idx != -1:
-                start = max(0, idx - 500)
-                end = min(len(content), idx + 500)
-                snippet = c.get("content_md", "")[start:end]
-                results.append(
-                    f"**{c.get('fach', '?')} {c.get('jahrgang', '?')}:**\n{snippet}"
-                )
-            else:
-                # Return wissenskarte summary
-                wk = c.get("wissenskarte")
-                if wk:
-                    results.append(
-                        f"**{c.get('fach', '?')} {c.get('jahrgang', '?')} (Übersicht):**\n{wk}"
-                    )
+
+async def _embedding_search(
+    query: str,
+    curriculum_ids: list[str],
+    curriculum_map: dict,
+) -> str:
+    """Similarity search via pgvector."""
+    settings = get_settings()
+
+    # Get query embedding
+    embeddings = await get_embeddings([query])
+    query_embedding = embeddings[0]
+
+    # Call Supabase RPC
+    url = f"{settings.supabase_url}/rest/v1/rpc/match_curriculum_chunks"
+    headers = {
+        "apikey": settings.supabase_service_role_key,
+        "Authorization": f"Bearer {settings.supabase_service_role_key}",
+        "Content-Type": "application/json",
+    }
+
+    async with httpx.AsyncClient() as client:
+        r = await client.post(
+            url,
+            json={
+                "query_embedding": query_embedding,
+                "match_curriculum_ids": curriculum_ids,
+                "match_threshold": 0.25,
+                "match_count": 5,
+            },
+            headers=headers,
+            timeout=15.0,
+        )
+        r.raise_for_status()
+        results = r.json()
 
     if not results:
-        return f"Keine Lehrplaninhalte zu '{query}' gefunden. Die Lehrkraft hat {len(curricula)} Curriculum/Curricula hochgeladen, aber keins enthält passende Inhalte."
+        return f"Keine passenden Lehrplaninhalte zu '{query}' gefunden."
 
-    return "\n\n".join(results[:3])  # Max 3 results
+    formatted: list[str] = []
+    for chunk in results:
+        cid = chunk["curriculum_id"]
+        info = curriculum_map.get(cid, {})
+        label = f"{info.get('fach', '?')} ({info.get('bundesland', '?')})"
+        sim = chunk.get("similarity", 0)
+        text = chunk["chunk_text"][:1000]  # Limit per chunk
+        formatted.append(f"**{label}** (Relevanz: {sim:.0%}):\n{text}")
+
+    return "\n\n---\n\n".join(formatted)
+
+
+async def _keyword_search(
+    query: str,
+    curriculum_ids: list[str],
+    curriculum_map: dict,
+) -> str:
+    """Fallback: ilike keyword search over chunk_text."""
+    settings = get_settings()
+    results: list[str] = []
+    query_words = [w for w in query.lower().split() if len(w) > 2][:3]
+
+    for cid in curriculum_ids:
+        for word in query_words:
+            url = f"{settings.supabase_url}/rest/v1/curriculum_chunks"
+            headers = {
+                "apikey": settings.supabase_service_role_key,
+                "Authorization": f"Bearer {settings.supabase_service_role_key}",
+            }
+            params = {
+                "select": "chunk_text,section_path",
+                "curriculum_id": f"eq.{cid}",
+                "chunk_text": f"ilike.*{word}*",
+                "limit": "3",
+            }
+            async with httpx.AsyncClient() as client:
+                r = await client.get(url, params=params, headers=headers, timeout=10)
+                if r.status_code == 200:
+                    chunks = r.json()
+                    info = curriculum_map.get(cid, {})
+                    label = f"{info.get('fach', '?')} ({info.get('bundesland', '?')})"
+                    for chunk in chunks:
+                        text = chunk["chunk_text"]
+                        idx = text.lower().find(word)
+                        start = max(0, idx - 400) if idx != -1 else 0
+                        end = min(len(text), (idx if idx != -1 else 0) + 400)
+                        snippet = text[start:end] if idx != -1 else text[:800]
+                        results.append(f"**{label}:**\n{snippet}")
+
+    if not results:
+        return f"Keine Lehrplaninhalte zu '{query}' gefunden."
+
+    seen = set()
+    unique = [r for r in results if r[:200] not in seen and not seen.add(r[:200])]  # type: ignore
+    return "\n\n---\n\n".join(unique[:5])
