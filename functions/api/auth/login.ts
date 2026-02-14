@@ -11,28 +11,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return error('Passwort fehlt');
   }
 
-  const supabase = getSupabase(context.env);
+  const db = getSupabase(context.env);
 
-  const result = await supabase
-    .from('teachers')
-    .select('id, name')
-    .eq('password', body.password.trim())
-    .single();
+  const { data: teacher, error: dbErr } = await db.select<{ id: string; name: string }>(
+    'teachers',
+    { columns: 'id, name', filters: { password: body.password.trim() }, single: true },
+  );
 
-  const teacher = result.data as { id: string; name: string } | null;
-
-  if (result.error || !teacher) {
+  if (dbErr || !teacher) {
     return error('Falsches Passwort', 401);
   }
 
   // Ensure user_profiles exists
-  await supabase.from('user_profiles').upsert(
-    { id: teacher.id, name: teacher.name },
-    { onConflict: 'id' },
-  );
+  await db.upsert('user_profiles', { id: teacher.id, name: teacher.name }, 'id');
 
-  return json({
-    teacher_id: teacher.id,
-    name: teacher.name,
-  });
+  return json({ teacher_id: teacher.id, name: teacher.name });
 };

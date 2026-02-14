@@ -8,19 +8,20 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     return json([]);
   }
 
-  const supabase = getSupabase(context.env);
+  const db = getSupabase(context.env);
 
-  const result = await supabase
-    .from('conversations')
-    .select('id, title, updated_at')
-    .eq('user_id', teacherId)
-    .order('updated_at', { ascending: false })
-    .limit(20);
-
-  const convs = (result.data ?? []) as { id: string; title: string | null; updated_at: string }[];
+  const { data } = await db.select<{ id: string; title: string | null; updated_at: string }[]>(
+    'conversations',
+    {
+      columns: 'id, title, updated_at',
+      filters: { user_id: teacherId },
+      order: { col: 'updated_at', asc: false },
+      limit: 20,
+    },
+  );
 
   return json(
-    convs.map((c) => ({
+    (data ?? []).map((c) => ({
       id: c.id,
       title: c.title,
       updated_at: c.updated_at,

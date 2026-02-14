@@ -19,46 +19,48 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return error('Nicht angemeldet', 401);
   }
 
-  const supabase = getSupabase(context.env);
+  const db = getSupabase(context.env);
   const teacherId = body.teacher_id;
   let conversationId = body.conversation_id;
 
   // Create conversation if new
   if (!conversationId) {
-    const convResult = await supabase
-      .from('conversations')
-      .insert({ user_id: teacherId, title: body.message.slice(0, 80) });
-
-    const conv = (convResult.data as { id: string }[] | null)?.[0];
-    if (convResult.error || !conv) {
+    const { data, error: convErr } = await db.insert<{ id: string }[]>(
+      'conversations',
+      { user_id: teacherId, title: body.message.slice(0, 80) },
+    );
+    const conv = Array.isArray(data) ? data[0] : data;
+    if (convErr || !conv) {
       return error('Konversation konnte nicht erstellt werden', 500);
     }
     conversationId = conv.id;
   }
 
   // Store user message
-  await supabase.from('messages').insert({
+  await db.insert('messages', {
     conversation_id: conversationId,
     role: 'user',
     content: body.message,
   });
 
   // Load conversation history (last 20 messages)
-  const historyResult = await supabase
-    .from('messages')
-    .select('role, content, created_at')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })
-    .limit(20);
+  const { data: history } = await db.select<{ role: string; content: string }[]>(
+    'messages',
+    {
+      columns: 'role, content',
+      filters: { conversation_id: conversationId },
+      order: { col: 'created_at', asc: true },
+      limit: 20,
+    },
+  );
 
-  const history = (historyResult.data ?? []) as { role: string; content: string }[];
-  const messages = history.map((m) => ({
+  const messages = (history ?? []).map((m) => ({
     role: m.role as 'user' | 'assistant',
     content: m.content,
   }));
 
   // Build system prompt (Zone 1)
-  const systemPrompt = await buildSystemPrompt(supabase, teacherId);
+  const systemPrompt = await buildSystemPrompt(db, teacherId);
 
   // Call Claude
   let assistantText: string;
@@ -71,15 +73,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   }
 
   // Store assistant message
-  const saveResult = await supabase
-    .from('messages')
-    .insert({
+  const { data: savedMsgs } = await db.insert<{ id: string; created_at: string }[]>(
+    'messages',
+    {
       conversation_id: conversationId,
       role: 'assistant',
       content: assistantText,
-    });
-
-  const savedMsg = ((saveResult.data as { id: string; created_at: string }[] | null) ?? [])[0];
+    },
+  );
+  const savedMsg = Array.isArray(savedMsgs) ? savedMsgs[0] : savedMsgs;
 
   // Async: Run memory agent (fire-and-forget via waitUntil)
   const conversationContext = messages
@@ -89,7 +91,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   context.waitUntil(
     extractMemories(context.env, conversationContext).then((result) =>
-      storeMemories(supabase, teacherId, result, conversationId!),
+      storeMemories(db, teacherId, result, conversationId!),
     ).catch((err) => console.error('Memory agent error:', err)),
   );
 

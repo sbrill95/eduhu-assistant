@@ -1,6 +1,4 @@
-interface SupabaseDB {
-  from(table: string): any;
-}
+import type { SupabaseDB } from './supabase';
 
 interface TeacherProfile {
   id: string;
@@ -30,7 +28,7 @@ interface SessionLog {
  * Zone 1 (always-on): loaded at session start.
  */
 export async function buildSystemPrompt(
-  supabase: SupabaseDB,
+  db: SupabaseDB,
   teacherId: string,
 ): Promise<string> {
   // --- Block 1: Identity (static) ---
@@ -53,60 +51,61 @@ Wenn du etwas nicht weißt, fragst du nach — aber nie technisch, immer natürl
   let dynamicContext = '';
 
   // Load teacher profile
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('id', teacherId)
-    .single();
+  const { data: profile } = await db.select<TeacherProfile>(
+    'user_profiles',
+    { filters: { id: teacherId }, single: true },
+  );
 
   if (profile) {
-    const p = profile as TeacherProfile;
-    dynamicContext += `\n## Lehrkraft-Profil
-Name: ${p.name}`;
-    if (p.bundesland) dynamicContext += `\nBundesland: ${p.bundesland}`;
-    if (p.schulform) dynamicContext += `\nSchulform: ${p.schulform}`;
-    if (p.faecher?.length) dynamicContext += `\nFächer: ${p.faecher.join(', ')}`;
-    if (p.jahrgaenge?.length) dynamicContext += `\nJahrgänge: ${p.jahrgaenge.join(', ')}`;
-    if (p.class_summary) {
-      dynamicContext += `\n\n## Klassen-Summary\n${JSON.stringify(p.class_summary, null, 2)}`;
+    dynamicContext += `\n## Lehrkraft-Profil\nName: ${profile.name}`;
+    if (profile.bundesland) dynamicContext += `\nBundesland: ${profile.bundesland}`;
+    if (profile.schulform) dynamicContext += `\nSchulform: ${profile.schulform}`;
+    if (profile.faecher?.length) dynamicContext += `\nFächer: ${profile.faecher.join(', ')}`;
+    if (profile.jahrgaenge?.length) dynamicContext += `\nJahrgänge: ${profile.jahrgaenge.join(', ')}`;
+    if (profile.class_summary && Object.keys(profile.class_summary).length > 0) {
+      dynamicContext += `\n\n## Klassen-Summary\n${JSON.stringify(profile.class_summary, null, 2)}`;
     }
-    if (p.preferences) {
-      dynamicContext += `\n\n## Präferenzen\n${JSON.stringify(p.preferences, null, 2)}`;
+    if (profile.preferences && Object.keys(profile.preferences).length > 0) {
+      dynamicContext += `\n\n## Präferenzen\n${JSON.stringify(profile.preferences, null, 2)}`;
     }
   }
 
   // Load memories (scope: self)
-  const { data: memories } = await supabase
-    .from('user_memories')
-    .select('scope, category, key, value')
-    .eq('user_id', teacherId)
-    .order('importance', { ascending: false })
-    .limit(30);
+  const { data: memories } = await db.select<Memory[]>(
+    'user_memories',
+    {
+      columns: 'scope, category, key, value',
+      filters: { user_id: teacherId },
+      order: { col: 'importance', asc: false },
+      limit: 30,
+    },
+  );
 
   if (memories && memories.length > 0) {
     dynamicContext += '\n\n## Was du über diese Lehrkraft weißt';
-    for (const m of memories as Memory[]) {
+    for (const m of memories) {
       dynamicContext += `\n- [${m.scope}/${m.category}] ${m.key}: ${m.value}`;
     }
   }
 
   // Load recent session summaries
-  const { data: sessions } = await supabase
-    .from('session_logs')
-    .select('summary, created_at')
-    .eq('user_id', teacherId)
-    .order('created_at', { ascending: false })
-    .limit(5);
+  const { data: sessions } = await db.select<SessionLog[]>(
+    'session_logs',
+    {
+      columns: 'summary, created_at',
+      filters: { user_id: teacherId },
+      order: { col: 'created_at', asc: false },
+      limit: 5,
+    },
+  );
 
   if (sessions && sessions.length > 0) {
     dynamicContext += '\n\n## Letzte Gespräche';
-    for (const s of sessions as SessionLog[]) {
+    for (const s of sessions) {
       const date = new Date(s.created_at).toLocaleDateString('de-DE');
       dynamicContext += `\n- ${date}: ${s.summary}`;
     }
   }
-
-  // --- Block 4: Conversation summary (injected per-request, not here) ---
 
   return `${identity}\n\n${tools}\n\n${dynamicContext}`.trim();
 }

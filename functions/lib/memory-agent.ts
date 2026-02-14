@@ -1,4 +1,4 @@
-import type { Env } from './supabase';
+import type { Env, SupabaseDB } from './supabase';
 import { chatWithClaude } from './claude';
 
 interface ExtractedMemory {
@@ -8,7 +8,6 @@ interface ExtractedMemory {
   value: string;
   importance: number;
   source: 'explicit' | 'inferred';
-  entity_label?: string;
 }
 
 interface MemoryExtractionResult {
@@ -32,17 +31,13 @@ const MEMORY_SYSTEM_PROMPT = `Du bist der Memory-Agent von eduhu. Deine Aufgabe:
 Antworte ausschließlich als JSON:
 {
   "memories": [
-    { "scope": "self|class|school", "category": "string", "key": "string", "value": "string", "importance": 0.8, "source": "explicit|inferred", "entity_label": "optional: z.B. 8a Mathe" }
+    { "scope": "self|class|school", "category": "string", "key": "string", "value": "string", "importance": 0.8, "source": "explicit|inferred" }
   ],
   "session_summary": "Kurze Zusammenfassung des Gesprächs"
 }
 
 Wenn nichts speicherwürdig ist: { "memories": [], "session_summary": "..." }`;
 
-/**
- * Run the memory agent asynchronously after a response.
- * Uses Haiku-equivalent (fast, cheap model) for extraction.
- */
 export async function extractMemories(
   env: Env,
   conversationContext: string,
@@ -51,11 +46,10 @@ export async function extractMemories(
     env,
     MEMORY_SYSTEM_PROMPT,
     [{ role: 'user', content: conversationContext }],
-    'claude-sonnet-4-20250514', // Use Sonnet for now; switch to Haiku when available
+    'claude-sonnet-4-20250514',
     2048,
   );
 
-  // Parse JSON, strip markdown fences
   const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
   try {
     return JSON.parse(cleaned) as MemoryExtractionResult;
@@ -64,41 +58,39 @@ export async function extractMemories(
   }
 }
 
-/**
- * Store extracted memories in Supabase.
- */
 export async function storeMemories(
-  supabase: { from(table: string): any },
+  db: SupabaseDB,
   teacherId: string,
   result: MemoryExtractionResult,
   conversationId: string,
 ): Promise<void> {
   // Store memories
-  if (result.memories.length > 0) {
-    const rows = result.memories.map((m) => ({
-      user_id: teacherId,
-      scope: m.scope,
-      category: m.category,
-      key: m.key,
-      value: m.value,
-      importance: m.importance,
-      source: m.source,
-    }));
-
-    await supabase.from('user_memories').upsert(rows, {
-      onConflict: 'user_id,scope,category,key',
-    });
+  for (const m of result.memories) {
+    await db.upsert(
+      'user_memories',
+      {
+        user_id: teacherId,
+        scope: m.scope,
+        category: m.category,
+        key: m.key,
+        value: m.value,
+        importance: m.importance,
+        source: m.source,
+      },
+      'user_id,scope,category,key',
+    );
   }
 
   // Update session log
   if (result.session_summary) {
-    await supabase.from('session_logs').upsert(
+    await db.upsert(
+      'session_logs',
       {
         conversation_id: conversationId,
         user_id: teacherId,
         summary: result.session_summary,
       },
-      { onConflict: 'conversation_id' },
+      'conversation_id',
     );
   }
 }

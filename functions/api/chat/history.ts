@@ -8,18 +8,19 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     return error('conversation_id fehlt');
   }
 
-  const supabase = getSupabase(context.env);
+  const db = getSupabase(context.env);
 
-  const result = await supabase
-    .from('messages')
-    .select('id, role, content, created_at')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true });
-
-  const messages = (result.data ?? []) as { id: string; role: string; content: string; created_at: string }[];
+  const { data } = await db.select<{ id: string; role: string; content: string; created_at: string }[]>(
+    'messages',
+    {
+      columns: 'id, role, content, created_at',
+      filters: { conversation_id: conversationId },
+      order: { col: 'created_at', asc: true },
+    },
+  );
 
   return json({
-    messages: messages.map((m) => ({
+    messages: (data ?? []).map((m) => ({
       id: m.id,
       role: m.role,
       content: m.content,
