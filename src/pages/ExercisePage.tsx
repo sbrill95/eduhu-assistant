@@ -1,99 +1,100 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { ExercisePlayer } from '../components/exercises/ExercisePlayer';
+import { H5PPlayer } from '../components/exercises/H5PPlayer';
+
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
-const getPageData = async (code: string) => {
-  const res = await fetch(`${API_BASE}/api/public/pages/${code}`);
-  if (!res.ok) throw new Error('Page not found');
-  return res.json();
-};
-
-const getExerciseData = async (id: string) => {
-  const res = await fetch(`${API_BASE}/api/public/exercises/${id}`);
-  if (!res.ok) throw new Error('Exercise not found');
-  return res.json();
-};
-
+interface Exercise {
+  id: string;
+  title: string;
+  h5p_type: string;
+}
 
 const ExercisePage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
-  const [page, setPage] = useState<{ title: string; description: string } | null>(null);
-  const [exercises, setExercises] = useState<{ id: string; title: string; h5p_type: string }[]>([]);
-  const [selectedExercise, setSelectedExercise] = useState<any | null>(null);
+  const [pageTitle, setPageTitle] = useState('');
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [activeExercise, setActiveExercise] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (code) {
-      getPageData(code)
-        .then((data: any) => {
-          setPage({ title: data.page.title, description: '' });
-          setExercises(data.exercises);
-        })
-        .catch(() => setError('Seite konnte nicht geladen werden.'))
-        .finally(() => setLoading(false));
-    }
+    if (!code) return;
+    fetch(`${API_BASE}/api/public/pages/${code}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Seite nicht gefunden');
+        return res.json();
+      })
+      .then((data) => {
+        setPageTitle(data.page.title);
+        setExercises(data.exercises);
+      })
+      .catch(() => setError('Seite konnte nicht geladen werden.'))
+      .finally(() => setLoading(false));
   }, [code]);
-
-  const handleExerciseClick = (exerciseId: string) => {
-    getExerciseData(exerciseId)
-        .then((data) => setSelectedExercise(data))
-        .catch(() => setError('Übung konnte nicht geladen werden.'));
-  };
 
   const getIconForType = (type: string) => {
     switch (type) {
-      case 'multichoice': return '📝';
-      case 'blanks': return '🔤';
-      case 'truefalse': return '✅';
-      case 'dragtext': return '🔀';
+      case 'H5P.MultiChoice': return '📝';
+      case 'H5P.Blanks': return '🔤';
+      case 'H5P.TrueFalse': return '✅';
+      case 'H5P.DragText': return '🔀';
       default: return '📄';
     }
   };
 
   if (loading) {
-    return <div style={{ backgroundColor: '#F5F0EB', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Lade...</div>;
+    return (
+      <div className="min-h-screen bg-[#F5F0EB] flex items-center justify-center font-[Inter]">
+        <div className="text-lg text-gray-600">Lade...</div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div style={{ backgroundColor: '#F5F0EB', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{error}</div>;
-  }
-  
-  if (selectedExercise) {
     return (
-      <div style={{ backgroundColor: '#F5F0EB', minHeight: '100vh', padding: '20px', fontFamily: 'Inter, sans-serif' }}>
-        <button onClick={() => setSelectedExercise(null)} style={{ marginBottom: '20px', backgroundColor: '#C8552D', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}>Zurück</button>
-        <ExercisePlayer h5pType={selectedExercise.h5p_type} content={selectedExercise.h5p_content} />
+      <div className="min-h-screen bg-[#F5F0EB] flex items-center justify-center font-[Inter]">
+        <div className="text-lg text-red-600">{error}</div>
+      </div>
+    );
+  }
+
+  if (activeExercise) {
+    return (
+      <div className="min-h-screen bg-[#F5F0EB] p-5 font-[Inter]">
+        <button
+          onClick={() => setActiveExercise(null)}
+          className="mb-5 bg-[#C8552D] text-white border-none py-2.5 px-5 rounded-lg cursor-pointer hover:bg-[#A8461F] transition-colors"
+        >
+          ← Zurück zur Übersicht
+        </button>
+        <H5PPlayer exerciseId={activeExercise} />
       </div>
     );
   }
 
   return (
-    <div style={{ backgroundColor: '#F5F0EB', minHeight: '100vh', fontFamily: 'Inter, sans-serif', padding: '20px' }}>
-      <header style={{ textAlign: 'center', marginBottom: '40px' }}>
-        <h1 style={{ fontSize: '36px', color: '#333' }}>{page?.title}</h1>
+    <div className="min-h-screen bg-[#F5F0EB] font-[Inter] p-5">
+      <header className="text-center mb-10">
+        <div className="text-5xl mb-3">🦉</div>
+        <h1 className="text-3xl font-bold text-[#2D2018]">{pageTitle}</h1>
+        <p className="text-gray-500 mt-2">Wähle eine Übung aus</p>
       </header>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+      <div className="grid gap-5 max-w-4xl mx-auto" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
         {exercises.map((exercise) => (
           <div
             key={exercise.id}
-            style={{
-              backgroundColor: 'white',
-              borderRadius: '12px',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-              padding: '20px',
-              textAlign: 'center',
-              transition: 'transform 0.2s',
-              cursor: 'pointer',
-            }}
-            onClick={() => handleExerciseClick(exercise.id)}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            onClick={() => setActiveExercise(exercise.id)}
+            className="bg-white rounded-xl shadow-md p-6 text-center cursor-pointer hover:scale-[1.03] hover:shadow-lg transition-all"
           >
-            <div style={{ fontSize: '48px' }}>{getIconForType(exercise.h5p_type)}</div>
-            <h2 style={{ fontSize: '20px', margin: '10px 0' }}>{exercise.title}</h2>
-            <button style={{ backgroundColor: '#C8552D', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}>Starten</button>
+            <div className="text-5xl mb-3">{getIconForType(exercise.h5p_type)}</div>
+            <h2 className="text-lg font-semibold text-[#2D2018] mb-3">{exercise.title}</h2>
+            <span className="text-xs text-gray-400">{exercise.h5p_type.replace('H5P.', '')}</span>
+            <div className="mt-4">
+              <button className="bg-[#C8552D] text-white border-none py-2 px-6 rounded-lg cursor-pointer hover:bg-[#A8461F] transition-colors">
+                Starten
+              </button>
+            </div>
           </div>
         ))}
       </div>

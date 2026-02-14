@@ -738,3 +738,55 @@ async def get_public_exercise(exercise_id: str):
         h5p_content=h5p_content,
         created_at=str(record["created_at"])
     )
+
+
+# ── H5P Standalone endpoints ──
+
+H5P_TYPE_MAP = {
+    "H5P.MultiChoice": {"machineName": "H5P.MultiChoice", "majorVersion": 1, "minorVersion": 16},
+    "H5P.Blanks": {"machineName": "H5P.Blanks", "majorVersion": 1, "minorVersion": 14},
+    "H5P.TrueFalse": {"machineName": "H5P.TrueFalse", "majorVersion": 1, "minorVersion": 8},
+    "H5P.DragText": {"machineName": "H5P.DragText", "majorVersion": 1, "minorVersion": 10},
+}
+
+
+@app.get("/api/public/h5p/{exercise_id}/h5p.json")
+async def get_h5p_manifest(exercise_id: str):
+    record = await db.select(
+        "exercises",
+        columns="id, title, h5p_type",
+        filters={"id": exercise_id},
+        single=True,
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+    lib = H5P_TYPE_MAP.get(record["h5p_type"], H5P_TYPE_MAP["H5P.MultiChoice"])
+    return {
+        "title": record["title"],
+        "language": "de",
+        "mainLibrary": lib["machineName"],
+        "preloadedDependencies": [
+            {"machineName": lib["machineName"], "majorVersion": lib["majorVersion"], "minorVersion": lib["minorVersion"]},
+            {"machineName": "FontAwesome", "majorVersion": 4, "minorVersion": 5},
+            {"machineName": "H5P.JoubelUI", "majorVersion": 1, "minorVersion": 3},
+            {"machineName": "H5P.Question", "majorVersion": 1, "minorVersion": 5},
+            {"machineName": "H5P.Transition", "majorVersion": 1, "minorVersion": 0},
+            {"machineName": "H5P.FontIcons", "majorVersion": 1, "minorVersion": 0},
+        ],
+    }
+
+
+@app.get("/api/public/h5p/{exercise_id}/content/content.json")
+async def get_h5p_content(exercise_id: str):
+    record = await db.select(
+        "exercises",
+        columns="id, h5p_content",
+        filters={"id": exercise_id},
+        single=True,
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+    h5p_content = record["h5p_content"]
+    if isinstance(h5p_content, str):
+        h5p_content = json.loads(h5p_content)
+    return h5p_content
