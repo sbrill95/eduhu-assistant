@@ -13,6 +13,7 @@ from app.models import (
     LoginRequest, LoginResponse,
     ChatRequest, ChatResponse, ChatMessageOut,
     ProfileUpdate, ConversationOut,
+    MaterialRequest, MaterialResponse,
 )
 from app.agents.main_agent import get_agent, AgentDeps
 from app.agents.memory_agent import run_memory_agent
@@ -386,6 +387,74 @@ async def delete_curriculum(curriculum_id: str, teacher_id: str):
     async with __import__("httpx").AsyncClient() as client:
         await client.delete(url2, headers=headers)
     return {"deleted": True}
+
+
+# ═══════════════════════════════════════
+# Health
+# ═══════════════════════════════════════
+
+# ═══════════════════════════════════════
+# Materials
+# ═══════════════════════════════════════
+
+import os
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+
+from fastapi.responses import FileResponse
+
+MATERIALS_DIR = Path("/tmp/materials")
+MATERIALS_DIR.mkdir(exist_ok=True)
+
+# In-memory store for generated materials (id -> MaterialResponse + exam data)
+_materials_store: dict[str, dict] = {}
+
+
+@app.post("/api/materials/generate", response_model=MaterialResponse)
+async def generate_material(req: MaterialRequest):
+    """Generate teaching material (currently: Klausur)."""
+    from app.agents.material_agent import run_material_agent
+    from app.docx_generator import generate_exam_docx
+
+    try:
+        exam = await run_material_agent(req)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        logger.error(f"Material generation failed: {e}")
+        raise HTTPException(500, f"Materialerstellung fehlgeschlagen: {str(e)}")
+
+    # Generate DOCX
+    material_id = str(uuid.uuid4())
+    docx_bytes = generate_exam_docx(exam)
+    docx_path = MATERIALS_DIR / f"{material_id}.docx"
+    docx_path.write_bytes(docx_bytes)
+
+    now = datetime.now(timezone.utc).isoformat()
+    response = MaterialResponse(
+        id=material_id,
+        type=req.type,
+        content=exam,
+        docx_url=f"/api/materials/{material_id}/docx",
+        created_at=now,
+    )
+
+    _materials_store[material_id] = {"response": response, "path": str(docx_path)}
+    return response
+
+
+@app.get("/api/materials/{material_id}/docx")
+async def download_material_docx(material_id: str):
+    """Download generated material as DOCX."""
+    docx_path = MATERIALS_DIR / f"{material_id}.docx"
+    if not docx_path.exists():
+        raise HTTPException(404, "Material nicht gefunden")
+    return FileResponse(
+        path=str(docx_path),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename=f"klassenarbeit-{material_id[:8]}.docx",
+    )
 
 
 # ═══════════════════════════════════════

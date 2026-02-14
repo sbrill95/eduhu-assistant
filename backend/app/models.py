@@ -42,3 +42,45 @@ class ConversationOut(BaseModel):
     id: str
     title: Optional[str] = None
     updated_at: str
+
+
+# ═══════════════════════════════════════
+# Material / Klausur Models
+# ═══════════════════════════════════════
+
+class ExamTask(BaseModel):
+    aufgabe: str
+    beschreibung: str
+    afb_level: str  # "I", "II", or "III"
+    punkte: int
+    erwartung: list[str]
+
+
+class ExamStructure(BaseModel):
+    fach: str
+    klasse: str
+    thema: str
+    dauer_minuten: int
+    aufgaben: list[ExamTask]
+    gesamtpunkte: int
+    notenschluessel: dict[str, str]
+    hinweise: list[str]
+
+
+class MaterialRequest(BaseModel):
+    type: str  # "klausur" | "arbeitsblatt" | "differenzierung"
+    fach: str
+    klasse: str
+    thema: str
+    teacher_id: str
+    dauer_minuten: Optional[int] = None
+    afb_verteilung: Optional[dict[str, int]] = None
+    zusatz_anweisungen: Optional[str] = None
+
+
+class MaterialResponse(BaseModel):
+    id: str
+    type: str
+    content: ExamStructure
+    docx_url: Optional[str] = None
+    created_at: str

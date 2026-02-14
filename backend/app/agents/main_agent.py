@@ -77,6 +77,66 @@ def create_agent() -> Agent[AgentDeps, str]:
         )
         return f"Gemerkt: {key} = {value}"
 
+    # ── Tool: generate_material ──
+    @agent.tool
+    async def generate_material(
+        ctx: RunContext[AgentDeps],
+        fach: str,
+        klasse: str,
+        thema: str,
+        material_type: str = "klausur",
+        dauer_minuten: int = 45,
+        zusatz_anweisungen: str = "",
+    ) -> str:
+        """Erstelle Unterrichtsmaterial (Klassenarbeit/Klausur).
+        Nutze dieses Tool wenn die Lehrkraft eine Klassenarbeit, Klausur
+        oder Prüfung erstellen möchte. Gibt eine Zusammenfassung zurück
+        mit Download-Link."""
+        from app.models import MaterialRequest
+        from app.agents.material_agent import run_material_agent
+        from app.docx_generator import generate_exam_docx
+        from pathlib import Path
+        import uuid
+        from datetime import datetime, timezone
+
+        logger.info(f"Generating material: {material_type} {fach} {klasse} {thema}")
+
+        request = MaterialRequest(
+            type=material_type,
+            fach=fach,
+            klasse=klasse,
+            thema=thema,
+            teacher_id=ctx.deps.teacher_id,
+            dauer_minuten=dauer_minuten,
+            zusatz_anweisungen=zusatz_anweisungen or None,
+        )
+
+        try:
+            exam = await run_material_agent(request)
+        except Exception as e:
+            logger.error(f"Material generation failed: {e}")
+            return f"Fehler bei der Materialerstellung: {str(e)}"
+
+        # Save DOCX
+        materials_dir = Path("/tmp/materials")
+        materials_dir.mkdir(exist_ok=True)
+        material_id = str(uuid.uuid4())
+        docx_bytes = generate_exam_docx(exam)
+        (materials_dir / f"{material_id}.docx").write_bytes(docx_bytes)
+
+        # Build summary
+        tasks_summary = "\n".join(
+            f"  {i}. {t.aufgabe} (AFB {t.afb_level}, {t.punkte}P)"
+            for i, t in enumerate(exam.aufgaben, 1)
+        )
+        return (
+            f"✅ Klassenarbeit erstellt!\n\n"
+            f"**{exam.fach} — {exam.thema}** (Klasse {exam.klasse})\n"
+            f"Dauer: {exam.dauer_minuten} Min. | Gesamtpunkte: {exam.gesamtpunkte}\n\n"
+            f"**Aufgaben:**\n{tasks_summary}\n\n"
+            f"📥 Download: /api/materials/{material_id}/docx"
+        )
+
     return agent
 
 
