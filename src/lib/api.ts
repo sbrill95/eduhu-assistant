@@ -1,7 +1,8 @@
 import type { ChatMessage, Conversation } from './types';
 import { getSession } from './auth';
 
-const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+const BASE = API_BASE;
 
 export async function sendMessage(
   message: string,

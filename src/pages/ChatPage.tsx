@@ -8,19 +8,15 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { ChipSelector } from '@/components/chat/ChipSelector';
 import { ConversationSidebar } from '@/components/chat/ConversationSidebar';
-import type { ChatMessage as MessageType, Chip } from '@/lib/types';
-
-const WELCOME_CHIPS: Chip[] = [
-  { id: '1', label: 'Quiz erstellen', icon: '📝' },
-  { id: '2', label: 'Dokumentation', icon: '📋' },
-  { id: '3', label: 'Stunde zusammenfassen', icon: '📖' },
-  { id: '4', label: 'Ideen für Unterricht', icon: '💡' },
-];
+import type { ChatMessage as MessageType } from '@/lib/types';
+import { API_BASE } from '@/lib/api';
 
 export default function ChatPage() {
   const navigate = useNavigate();
   const teacher = getSession();
   const [messages, setMessages] = useState<MessageType[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(true);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [showWelcomeChips, setShowWelcomeChips] = useState(true);
@@ -31,6 +27,16 @@ export default function ChatPage() {
   useEffect(() => {
     if (!teacher) void navigate('/');
   }, [teacher, navigate]);
+
+  useEffect(() => {
+    const teacher = getSession();
+    if (!teacher) return;
+    fetch(`${API_BASE}/api/suggestions?teacher_id=${teacher.teacher_id}`)
+      .then(res => res.json())
+      .then(data => setSuggestions(data.suggestions))
+      .catch(() => setSuggestions(["Plane eine Unterrichtsstunde", "Erstelle Material", "Hilf mir bei der Vorbereitung"]))
+      .finally(() => setLoadingSuggestions(false));
+  }, []);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -166,10 +172,18 @@ export default function ChatPage() {
                   <p className="text-text-secondary mb-8">
                     Womit kann ich dir heute helfen?
                   </p>
-                  <ChipSelector
-                    chips={WELCOME_CHIPS}
-                    onSelect={(chip) => handleChipSelect(chip.label)}
-                  />
+                  {loadingSuggestions ? (
+                    <div className="flex space-x-2">
+                      <div className="h-8 w-32 animate-pulse rounded-full bg-surface-secondary" />
+                      <div className="h-8 w-40 animate-pulse rounded-full bg-surface-secondary" />
+                      <div className="h-8 w-36 animate-pulse rounded-full bg-surface-secondary" />
+                    </div>
+                  ) : (
+                    <ChipSelector
+                      chips={suggestions.map((s: string, i: number) => ({ id: `s-${i}`, label: s }))}
+                      onSelect={(chip) => handleChipSelect(chip.label)}
+                    />
+                  )}
                 </div>
               )}
 
