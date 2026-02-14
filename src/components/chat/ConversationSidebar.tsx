@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getConversations } from '@/lib/api';
+import { getConversations, deleteConversation } from '@/lib/api';
 import type { Conversation } from '@/lib/types';
 
 interface Props {
@@ -16,6 +16,24 @@ export function ConversationSidebar({ currentId, onSelect, onNewChat, open, onCl
   useEffect(() => {
     void getConversations().then(setConversations);
   }, [currentId]); // Refresh when conversation changes
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the selection click
+    
+    if (!confirm('Möchten Sie dieses Gespräch wirklich löschen?')) {
+      return;
+    }
+
+    try {
+      await deleteConversation(id);
+      // Refresh the list
+      const updated = await getConversations();
+      setConversations(updated);
+    } catch (error) {
+      console.error('Fehler beim Löschen des Gesprächs:', error);
+      alert('Gespräch konnte nicht gelöscht werden');
+    }
+  };
 
   function formatDate(iso: string) {
     const d = new Date(iso);
@@ -65,21 +83,33 @@ export function ConversationSidebar({ currentId, onSelect, onNewChat, open, onCl
             </p>
           ) : (
             conversations.map((c) => (
-              <button
+              <div
                 key={c.id}
-                type="button"
-                onClick={() => { onSelect(c.id); onClose(); }}
-                className={`w-full border-b border-border/50 px-4 py-3 text-left transition-colors hover:bg-bg-subtle ${
+                className={`group relative border-b border-border/50 hover:bg-bg-subtle ${
                   c.id === currentId ? 'bg-bg-subtle' : ''
                 }`}
               >
-                <div className="truncate text-sm font-medium text-text-default">
-                  {c.title || 'Neues Gespräch'}
-                </div>
-                <div className="mt-0.5 text-xs text-text-secondary">
-                  {formatDate(c.updated_at)}
-                </div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => { onSelect(c.id); onClose(); }}
+                  className="w-full px-4 py-3 text-left"
+                >
+                  <div className="truncate text-sm font-medium text-text-default">
+                    {c.title || 'Neues Gespräch'}
+                  </div>
+                  <div className="mt-0.5 text-xs text-text-secondary">
+                    {formatDate(c.updated_at)}
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => handleDelete(c.id, e)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-text-secondary opacity-0 transition-opacity hover:bg-bg-subtle-hover hover:text-danger group-hover:opacity-100"
+                  title="Gespräch löschen"
+                >
+                  🗑️
+                </button>
+              </div>
             ))
           )}
         </div>

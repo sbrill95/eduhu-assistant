@@ -32,7 +32,7 @@ export function ChatMessage({ message, onChipSelect }: Props) {
           {isUser ? (
             <p className="whitespace-pre-wrap text-sm">{message.content}</p>
           ) : (
-            <div className="prose prose-sm max-w-none text-text-default">
+            <div className="prose prose-sm max-w-none text-text-default prose-headings:text-text-strong prose-strong:text-text-strong prose-a:text-primary prose-code:bg-bg-subtle prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm">
               <ReactMarkdown>{message.content}</ReactMarkdown>
             </div>
           )}

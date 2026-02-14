@@ -230,6 +230,51 @@ async def chat_conversations(teacher_id: str):
 
 
 # ═══════════════════════════════════════
+# Conversation Management
+# ═══════════════════════════════════════
+
+@app.delete("/api/chat/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str, teacher_id: str):
+    """Delete a conversation and its messages."""
+    settings = get_settings()
+    headers = {
+        "apikey": settings.supabase_service_role_key,
+        "Authorization": f"Bearer {settings.supabase_service_role_key}",
+    }
+    base = settings.supabase_url
+    import httpx
+    async with httpx.AsyncClient() as client:
+        # Delete messages first
+        await client.delete(
+            f"{base}/rest/v1/messages?conversation_id=eq.{conversation_id}",
+            headers=headers,
+        )
+        # Delete session logs
+        await client.delete(
+            f"{base}/rest/v1/session_logs?conversation_id=eq.{conversation_id}",
+            headers=headers,
+        )
+        # Delete conversation (verify ownership)
+        await client.delete(
+            f"{base}/rest/v1/conversations?id=eq.{conversation_id}&user_id=eq.{teacher_id}",
+            headers=headers,
+        )
+    return {"deleted": True}
+
+
+@app.patch("/api/chat/conversations/{conversation_id}")
+async def update_conversation(conversation_id: str, title: str = ""):
+    """Update conversation title."""
+    if title:
+        await db.update(
+            "conversations",
+            {"title": title[:80]},
+            filters={"id": conversation_id},
+        )
+    return {"updated": True}
+
+
+# ═══════════════════════════════════════
 # Profile
 # ═══════════════════════════════════════
 

@@ -39,24 +39,12 @@ export default function ChatPage() {
     }
   }, [messages, isTyping]);
 
-  // Welcome message for new chat
-  const showWelcome = useCallback(() => {
-    if (teacher) {
-      setMessages([{
-        id: 'welcome',
-        role: 'assistant',
-        content: `Hallo ${teacher.name}! 👋\n\nWas kann ich heute für dich tun?`,
-        timestamp: new Date().toISOString(),
-      }]);
+  // Show welcome chips when no messages exist
+  useEffect(() => {
+    if (teacher && messages.length === 0 && !conversationId) {
       setShowWelcomeChips(true);
     }
-  }, [teacher]);
-
-  useEffect(() => {
-    if (teacher && messages.length === 0) {
-      showWelcome();
-    }
-  }, [teacher]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [teacher, messages.length, conversationId]);
 
   // Load existing conversation
   const loadConversation = useCallback(async (convId: string) => {
@@ -82,8 +70,8 @@ export default function ChatPage() {
   const handleNewChat = useCallback(() => {
     setConversationId(null);
     setMessages([]);
-    showWelcome();
-  }, [showWelcome]);
+    setShowWelcomeChips(true);
+  }, []);
 
   const handleSend = useCallback(async (text: string) => {
     setShowWelcomeChips(false);
@@ -169,8 +157,15 @@ export default function ChatPage() {
                 />
               ))}
 
-              {showWelcomeChips && messages.length > 0 && (
-                <div className="ml-11">
+              {showWelcomeChips && messages.length === 0 && !conversationId && (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="text-6xl mb-6">🦉</div>
+                  <h1 className="text-2xl font-semibold mb-2">
+                    Hallo {teacher?.name}! 👋
+                  </h1>
+                  <p className="text-text-secondary mb-8">
+                    Womit kann ich dir heute helfen?
+                  </p>
                   <ChipSelector
                     chips={WELCOME_CHIPS}
                     onSelect={(chip) => handleChipSelect(chip.label)}

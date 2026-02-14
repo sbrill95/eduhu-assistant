@@ -132,3 +132,14 @@ export async function updateProfile(data: Partial<Profile>): Promise<void> {
     body: JSON.stringify(data),
   });
 }
+
+// ── Conversation Management ──
+
+export async function deleteConversation(conversationId: string): Promise<void> {
+  const teacher = getSession();
+  if (!teacher) throw new Error('Nicht angemeldet');
+
+  await fetch(`${BASE}/api/chat/conversations/${conversationId}?teacher_id=${teacher.teacher_id}`, {
+    method: 'DELETE',
+  });
+}
