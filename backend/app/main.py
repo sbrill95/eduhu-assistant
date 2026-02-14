@@ -173,8 +173,8 @@ async def chat_send(req: ChatRequest):
         )
         assistant_text = result.output
     except Exception as e:
-        logger.error(f"Agent error: {e}")
-        raise HTTPException(500, "KI-Antwort fehlgeschlagen")
+        logger.error(f"Agent error: {type(e).__name__}: {e}", exc_info=True)
+        raise HTTPException(500, f"KI-Antwort fehlgeschlagen: {type(e).__name__}")
 
     # Store assistant message
     saved = await db.insert("messages", {
@@ -488,8 +488,8 @@ async def generate_material(req: MaterialRequest):
     except ValueError as e:
         raise HTTPException(400, str(e))
     except Exception as e:
-        logger.error(f"Material generation failed: {e}")
-        raise HTTPException(500, f"Materialerstellung fehlgeschlagen: {str(e)}")
+        logger.error(f"Material generation failed: {type(e).__name__}: {e}", exc_info=True)
+        raise HTTPException(500, f"Materialerstellung fehlgeschlagen: {type(e).__name__}: {str(e)}")
 
     # Generate DOCX based on type
     material_id = str(uuid.uuid4())
