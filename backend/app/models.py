@@ -67,6 +67,32 @@ class ExamStructure(BaseModel):
     hinweise: list[str]
 
 
+# ═══════════════════════════════════════
+# Differenzierung Models
+# ═══════════════════════════════════════
+
+class DiffTask(BaseModel):
+    aufgabe: str
+    beschreibung: str
+    hilfestellung: Optional[str] = None
+    punkte: int
+
+
+class DiffNiveau(BaseModel):
+    niveau: str  # "Basis" | "Mittel" | "Erweitert"
+    aufgaben: list[DiffTask]
+    zeitaufwand_minuten: int
+    hinweise: list[str]
+
+
+class DifferenzierungStructure(BaseModel):
+    fach: str
+    klasse: str
+    thema: str
+    niveaus: list[DiffNiveau]  # Always 3: Basis, Mittel, Erweitert
+    allgemeine_hinweise: list[str]
+
+
 class MaterialRequest(BaseModel):
     type: str  # "klausur" | "arbeitsblatt" | "differenzierung"
     fach: str
@@ -81,6 +107,6 @@ class MaterialRequest(BaseModel):
 class MaterialResponse(BaseModel):
     id: str
     type: str
-    content: ExamStructure
+    content: dict  # ExamStructure or DifferenzierungStructure as dict
     docx_url: Optional[str] = None
     created_at: str

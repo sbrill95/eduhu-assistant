@@ -413,30 +413,38 @@ _materials_store: dict[str, dict] = {}
 
 @app.post("/api/materials/generate", response_model=MaterialResponse)
 async def generate_material(req: MaterialRequest):
-    """Generate teaching material (currently: Klausur)."""
+    """Generate teaching material (Klausur or Differenzierung)."""
     from app.agents.material_agent import run_material_agent
-    from app.docx_generator import generate_exam_docx
+    from app.docx_generator import generate_exam_docx, generate_diff_docx
+    from app.models import ExamStructure, DifferenzierungStructure
 
     try:
-        exam = await run_material_agent(req)
+        result = await run_material_agent(req)
     except ValueError as e:
         raise HTTPException(400, str(e))
     except Exception as e:
         logger.error(f"Material generation failed: {e}")
         raise HTTPException(500, f"Materialerstellung fehlgeschlagen: {str(e)}")
 
-    # Generate DOCX
+    # Generate DOCX based on type
     material_id = str(uuid.uuid4())
-    docx_bytes = generate_exam_docx(exam)
+    if isinstance(result, ExamStructure):
+        docx_bytes = generate_exam_docx(result)
+    elif isinstance(result, DifferenzierungStructure):
+        docx_bytes = generate_diff_docx(result)
+    else:
+        docx_bytes = b""
+
     docx_path = MATERIALS_DIR / f"{material_id}.docx"
-    docx_path.write_bytes(docx_bytes)
+    if docx_bytes:
+        docx_path.write_bytes(docx_bytes)
 
     now = datetime.now(timezone.utc).isoformat()
     response = MaterialResponse(
         id=material_id,
         type=req.type,
-        content=exam,
-        docx_url=f"/api/materials/{material_id}/docx",
+        content=result.model_dump(),
+        docx_url=f"/api/materials/{material_id}/docx" if docx_bytes else None,
         created_at=now,
     )
 
