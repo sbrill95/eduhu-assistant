@@ -5,7 +5,7 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import db
@@ -113,7 +113,7 @@ async def login(req: LoginRequest):
 # ═══════════════════════════════════════
 
 @app.post("/api/chat/send", response_model=ChatResponse)
-async def chat_send(req: ChatRequest):
+async def chat_send(req: ChatRequest, request: Request):
     teacher_id = req.teacher_id
     conversation_id = req.conversation_id
 
@@ -147,7 +147,11 @@ async def chat_send(req: ChatRequest):
 
     # Run the agent
     agent = get_agent()
-    deps = AgentDeps(teacher_id=teacher_id, conversation_id=conversation_id)
+    deps = AgentDeps(
+        teacher_id=teacher_id,
+        conversation_id=conversation_id,
+        base_url=str(request.base_url).rstrip("/"),
+    )
 
     # Build message history for Pydantic AI
     from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse

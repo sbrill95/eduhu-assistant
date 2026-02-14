@@ -19,6 +19,7 @@ class AgentDeps:
     """Dependencies injected into the agent at runtime."""
     teacher_id: str
     conversation_id: str
+    base_url: str = ""
 
 
 def create_agent() -> Agent[AgentDeps, str]:
@@ -100,7 +101,12 @@ def create_agent() -> Agent[AgentDeps, str]:
                 dauer_minuten=dauer_minuten,
                 zusatz_anweisungen=zusatz_anweisungen,
             )
-            return result.summary
+            summary = result.summary
+            if ctx.deps.base_url:
+                summary = summary.replace("Download: /api/", f"[📥 Download DOCX]({ctx.deps.base_url}/api/")
+                if summary != result.summary:
+                    summary = summary.replace("/docx", "/docx)")
+            return summary
         except Exception as e:
             logger.error(f"Material generation failed: {e}")
             return f"Fehler bei der Materialerstellung: {str(e)}"
