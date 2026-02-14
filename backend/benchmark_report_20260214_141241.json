@@ -1,0 +1,251 @@
+{
+  "timestamp": "2026-02-14T13:12:41.327000",
+  "base_url": "https://eduhu-assistant.onrender.com",
+  "teacher_id": "a4d218bd-4ac8-4ce3-8d41-c85db8be6e32",
+  "summary": {
+    "total_tests": 18,
+    "passed": 15,
+    "failed": 3,
+    "overall_pass_rate": 83.33
+  },
+  "categories": [
+    {
+      "category": "Chat Quality",
+      "total_tests": 4,
+      "passed_tests": 4,
+      "failed_tests": 0,
+      "avg_latency_ms": 32641.9,
+      "pass_rate": 100.0
+    },
+    {
+      "category": "Memory Agent",
+      "total_tests": 3,
+      "passed_tests": 3,
+      "failed_tests": 0,
+      "avg_latency_ms": 14664.15,
+      "pass_rate": 100.0
+    },
+    {
+      "category": "Curriculum RAG",
+      "total_tests": 3,
+      "passed_tests": 3,
+      "failed_tests": 0,
+      "avg_latency_ms": 23156.4,
+      "pass_rate": 100.0
+    },
+    {
+      "category": "Research Agent",
+      "total_tests": 1,
+      "passed_tests": 1,
+      "failed_tests": 0,
+      "avg_latency_ms": 28590.98,
+      "pass_rate": 100.0
+    },
+    {
+      "category": "Summary Agent",
+      "total_tests": 1,
+      "passed_tests": 1,
+      "failed_tests": 0,
+      "avg_latency_ms": 10258.52,
+      "pass_rate": 100.0
+    },
+    {
+      "category": "System Prompt",
+      "total_tests": 1,
+      "passed_tests": 1,
+      "failed_tests": 0,
+      "avg_latency_ms": 10342.3,
+      "pass_rate": 100.0
+    },
+    {
+      "category": "API Reliability",
+      "total_tests": 5,
+      "passed_tests": 2,
+      "failed_tests": 3,
+      "avg_latency_ms": 364.15,
+      "pass_rate": 40.0
+    }
+  ],
+  "detailed_results": [
+    {
+      "name": "Unterrichtsplanung Elektrizität",
+      "category": "Chat Quality",
+      "input_data": "Erstelle eine Doppelstunde zum Thema Elektrizität für Klasse 9",
+      "expected_pattern": "(stromkreis|spannung|widerstand|90\\s*min|doppelstunde|einführung|experiment)",
+      "actual_output": "Perfekt! Basierend auf dem sächsischen Lehrplan erstelle ich dir eine strukturierte Doppelstunde, die sich auf die Kernthemen der Elektrizitätslehre in Klasse 9 konzentriert. 🎯\n\n# **Doppelstunde Elektrizitätslehre - Klasse 9** ⚡\n## **Thema: Widerstandsgesetz und I(U)-Kennlinien**\n\n---\n\n## **Stundenverlauf (90 Min)**\n\n### **Block 1: Wiederholung & Problemstellung (20 Min)**\n\n**🎯 Lernziel:** Aktivierung des Vorwissens und Motivation durch Alltagsbezug\n\n**Einstieg (5 Min):**\n- **Demonstration:** Ve",
+      "passed": true,
+      "latency_ms": 37375.26,
+      "error": null
+    },
+    {
+      "name": "Quiz Lichtbrechung",
+      "category": "Chat Quality",
+      "input_data": "Erstelle ein Quiz mit 5 Fragen zur Lichtbrechung",
+      "expected_pattern": "(frage.*1|frage.*2|frage.*3|brechung|einfallswinkel|snellius)",
+      "actual_output": "Hier ist ein interaktives Quiz zur Lichtbrechung für deine Klasse 8! 🌈✨\n\n# **Quiz: Lichtbrechung** 📚⚡\n*Klasse 8 - Physik*\n\n---\n\n## **Frage 1** 💡\n**Was passiert, wenn Licht von Luft in Wasser übergeht?**\n\n<details>\n<summary>🔍 Antwortmöglichkeiten anzeigen</summary>\n\na) Das Licht wird zum Lot hin gebrochen  \nb) Das Licht wird vom Lot weg gebrochen  \nc) Das Licht geht unverändert weiter  \nd) Das Licht wird komplett reflektiert  \n\n</details>\n\n<details>\n<summary>✅ Lösung anzeigen</summary>\n\n**Richtig",
+      "passed": true,
+      "latency_ms": 31046.56,
+      "error": null
+    },
+    {
+      "name": "Differenzierung Photosynthese",
+      "category": "Chat Quality",
+      "input_data": "Erkläre Photosynthese für Klasse 5 und für Klasse 10",
+      "expected_pattern": "(klasse\\s*5|klasse\\s*10|einfacher|komplex|chlorophyll|glucose|atp)",
+      "actual_output": "Hier sind zwei altersgerechte Erklärungen der Photosynthese - einmal für deine jüngeren und einmal für die älteren Schüler! 🌱✨\n\n---\n\n# **Photosynthese für Klasse 5** 🌿👶\n\n## **Was ist Photosynthese?** \n\nStell dir vor, Pflanzen sind wie kleine Köche in der Küche! 👨‍🍳🌱\n\n**Die Zutaten der Pflanzen:**\n- 💧 **Wasser** (trinken sie über die Wurzeln)\n- 🌬️ **Kohlenstoffdioxid** (atmen sie über die Blätter ein)\n- ☀️ **Sonnenlicht** (fangen sie mit ihren grünen Blättern)\n\n**Das Kochrezept der Natur:**\n```\nW",
+      "passed": true,
+      "latency_ms": 33816.63,
+      "error": null
+    },
+    {
+      "name": "Elternbrief Wandertag",
+      "category": "Chat Quality",
+      "input_data": "Schreibe einen Elternbrief für den Wandertag am 15. März",
+      "expected_pattern": "(liebe\\s+eltern|wandertag|15\\.?\\s*märz|uhrzeit|treffpunkt|unterschrift)",
+      "actual_output": "Hier ist ein Elternbrief für euren Wandertag! 🌟📝\n\n---\n\n# **📋 ELTERNBRIEF**\n\n**Gymnasium [Schulname]**  \n**Klasse [Klassenbezeichnung]**  \n\n**Datum:** [Aktuelles Datum]  \n**Klassenleitung:** Steffen [Nachname]\n\n---\n\n## **📍 Wandertag am 15. März 2025**\n\nLiebe Eltern,\n\nich freue mich, Ihnen mitteilen zu können, dass wir am **Samstag, den 15. März 2025** unseren geplanten Wandertag durchführen werden! 🥾🌲\n\n### **🕐 Zeitplan**\n- **Treffpunkt:** 08:00 Uhr am Haupteingang der Schule\n- **Abfahrt:** 08:15 ",
+      "passed": true,
+      "latency_ms": 28329.13,
+      "error": null
+    },
+    {
+      "name": "Implicit Memory Extraction",
+      "category": "Memory Agent",
+      "input_data": "Ich unterrichte Mathe und Bio in Klasse 7",
+      "expected_pattern": "(mathe|bio|klasse\\s*7|fächer|verstanden|gespeichert)",
+      "actual_output": "Womit kann ich dir denn heute helfen? 🦉 Brauchst du:\n\n- **Mathematik Klasse 7**: Materialien, Übungen oder Arbeitsblätter zu bestimmten Themen?\n- **Biologie Klasse 7**: Experimente, Arbeitsblätter oder Unterrichtsstunden planen?\n- Oder etwas zu deinen anderen Fächern (Physik 8/9 oder Informatik 11)?\n\nIch kann gerne im sächsischen Lehrplan nachschauen, falls du spezifische Kompetenzen oder Inhalte brauchst! 📖",
+      "passed": true,
+      "latency_ms": 12773.16,
+      "error": null
+    },
+    {
+      "name": "Explicit Memory Storage",
+      "category": "Memory Agent",
+      "input_data": "Merk dir: Klasse 8a hat Schwierigkeiten mit Bruchrechnung",
+      "expected_pattern": "(gemerkt|gespeichert|notiert|bruchrechnung|8a)",
+      "actual_output": "Hab ich mir gemerkt! 📝 Die Klasse 8a hat also Probleme mit der Bruchrechnung.\n\nSoll ich dir dabei helfen, Material für die Klasse 8a zu erstellen? Ich könnte zum Beispiel:\n\n- **Arbeitsblätter** mit kleinschrittigen Übungen zur Bruchrechnung\n- **Differenzierte Aufgaben** (verschiedene Schwierigkeitsstufen)\n- Ein **Quiz** zur spielerischen Wiederholung\n- **Anschauliche Erklärungen** mit Visualisierungen\n\nWas würde der Klasse 8a am meisten helfen? 🤔",
+      "passed": true,
+      "latency_ms": 10324.29,
+      "error": null
+    },
+    {
+      "name": "Memory Retrieval",
+      "category": "Memory Agent",
+      "input_data": "Welche Themen sollte ich mit meinen Klassen wiederholen?",
+      "expected_pattern": "(bruchrechnung|8a|mathe|bio|klasse\\s*7)",
+      "actual_output": "Ich habe in den Physik-Curricula gesucht, aber für **Mathematik und Biologie Klasse 7** brauche ich die entsprechenden Lehrpläne. \n\nBasierend auf deiner Situation (besonders mit der **Klasse 8a und ihren Bruchrechenschwierigkeiten**) würde ich dir für die Wiederholung empfehlen:\n\n## 📊 **Mathematik - wichtige Wiederholungsthemen:**\n\n**Für Klasse 7:**\n- Grundrechenarten mit ganzen Zahlen\n- Brüche (Grundlagen!) - besonders wichtig für 8a später\n- Dezimalzahlen und Umwandlungen\n- Prozentrechnung (Gr",
+      "passed": true,
+      "latency_ms": 20894.99,
+      "error": null
+    },
+    {
+      "name": "Lehrplan Optik Klasse 8",
+      "category": "Curriculum RAG",
+      "input_data": "Was steht im Lehrplan zu Optik Klasse 8?",
+      "expected_pattern": "(lichtbrechung|reflexion|linsen|schatten|lehrplan|kompetenz|sachsen)",
+      "actual_output": "Basierend auf dem sächsischen Physik-Lehrplan für Klasse 8 kann ich dir folgende Inhalte zur **Optik** zeigen:\n\n## Lernbereich 1: Licht und seine Eigenschaften (17 Ustd.)\n\n### Hauptthemen:\n\n**🔦 Phänomene der Lichtausbreitung:**\n- **Einteilung der Körper:**\n  - Lichtquellen und beleuchtete Körper (frühere und heutige Lichtquellen, intelligentes Licht, Lichtverschmutzung)\n  - Astronomische Objekte: Sonne, Planeten, Mond\n  - Lichtdurchlässige und lichtundurchlässige Körper\n\n**📏 Ausbreitungseigensch",
+      "passed": true,
+      "latency_ms": 14847.37,
+      "error": null
+    },
+    {
+      "name": "Kompetenzen Elektrizitätslehre",
+      "category": "Curriculum RAG",
+      "input_data": "Welche Kompetenzen für Elektrizitätslehre?",
+      "expected_pattern": "(stromkreis|spannung|widerstand|kompetenz|schüler|erkennen|beschreiben)",
+      "actual_output": "Basierend auf dem sächsischen Physik-Lehrplan für Klasse 9 sind hier die **zentralen Kompetenzen** für die Elektrizitätslehre:\n\n## 🔬 Experimentelle Kompetenzen\n\n**Schülerexperimente durchführen:**\n- **Widerstandsbestimmung** mit verschiedenen Messverfahren\n- **I(U)-Kennlinien** von Halbleiterbauelementen aufnehmen\n- Charakteristische Eigenschaften von **Dioden, LEDs, Transistoren** untersuchen\n- **Rechnergestützte Messauswertung** mit Statistikfunktionen\n\n**Experimentelles Arbeiten:**\n- Problemo",
+      "passed": true,
+      "latency_ms": 21016.65,
+      "error": null
+    },
+    {
+      "name": "Semantische Suche Halbleiter",
+      "category": "Curriculum RAG",
+      "input_data": "Wie unterrichte ich Halbleiter?",
+      "expected_pattern": "(halbleiter|klasse\\s*9|physik|dotierung|diode|lehrplan|kompetenz)",
+      "actual_output": "Perfekte Frage für Klasse 9! 🎯 Hier ist eine **didaktisch durchdachte Herangehensweise** für Halbleiter:\n\n## 🏗️ Aufbau der Unterrichtssequenz\n\n### **1. Einstieg: Alltagsbezug schaffen** (1 Stunde)\n**Phänomen:** Warum funktioniert eine LED nur in einer Richtung?\n- **Demo:** LED an Batterie anschließen (vorwärts/rückwärts)\n- **Sammelphase:** Wo begegnen uns Halbleiter? (Handy, Computer, Solarzellen...)\n- **Problemstellung:** Was ist das Besondere an diesen Materialien?\n\n### **2. Grundlagen: Leitfä",
+      "passed": true,
+      "latency_ms": 33605.17,
+      "error": null
+    },
+    {
+      "name": "Web Search for Teaching Methods",
+      "category": "Research Agent",
+      "input_data": "Aktuelle Methoden für Physikunterricht",
+      "expected_pattern": "(https?://|www\\.|quelle|referenz|link|methode|experiment)",
+      "actual_output": "Hier sind die **aktuellsten Methoden für den Physikunterricht** 2024/2025! 🚀⚗️\n\n## **Digitale & Technologiegestützte Methoden**\n\n### 🥽 **Virtual Reality (VR) & Augmented Reality (AR)**\n- **VR-Experimente** für gefährliche/aufwendige Versuche (z.B. Radioaktivität, Hochspannung)\n- **AR-Apps** wie \"PUMA: Spannungslabor\" für Stromkreise (Gewinner AVRiL 2024!)\n- **3D-Simulationen** für abstrakte Konzepte (Quantenphysik, Feldlinien)\n- Haptische Komponenten durch bewegbare AR-Marker\n\n### 📱 **Interaktiv",
+      "passed": true,
+      "latency_ms": 28590.98,
+      "error": null
+    },
+    {
+      "name": "Long Conversation Summary",
+      "category": "Summary Agent",
+      "input_data": "Sent 13 messages",
+      "expected_pattern": "(zusammenfassung|überblick|mechanik|klasse.*10|experimente)",
+      "actual_output": "Ja, gerne! 📝 Hier sind die **wichtigsten Klausur-Bereiche für Mechanik Klasse 10**:\n\n## **🎯 Zentrale Themen:**\n\n### **1. Kinematik**\n- Gleichförmige & beschleunigte Bewegung\n- v-t, s-t, a-t Diagramme lesen/erstellen\n- Formeln: s = v·t, v = a·t, s = ½at²\n\n### **2. Dynamik** \n- Newton'sche Gesetze anwenden\n- Kräfte berechnen (F = m·a)\n- Freikörperbilder zeichnen\n- Reibung berücksichtigen\n\n### **3. Energie & Arbeit**\n- Energieformen (kinetisch, potentiell)\n- Energieerhaltungssatz\n- W = F·s, E_kin =",
+      "passed": true,
+      "latency_ms": 10258.52,
+      "error": null
+    },
+    {
+      "name": "Profile Context in Response",
+      "category": "System Prompt",
+      "input_data": "Was kannst du mir über meinen Lehrplan sagen?",
+      "expected_pattern": "(None|physik|mathe)",
+      "actual_output": "Hallo Steffen! 🦉\n\nBasierend auf dem, was ich über dich weiß, arbeitest du mit dem **sächsischen Lehrplan** und unterrichtest:\n- **Physik** (Klasse 8 & 9)\n- **Mathematik** (Klasse 7) \n- **Biologie** (Klasse 7)\n- **Informatik** (Klasse 11)\n\nIch habe Zugriff auf deinen **Physik-Lehrplan für das Gymnasium** und kann dir bei spezifischen Fragen zu Kompetenzanforderungen, Lernzielen und Inhalten helfen! 📚\n\nWas möchtest du konkret über deinen Lehrplan wissen? Zum Beispiel:\n- Spezifische Kompetenzen für",
+      "passed": true,
+      "latency_ms": 10342.3,
+      "error": null
+    },
+    {
+      "name": "Login Endpoint",
+      "category": "API Reliability",
+      "input_data": "POST /api/auth/login",
+      "expected_pattern": "200",
+      "actual_output": "Status 200",
+      "passed": true,
+      "latency_ms": 644.14,
+      "error": null
+    },
+    {
+      "name": "Invalid Credentials Handling",
+      "category": "API Reliability",
+      "input_data": "POST /api/auth/login (invalid creds)",
+      "expected_pattern": "401|403",
+      "actual_output": "Status 401",
+      "passed": true,
+      "latency_ms": 312.37,
+      "error": null
+    },
+    {
+      "name": "Empty Message Handling",
+      "category": "API Reliability",
+      "input_data": "POST /api/chat/send (empty message)",
+      "expected_pattern": "200|400|422",
+      "actual_output": "Status 502",
+      "passed": false,
+      "latency_ms": 716.44,
+      "error": null
+    },
+    {
+      "name": "Missing teacher_id Handling",
+      "category": "API Reliability",
+      "input_data": "POST /api/chat/send (no teacher_id)",
+      "expected_pattern": "400|422",
+      "actual_output": "Status 502",
+      "passed": false,
+      "latency_ms": 44.31,
+      "error": null
+    },
+    {
+      "name": "Conversation History Endpoint",
+      "category": "API Reliability",
+      "input_data": "GET /api/chat/history",
+      "expected_pattern": "200",
+      "actual_output": "Returned 0 messages",
+      "passed": false,
+      "latency_ms": 103.5,
+      "error": null
+    }
+  ]
+}
