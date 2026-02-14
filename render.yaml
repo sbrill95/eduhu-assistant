@@ -4,7 +4,7 @@ services:
     runtime: python
     region: frankfurt
     rootDir: backend
-    buildCommand: pip install uv && uv sync --no-dev --reinstall
+    buildCommand: pip install uv && uv sync --no-dev && pip install python-docx
     startCommand: uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: SUPABASE_URL
