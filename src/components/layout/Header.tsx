@@ -52,6 +52,13 @@ export function Header() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => { setMenuOpen(false); void navigate('/material'); }}
+                  className="w-full px-4 py-2 text-left text-sm text-text-default hover:bg-bg-subtle"
+                >
+                  📝 Material
+                </button>
+                <button
+                  type="button"
                   onClick={() => { setMenuOpen(false); void navigate('/profile'); }}
                   className="w-full px-4 py-2 text-left text-sm text-text-default hover:bg-bg-subtle"
                 >
