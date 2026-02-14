@@ -22,11 +22,17 @@ from app.ingestion import ingest_curriculum
 # ── Logfire ──
 try:
     import logfire
-    settings = get_settings()
-    if settings.logfire_token:
-        logfire.configure(token=settings.logfire_token)
-        logfire.instrument_fastapi(None)  # Will be set after app creation
-        logging.info("Logfire configured")
+    _settings = get_settings()
+    if _settings.logfire_token:
+        logfire.configure(
+            token=_settings.logfire_token,
+            service_name="eduhu-assistant",
+            inspect_arguments=False,
+        )
+        logfire.instrument_httpx()
+        logging.info("Logfire configured ✅")
+    else:
+        logfire = None  # type: ignore
 except Exception:
     logfire = None  # type: ignore
 
