@@ -247,7 +247,7 @@ async def get_profile(teacher_id: str):
 
 @app.patch("/api/profile/{teacher_id}")
 async def update_profile(teacher_id: str, req: ProfileUpdate):
-    data: dict = {"id": teacher_id}
+    data: dict = {}
     if req.bundesland is not None:
         data["bundesland"] = req.bundesland
     if req.schulform is not None:
@@ -257,7 +257,7 @@ async def update_profile(teacher_id: str, req: ProfileUpdate):
     if req.jahrgaenge is not None:
         data["jahrgaenge"] = req.jahrgaenge
 
-    result = await db.upsert("user_profiles", data, on_conflict="id")
+    result = await db.update("user_profiles", data, filters={"id": teacher_id})
     return result
 
 
