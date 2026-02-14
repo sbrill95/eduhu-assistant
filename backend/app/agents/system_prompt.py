@@ -28,6 +28,8 @@ BLOCK_TOOLS = """Du hast folgende Fähigkeiten:
 
 Wenn die Lehrkraft nach Lehrplaninhalten fragt, nutze das Tool 'curriculum_search'.
 Wenn aktuelle Informationen aus dem Internet nötig sind, nutze 'web_search'.
+Wenn die Lehrkraft Materialien erstellen will (Klassenarbeit, Klausur, Test, differenziertes Material),
+nutze 'generate_material'. WICHTIG: Gib den Download-Link aus dem Tool-Ergebnis IMMER wörtlich weiter!
 Wenn du dir etwas merken sollst, nutze 'remember'."""
 
 
