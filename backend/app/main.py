@@ -10,12 +10,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import db
 from app.config import get_settings
+import random
+import uuid
+import json
 from app.models import (
     LoginRequest, LoginResponse,
     ChatRequest, ChatResponse, ChatMessageOut,
     ProfileUpdate, ConversationOut,
     MaterialRequest, MaterialResponse,
+    H5PExerciseRequest, H5PExerciseResponse,
+    PageOut, PublicPage, PublicExercise, PublicExerciseWithContent,
 )
+from app.agents.h5p_agent import run_h5p_agent
+from app.h5p_generator import exercise_set_to_h5p
 from app.agents.main_agent import get_agent, AgentDeps
 from app.agents.memory_agent import run_memory_agent
 from app.agents.summary_agent import maybe_summarize
@@ -81,6 +88,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ═══════════════════════════════════════
+# H5P Access Code Generator
+# ═══════════════════════════════════════
+
+_NOUNS = [
+    "tiger", "wolke", "stern", "apfel", "vogel", "blume", "stein", "welle",
+    "fuchs", "regen", "sonne", "mond", "baum", "fisch", "adler", "birne",
+    "drache", "feder", "garten", "hafen", "insel", "kaktus", "lampe", "mauer",
+    "nacht", "ozean", "palme", "quarz", "rosen", "turm", "ufer", "wald",
+]
+
+def generate_access_code() -> str:
+    """Generate a memorable access code like 'tiger42'."""
+    return f"{random.choice(_NOUNS)}{random.randint(10, 99)}"
 
 
 # ═══════════════════════════════════════
@@ -555,3 +578,160 @@ async def debug_imports():
     except Exception as e:
         errors.append(f"models: {e}")
     return {"errors": errors, "ok": len(errors) == 0}
+
+
+# ═══════════════════════════════════════
+# H5P Endpoints
+# ═══════════════════════════════════════
+
+@app.post("/api/exercises/generate", response_model=H5PExerciseResponse)
+async def generate_h5p_exercise(req: H5PExerciseRequest):
+    try:
+        # 1. Call H5P agent
+        exercise_set = await run_h5p_agent(
+            req.fach, req.klasse, req.thema, req.exercise_type, req.num_questions
+        )
+
+        # 2. Convert to H5P content.json
+        h5p_content, h5p_type = exercise_set_to_h5p(exercise_set)
+        title = exercise_set.title
+
+        page_id = req.page_id
+        access_code = None
+
+        # 3. If no page_id, create one
+        if not page_id:
+            # Check if a page for this class already exists
+            page_record = await db.select(
+                "exercise_pages",
+                columns="id, access_code",
+                filters={"teacher_id": req.teacher_id, "title": f"Klasse {req.klasse}"},
+                single=True
+            )
+            if page_record:
+                page_id = page_record["id"]
+                access_code = page_record["access_code"]
+            else:
+                page_id = str(uuid.uuid4())
+                access_code = generate_access_code()
+                await db.insert(
+                    "exercise_pages",
+                    {"id": page_id, "teacher_id": req.teacher_id, "title": f"Klasse {req.klasse}", "access_code": access_code}
+                )
+        
+        # 4. Insert exercise into DB
+        exercise_id = str(uuid.uuid4())
+        await db.insert(
+            "exercises",
+            {
+                "id": exercise_id,
+                "page_id": page_id,
+                "teacher_id": req.teacher_id,
+                "title": title,
+                "h5p_type": h5p_type,
+                "h5p_content": json.dumps(h5p_content)
+            }
+        )
+
+        # Get access code if it wasn't fetched/created
+        if not access_code:
+            page_info = await db.select(
+                "exercise_pages", columns="access_code", filters={"id": page_id}, single=True
+            )
+            if page_info:
+                access_code = page_info["access_code"]
+
+
+        return H5PExerciseResponse(
+            exercise_id=exercise_id,
+            page_id=page_id,
+            access_code=access_code,
+            title=title,
+            page_url=f"/s/{access_code}"
+        )
+
+    except Exception as e:
+        logger.error(f"Error generating H5P exercise: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate exercise.")
+
+
+@app.get("/api/exercises/pages", response_model=list[PageOut])
+async def list_exercise_pages(teacher_id: str):
+    # This requires a custom query, which is not directly supported by the simple db wrapper.
+    # For now, we'll fetch pages and then count exercises for each.
+    # In a real app, a JOIN would be more efficient.
+    pages = await db.select(
+        "exercise_pages",
+        columns="id, title, access_code",
+        filters={"teacher_id": teacher_id},
+        order="created_at.desc"
+    )
+    if not isinstance(pages, list):
+        pages = []
+
+    page_outs = []
+    for p in pages:
+        count_res = await db.select(
+            "exercises",
+            columns="COUNT(id) as count",
+            filters={"page_id": p["id"]},
+            single=True
+        )
+        exercise_count = count_res["count"] if count_res else 0
+        page_outs.append(PageOut(
+            id=p["id"],
+            title=p["title"],
+            access_code=p["access_code"],
+            exercise_count=exercise_count
+        ))
+    return page_outs
+
+
+@app.get("/api/public/pages/{code}")
+async def get_public_page(code: str):
+    page_record = await db.select(
+        "exercise_pages",
+        columns="id, title, access_code",
+        filters={"access_code": code},
+        single=True
+    )
+    if not page_record:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    page = PublicPage(id=page_record["id"], title=page_record["title"], access_code=page_record["access_code"])
+
+    exercise_records = await db.select(
+        "exercises",
+        columns="id, title, h5p_type, created_at",
+        filters={"page_id": page.id},
+        order="created_at.asc"
+    )
+    if not isinstance(exercise_records, list):
+        exercise_records = []
+
+    exercises = [
+        PublicExercise(id=row["id"], title=row["title"], h5p_type=row["h5p_type"], created_at=row["created_at"].isoformat())
+        for row in exercise_records
+    ]
+
+    return {"page": page, "exercises": exercises}
+
+
+@app.get("/api/public/exercises/{exercise_id}", response_model=PublicExerciseWithContent)
+async def get_public_exercise(exercise_id: str):
+    record = await db.select(
+        "exercises",
+        columns="id, title, h5p_type, h5p_content, created_at",
+        filters={"id": exercise_id},
+        single=True
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+
+    return PublicExerciseWithContent(
+        id=record["id"],
+        title=record["title"],
+        h5p_type=record["h5p_type"],
+        h5p_content=record["h5p_content"],
+        created_at=record["created_at"].isoformat()
+    )

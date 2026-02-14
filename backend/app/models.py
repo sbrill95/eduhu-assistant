@@ -110,3 +110,49 @@ class MaterialResponse(BaseModel):
     content: dict  # ExamStructure or DifferenzierungStructure as dict
     docx_url: Optional[str] = None
     created_at: str
+
+
+# ═══════════════════════════════════════
+# H5P Models
+# ═══════════════════════════════════════
+
+class H5PExerciseRequest(BaseModel):
+    teacher_id: str
+    fach: str
+    klasse: str
+    thema: str
+    exercise_type: str  # "mc", "drag-text", "summary" etc. or "auto"
+    num_questions: int
+    page_id: Optional[str] = None
+
+
+class H5PExerciseResponse(BaseModel):
+    exercise_id: str
+    page_id: str
+    access_code: str
+    title: str
+    page_url: str
+
+
+class PageOut(BaseModel):
+    id: str
+    title: str
+    access_code: str
+    exercise_count: int
+
+
+class PublicPage(BaseModel):
+    id: str
+    title: str
+    access_code: str
+
+
+class PublicExercise(BaseModel):
+    id: str
+    title: str
+    h5p_type: str
+    created_at: str
+
+
+class PublicExerciseWithContent(PublicExercise):
+    h5p_content: dict
