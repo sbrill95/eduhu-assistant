@@ -111,6 +111,71 @@ def create_agent() -> Agent[AgentDeps, str]:
             logger.error(f"Material generation failed: {e}")
             return f"Fehler bei der Materialerstellung: {str(e)}"
 
+    # ── Tool: generate_exercise ──
+    @agent.tool
+    async def generate_exercise(
+        ctx: RunContext[AgentDeps],
+        fach: str,
+        klasse: str,
+        thema: str,
+        exercise_type: str = "auto",
+        num_questions: int = 5,
+    ) -> str:
+        """Erstelle interaktive H5P-Übungen (Multiple Choice, Lückentext, Wahr/Falsch, Drag-Text).
+        exercise_type: "multichoice", "blanks", "truefalse", "dragtext" oder "auto" (automatische Wahl).
+        Die Übung wird auf einer Schüler-Seite veröffentlicht, die per Zugangscode erreichbar ist."""
+        from app.agents.h5p_agent import run_h5p_agent
+        from app.h5p_generator import exercise_set_to_h5p
+        from app import db
+        import json, uuid, random
+        _NOUNS = [
+            "tiger", "wolke", "stern", "apfel", "vogel", "blume", "stein", "welle", "fuchs", "regen",
+            "sonne", "mond", "baum", "fisch", "adler", "birne",
+        ]
+        try:
+            exercise_set = await run_h5p_agent(fach, klasse, thema, exercise_type, num_questions)
+            h5p_content, h5p_type = exercise_set_to_h5p(exercise_set)
+            title = exercise_set.title
+
+            # Find or create exercise page for this teacher
+            pages = await db.select("exercise_pages", filters={"teacher_id": ctx.deps.teacher_id}, limit=1)
+            if pages and isinstance(pages, list) and len(pages) > 0:
+                page = pages[0]
+                page_id = page["id"]
+                access_code = page["access_code"]
+            else:
+                page_id = str(uuid.uuid4())
+                access_code = f"{random.choice(_NOUNS)}{random.randint(10, 99)}"
+                await db.insert("exercise_pages", {
+                    "id": page_id,
+                    "teacher_id": ctx.deps.teacher_id,
+                    "access_code": access_code,
+                    "title": f"{fach} Klasse {klasse}",
+                })
+
+            # Insert exercise
+            exercise_id = str(uuid.uuid4())
+            await db.insert("exercises", {
+                "id": exercise_id,
+                "page_id": page_id,
+                "teacher_id": ctx.deps.teacher_id,
+                "title": title,
+                "h5p_type": h5p_type,
+                "h5p_content": json.dumps(h5p_content),
+            })
+
+            base = ctx.deps.base_url or ""
+            page_url = f"{base}/s/{access_code}" if base else f"/s/{access_code}"
+            return (
+                f"Übung erstellt: **{title}**\n"
+                f"Typ: {h5p_type}\n"
+                f"Zugangscode: **{access_code}**\n"
+                f"Link für Schüler: {page_url}\n"
+            )
+        except Exception as e:
+            logger.error(f"Exercise generation failed: {e}")
+            return f"Fehler bei der Übungserstellung: {str(e)}"
+
     return agent
 
 
