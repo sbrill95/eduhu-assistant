@@ -9,12 +9,6 @@ interface SendRequest {
   teacher_id: string;
 }
 
-interface DbMessage {
-  role: string;
-  content: string;
-  created_at: string;
-}
-
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const body = (await context.request.json()) as SendRequest;
 
@@ -31,16 +25,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   // Create conversation if new
   if (!conversationId) {
-    const { data: conv, error: convErr } = await supabase
+    const convResult = await supabase
       .from('conversations')
-      .insert({ user_id: teacherId, title: body.message.slice(0, 80) })
-      .select('id')
-      .single();
+      .insert({ user_id: teacherId, title: body.message.slice(0, 80) });
 
-    if (convErr || !conv) {
+    const conv = (convResult.data as { id: string }[] | null)?.[0];
+    if (convResult.error || !conv) {
       return error('Konversation konnte nicht erstellt werden', 500);
     }
-    conversationId = conv.id as string;
+    conversationId = conv.id;
   }
 
   // Store user message
@@ -51,14 +44,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   });
 
   // Load conversation history (last 20 messages)
-  const { data: history } = await supabase
+  const historyResult = await supabase
     .from('messages')
     .select('role, content, created_at')
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
     .limit(20);
 
-  const messages = (history ?? []).map((m: DbMessage) => ({
+  const history = (historyResult.data ?? []) as { role: string; content: string }[];
+  const messages = history.map((m) => ({
     role: m.role as 'user' | 'assistant',
     content: m.content,
   }));
@@ -77,15 +71,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   }
 
   // Store assistant message
-  const { data: savedMsg } = await supabase
+  const saveResult = await supabase
     .from('messages')
     .insert({
       conversation_id: conversationId,
       role: 'assistant',
       content: assistantText,
-    })
-    .select('id, created_at')
-    .single();
+    });
+
+  const savedMsg = ((saveResult.data as { id: string; created_at: string }[] | null) ?? [])[0];
 
   // Async: Run memory agent (fire-and-forget via waitUntil)
   const conversationContext = messages

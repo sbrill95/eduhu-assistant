@@ -13,13 +13,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   const supabase = getSupabase(context.env);
 
-  const { data: teacher, error: dbError } = await supabase
+  const result = await supabase
     .from('teachers')
     .select('id, name')
     .eq('password', body.password.trim())
     .single();
 
-  if (dbError || !teacher) {
+  const teacher = result.data as { id: string; name: string } | null;
+
+  if (result.error || !teacher) {
     return error('Falsches Passwort', 401);
   }
 

@@ -1,4 +1,3 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Env } from './supabase';
 import { chatWithClaude } from './claude';
 
@@ -69,7 +68,7 @@ export async function extractMemories(
  * Store extracted memories in Supabase.
  */
 export async function storeMemories(
-  supabase: SupabaseClient,
+  supabase: { from(table: string): any },
   teacherId: string,
   result: MemoryExtractionResult,
   conversationId: string,

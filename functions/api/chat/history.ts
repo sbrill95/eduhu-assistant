@@ -10,14 +10,16 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   const supabase = getSupabase(context.env);
 
-  const { data: messages } = await supabase
+  const result = await supabase
     .from('messages')
     .select('id, role, content, created_at')
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true });
 
+  const messages = (result.data ?? []) as { id: string; role: string; content: string; created_at: string }[];
+
   return json({
-    messages: (messages ?? []).map((m: { id: string; role: string; content: string; created_at: string }) => ({
+    messages: messages.map((m) => ({
       id: m.id,
       role: m.role,
       content: m.content,

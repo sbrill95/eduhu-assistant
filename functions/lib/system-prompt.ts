@@ -1,4 +1,6 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+interface SupabaseDB {
+  from(table: string): any;
+}
 
 interface TeacherProfile {
   id: string;
@@ -28,7 +30,7 @@ interface SessionLog {
  * Zone 1 (always-on): loaded at session start.
  */
 export async function buildSystemPrompt(
-  supabase: SupabaseClient,
+  supabase: SupabaseDB,
   teacherId: string,
 ): Promise<string> {
   // --- Block 1: Identity (static) ---
