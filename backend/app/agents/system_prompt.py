@@ -147,6 +147,27 @@ async def build_system_prompt(
     if conversation_summary:
         blocks.append(f"## Bisheriges Gespräch (Zusammenfassung)\n{conversation_summary}")
 
+    # Block 5: Open todos
+    try:
+        todos = await db.select(
+            "todos",
+            filters={"teacher_id": teacher_id, "done": False},
+            order="due_date.asc.nullslast,created_at.desc",
+        )
+        if isinstance(todos, list) and todos:
+            todo_lines = []
+            for t in todos:
+                due = f" (bis {t['due_date']})" if t.get("due_date") else ""
+                prio = " ⚠️ WICHTIG" if t.get("priority") == "high" else ""
+                todo_lines.append(f"- {t['text']}{due}{prio}")
+            blocks.append(
+                "## Offene Todos der Lehrkraft\n"
+                + "\n".join(todo_lines)
+                + "\n\nWenn ein Todo heute oder morgen fällig ist, erinnere die Lehrkraft proaktiv daran."
+            )
+    except Exception as e:
+        logger.warning(f"Failed to load todos: {e}")
+
     prompt = "\n\n".join(blocks)
     logger.info(f"System prompt for {teacher_id}: ~{len(prompt)} chars")
     return prompt

@@ -213,6 +213,63 @@ def create_agent() -> Agent[AgentDeps, str]:
             logger.error(f"Patch material task failed: {e}")
             return f"Fehler: {str(e)}"
 
+    @agent.tool
+    async def manage_todos(
+        ctx: RunContext[AgentDeps],
+        action: str,
+        text: str = "",
+        due_date: str = "",
+        todo_id: str = "",
+    ) -> str:
+        """Verwalte die To-Do-Liste der Lehrkraft.
+
+        Actions:
+        - "list": Zeige alle offenen Todos
+        - "add": Neues Todo erstellen (text required, due_date optional als YYYY-MM-DD)
+        - "complete": Todo als erledigt markieren (todo_id required)
+        - "delete": Todo löschen (todo_id required)
+
+        Nutze dieses Tool wenn die Lehrkraft sagt: 'erinnere mich an...', 'ich muss noch...',
+        'todo:', 'was steht an?', 'was muss ich noch machen?', oder ähnlich.
+        """
+        teacher_id = ctx.deps.teacher_id
+        base = ctx.deps.base_url or "http://localhost:8000"
+
+        import httpx
+        headers = {"Content-Type": "application/json", "X-Teacher-ID": teacher_id}
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            if action == "list":
+                r = await client.get(f"{base}/api/todos?done=false", headers=headers)
+                todos = r.json()
+                if not todos:
+                    return "Keine offenen Todos vorhanden. 🎉"
+                lines = []
+                for t in todos:
+                    due = f" (bis {t['due_date']})" if t.get("due_date") else ""
+                    prio = " ⚠️" if t.get("priority") == "high" else ""
+                    lines.append(f"- [{t['id'][:8]}] {t['text']}{due}{prio}")
+                return "Offene Todos:\n" + "\n".join(lines)
+
+            elif action == "add":
+                data: dict = {"text": text}
+                if due_date:
+                    data["due_date"] = due_date
+                r = await client.post(f"{base}/api/todos", json=data, headers=headers)
+                return f"✅ Todo erstellt: {text}" + (f" (bis {due_date})" if due_date else "")
+
+            elif action == "complete":
+                r = await client.patch(
+                    f"{base}/api/todos/{todo_id}", json={"done": True}, headers=headers
+                )
+                return "Todo erledigt! ✅"
+
+            elif action == "delete":
+                r = await client.delete(f"{base}/api/todos/{todo_id}", headers=headers)
+                return "Todo gelöscht."
+
+            return f"Unbekannte Aktion: {action}"
+
     return agent
 
 

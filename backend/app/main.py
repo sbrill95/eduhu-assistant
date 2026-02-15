@@ -11,7 +11,7 @@ from app.config import get_settings
 from app.agents.main_agent import get_agent
 
 # Import routers
-from app.routers import auth, chat, profile, curriculum, materials, h5p
+from app.routers import auth, chat, profile, curriculum, materials, h5p, todos
 from app.exceptions import global_exception_handler
 
 # ── Logfire ──
@@ -90,6 +90,7 @@ app.include_router(curriculum.router)
 app.include_router(materials.router)
 app.include_router(h5p.router)
 app.include_router(h5p.public_router)
+app.include_router(todos.router)
 
 
 @app.get("/api/suggestions")

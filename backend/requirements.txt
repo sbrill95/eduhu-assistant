@@ -34,6 +34,8 @@ anyio==4.12.1
     #   watchfiles
 argcomplete==3.6.3
     # via pydantic-ai-slim
+asyncpg==0.31.0
+    # via eduhu-assistant
 attrs==25.4.0
     # via
     #   aiohttp
