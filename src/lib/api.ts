@@ -47,7 +47,7 @@ export async function sendMessage(
 export async function sendMessageStream(
   message: string,
   conversationId: string | null,
-  file?: { name: string; type: string; base64: string },
+  file: { name: string; type: string; base64: string } | undefined,
   onDelta: (text: string) => void,
   onMeta: (data: { conversation_id: string }) => void,
   onDone: (data: { message_id: string }) => void,

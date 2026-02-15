@@ -8,7 +8,7 @@ interface Props {
 export function CountdownTimer({ seconds, label }: Props) {
   const [remaining, setRemaining] = useState(seconds);
   const [running, setRunning] = useState(true);
-  const intervalRef = useRef<ReturnType<typeof setInterval>>();
+  const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
   useEffect(() => {
     if (!running) return;

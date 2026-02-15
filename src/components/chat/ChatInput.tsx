@@ -132,7 +132,7 @@ export function ChatInput({ onSend, disabled }: Props) {
     reader.onload = () => {
       const result = reader.result as string;
       // Strip data URL prefix to get pure base64
-      const base64 = result.includes(',') ? result.split(',')[1] : result;
+      const base64 = result.includes(',') ? (result.split(',')[1] ?? result) : result;
       setFile({ name: f.name, type: f.type, base64, size: f.size });
     };
     reader.readAsDataURL(f);

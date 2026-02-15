@@ -94,7 +94,7 @@ export function ChatMessage({ message, onChipSelect }: Props) {
               {(() => {
                 const timerMatch = message.content.match(/\{\{TIMER:(\d+):([^}]*)\}\}/);
                 if (timerMatch) {
-                  return <CountdownTimer seconds={parseInt(timerMatch[1])} label={timerMatch[2]} />;
+                  return <CountdownTimer seconds={parseInt(timerMatch[1] ?? '0')} label={timerMatch[2] ?? ''} />;
                 }
                 return null;
               })()}
