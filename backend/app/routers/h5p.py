@@ -12,6 +12,7 @@ import random
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/exercises", tags=["H5P"])
+public_router = APIRouter(prefix="/api/public", tags=["H5P Public"])
 
 # H5P Access Code Generator
 _NOUNS = [
@@ -95,6 +96,44 @@ async def generate_h5p_exercise(req: H5PExerciseRequest):
     except Exception as e:
         logger.error(f"Error generating H5P exercise: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate exercise.")
+
+
+@public_router.get("/pages/{access_code}")
+async def get_public_page(access_code: str):
+    """Public endpoint for students — no auth required."""
+    page = await db.select(
+        "exercise_pages",
+        columns="id, title, access_code",
+        filters={"access_code": access_code},
+        single=True
+    )
+    if not page:
+        raise HTTPException(status_code=404, detail="Seite nicht gefunden")
+    
+    exercises = await db.select(
+        "exercises",
+        columns="id, title, h5p_type",
+        filters={"page_id": page["id"]},
+        order="created_at.asc"
+    )
+    if not isinstance(exercises, list):
+        exercises = []
+    
+    return {"page": page, "exercises": exercises}
+
+
+@public_router.get("/h5p/{exercise_id}")
+async def get_public_h5p_content(exercise_id: str):
+    """Public endpoint — returns H5P JSON content for the player."""
+    exercise = await db.select(
+        "exercises",
+        columns="h5p_content, h5p_type",
+        filters={"id": exercise_id},
+        single=True
+    )
+    if not exercise:
+        raise HTTPException(status_code=404, detail="Übung nicht gefunden")
+    return exercise["h5p_content"]
 
 
 @router.get("/pages", response_model=list[PageOut])

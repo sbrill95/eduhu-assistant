@@ -89,6 +89,7 @@ app.include_router(profile.router)
 app.include_router(curriculum.router)
 app.include_router(materials.router)
 app.include_router(h5p.router)
+app.include_router(h5p.public_router)
 
 
 @app.get("/api/suggestions")
