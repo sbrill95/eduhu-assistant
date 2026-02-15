@@ -90,11 +90,44 @@
       content: "✗" !important;
       color: var(--h5p-theme-feedback-incorrect-main) !important;
     }
+    /* Correct answer highlight after check — show which was right */
+    .h5p-correct {
+      background: var(--h5p-theme-feedback-correct-secondary) !important;
+      border-left: 4px solid var(--h5p-theme-feedback-correct-main) !important;
+    }
+    .h5p-correct .h5p-alternative-container:before {
+      color: var(--h5p-theme-feedback-correct-main) !important;
+    }
+    /* Wrong answer styling */
+    .h5p-wrong {
+      background: var(--h5p-theme-feedback-incorrect-secondary) !important;
+      border-left: 4px solid var(--h5p-theme-feedback-incorrect-main) !important;
+    }
+    /* Bigger radio/checkbox icons for mobile tap targets */
+    .h5p-multichoice .h5p-alternative-container:before {
+      font-size: 1.3em !important;
+      line-height: 1 !important;
+    }
     /* Question check button — also uses h5p-theme font for icons */
     .h5p-question-check-answer:before,
     .h5p-question-show-solution:before,
     .h5p-question-try-again:before {
       font-family: sans-serif !important;
+    }
+    /* Score bar — eduhu brand */
+    .h5p-question-scorebar .h5p-question-score-fill {
+      background: var(--h5p-theme-feedback-correct-main) !important;
+    }
+    /* Answer options — better spacing and touch targets */
+    .h5p-multichoice .h5p-answer {
+      min-height: 44px !important;
+      padding: 0.6em 0.8em !important;
+    }
+    /* Show solution button — secondary style */
+    .h5p-question-show-solution {
+      background: transparent !important;
+      color: var(--h5p-theme-main-cta-base) !important;
+      border: 2px solid var(--h5p-theme-main-cta-base) !important;
     }
   </style>
 </head>

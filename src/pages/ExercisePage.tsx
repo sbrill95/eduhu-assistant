@@ -124,7 +124,7 @@ const ExercisePage: React.FC = () => {
               {getIconForType(exercise.h5p_type)}
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-semibold text-[#2D2018] truncate">{exercise.title}</h2>
+              <h2 className="text-sm font-semibold text-[#2D2018] line-clamp-2">{exercise.title}</h2>
               <span className="text-xs text-[#8B7355]">{exercise.h5p_type.replace('H5P.', '')}</span>
             </div>
             <div className="flex-shrink-0 text-[#8B7355] text-sm">
