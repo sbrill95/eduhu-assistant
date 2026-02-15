@@ -35,7 +35,8 @@
         copyright: false,
         export: false,
         icon: false,
-        fullScreen: false
+        fullScreen: false,
+        embedType: 'div'
         // Default iframe embedType — this creates a proper iframe within this page
       };
       
@@ -50,16 +51,6 @@
             document.body.scrollHeight,
             400
           );
-          // Also check iframe inside
-          var innerIframe = document.querySelector('iframe.h5p-iframe');
-          if (innerIframe && innerIframe.contentDocument) {
-            try {
-              var innerH = innerIframe.contentDocument.documentElement.scrollHeight;
-              if (innerH > h) h = innerH;
-              // Fix inner iframe height too
-              innerIframe.style.height = innerH + 'px';
-            } catch(e) {}
-          }
           window.parent.postMessage({ type: 'h5p-resize', height: h + 20 }, '*');
         }
         
