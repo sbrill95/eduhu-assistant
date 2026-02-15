@@ -61,13 +61,13 @@ export function TodoCard({ todos: initialTodos }: TodoCardProps) {
   }
 
   return (
-    <div className="my-2 max-w-[340px] overflow-hidden rounded-xl border border-[#C5D5A0] bg-[#E8F0D8] text-sm shadow-sm">
-      <div className="bg-[#D6E4BC] px-4 py-2.5">
+    <div className="my-2 max-w-[340px] overflow-hidden rounded-xl border border-[#D9D3CD] bg-white text-sm shadow-sm">
+      <div className="bg-[#F5F0EB] px-4 py-2.5">
         <h3 className="flex items-center gap-2 text-base font-bold text-[#2D2018]">
           📋 Meine Todos
         </h3>
       </div>
-      <ul className="space-y-0 divide-y divide-[#C5D5A0] px-4">
+      <ul className="space-y-0 divide-y divide-[#D9D3CD] px-4">
         {todos.map((todo) => (
           <li key={todo.id} className="flex items-start gap-2.5 py-2.5">
             <button
@@ -98,7 +98,7 @@ export function TodoCard({ todos: initialTodos }: TodoCardProps) {
       </ul>
 
       {/* Add new todo */}
-      <div className="border-t border-[#C5D5A0] px-4 py-2">
+      <div className="border-t border-[#D9D3CD] px-4 py-2">
         <form onSubmit={(e) => { e.preventDefault(); void addTodo(); }} className="flex items-center gap-2">
           <span className="text-[#C8552D] font-bold">＋</span>
           <input
@@ -123,7 +123,7 @@ export function TodoCard({ todos: initialTodos }: TodoCardProps) {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between border-t border-[#C5D5A0] bg-[#D6E4BC] px-4 py-2">
+      <div className="flex items-center justify-between border-t border-[#D9D3CD] bg-[#F5F0EB] px-4 py-2">
         <span className="text-xs font-medium text-[#6B6360]">
           {openTodos} von {totalTodos} offen
         </span>

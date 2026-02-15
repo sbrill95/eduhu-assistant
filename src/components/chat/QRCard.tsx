@@ -8,8 +8,8 @@ interface QRCardProps {
 
 export function QRCard({ title, code, url, qr_url, count }: QRCardProps) {
   return (
-    <div className="my-2 max-w-[300px] overflow-hidden rounded-xl border border-[#A8B8D8] bg-[#DDE5F0] text-sm shadow-sm">
-      <div className="bg-[#C4D0E4] px-4 py-2.5">
+    <div className="my-2 max-w-[300px] overflow-hidden rounded-xl border border-[#D9D3CD] bg-white text-sm shadow-sm">
+      <div className="bg-[#F5F0EB] px-4 py-2.5">
         <h3 className="text-base font-bold text-[#2D2018]">🎯 {title}</h3>
       </div>
       <div className="flex flex-col items-center px-4 py-3">
@@ -27,7 +27,7 @@ export function QRCard({ title, code, url, qr_url, count }: QRCardProps) {
           {url}
         </a>
       </div>
-      <div className="border-t border-[#A8B8D8] bg-[#C4D0E4] px-4 py-2 text-center">
+      <div className="border-t border-[#D9D3CD] bg-[#F5F0EB] px-4 py-2 text-center">
         <span className="text-xs font-medium text-[#6B6360]">
           {count} Aufgabe{count !== 1 ? 'n' : ''}
         </span>
