@@ -228,3 +228,16 @@ export async function deleteConversation(conversationId: string): Promise<void> 
     headers: { 'X-Teacher-ID': teacher.teacher_id }
   });
 }
+
+export async function transcribeAudio(audioBlob: Blob, teacherId: string): Promise<string> {
+  const form = new FormData();
+  form.append('file', audioBlob, 'recording.webm');
+  const resp = await fetch(`${API_BASE}/api/transcribe`, {
+    method: 'POST',
+    headers: { 'X-Teacher-ID': teacherId },
+    body: form,
+  });
+  if (!resp.ok) throw new Error('Transcription failed');
+  const data = await resp.json();
+  return data.text || '';
+}

@@ -92,6 +92,9 @@ app.include_router(h5p.router)
 app.include_router(h5p.public_router)
 app.include_router(todos.router)
 
+from app.routers import transcribe
+app.include_router(transcribe.router)
+
 
 @app.get("/api/suggestions")
 async def get_suggestions_wrapper(teacher_id: str):

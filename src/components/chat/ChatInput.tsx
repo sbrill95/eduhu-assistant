@@ -1,4 +1,6 @@
 import { useState, useRef, type KeyboardEvent, type ChangeEvent } from 'react';
+import { transcribeAudio } from '@/lib/api';
+import { getSession } from '@/lib/auth';
 
 export interface FileAttachment {
   name: string;
@@ -18,8 +20,77 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf
 export function ChatInput({ onSend, disabled }: Props) {
   const [text, setText] = useState('');
   const [file, setFile] = useState<FileAttachment | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Bevorzuge Opus im WebM-Container, falle aber auf den Standard zurück
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm'].find(MediaRecorder.isTypeSupported);
+      if (!mimeType) {
+        alert('Dein Browser unterstützt die Audioaufnahme nicht im benötigten Format.');
+        return;
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.addEventListener('dataavailable', (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      });
+
+      mediaRecorder.addEventListener('stop', async () => {
+        // Stoppe alle Tracks, um die Mikrofon-Anzeige im Browser zu deaktivieren
+        mediaRecorder.stream.getTracks().forEach((track) => track.stop());
+
+        const teacher = getSession();
+        if (!teacher) {
+          alert('Fehler: Nicht angemeldet.');
+          setIsRecording(false);
+          return;
+        }
+
+        if (audioChunksRef.current.length === 0) {
+          setIsRecording(false);
+          return;
+        }
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+
+        setIsTranscribing(true);
+        try {
+          const transcribedText = await transcribeAudio(audioBlob, teacher.teacher_id);
+          setText((prev) => (prev ? `${prev.trim()} ${transcribedText}` : transcribedText));
+          // Manuelles Auslösen des Input-Handlers, um die Textarea-Größe anzupassen
+          setTimeout(() => handleInput(), 0);
+        } catch (err) {
+          console.error('Fehler bei der Transkription:', err);
+          alert('Die Transkription ist fehlgeschlagen.');
+        } finally {
+          setIsTranscribing(false);
+        }
+      });
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error('Fehler bei der Audioaufnahme:', err);
+      alert('Zugriff auf das Mikrofon wurde verweigert oder es ist kein Mikrofon angeschlossen.');
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  }
 
   function handleSend() {
     const trimmed = text.trim();
@@ -109,11 +180,25 @@ export function ChatInput({ onSend, disabled }: Props) {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          disabled={disabled}
+          disabled={disabled || isRecording}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl text-text-secondary transition-colors hover:bg-bg-subtle hover:text-primary disabled:opacity-40"
           title="Datei anhängen (Bild oder PDF)"
         >
           📎
+        </button>
+
+        <button
+          type="button"
+          onClick={isRecording ? stopRecording : startRecording}
+          disabled={disabled || isTranscribing}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl transition-colors ${
+            isRecording
+              ? 'bg-red-500 text-white animate-pulse'
+              : 'text-text-secondary hover:bg-bg-subtle hover:text-primary'
+          } disabled:opacity-40`}
+          title={isRecording ? 'Aufnahme stoppen' : 'Spracheingabe'}
+        >
+          {isRecording ? '⏹' : '🎤'}
         </button>
 
         <textarea
@@ -123,7 +208,7 @@ export function ChatInput({ onSend, disabled }: Props) {
           onKeyDown={handleKeyDown}
           onInput={handleInput}
           placeholder="Nachricht eingeben..."
-          disabled={disabled}
+          disabled={disabled || isRecording}
           rows={1}
           className="input max-h-[160px] min-h-[40px] flex-1 resize-none py-2.5"
         />
@@ -131,13 +216,16 @@ export function ChatInput({ onSend, disabled }: Props) {
         <button
           type="button"
           onClick={handleSend}
-          disabled={(!text.trim() && !file) || disabled}
+          disabled={(!text.trim() && !file) || disabled || isRecording}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-lg text-white transition-all hover:bg-primary-hover disabled:opacity-40 disabled:hover:bg-primary"
           title="Senden"
         >
           ⬆
         </button>
       </div>
+      {isTranscribing && (
+        <div className="pt-1 text-center text-xs text-text-muted">Wird transkribiert...</div>
+      )}
     </div>
   );
 }
