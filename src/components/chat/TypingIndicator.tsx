@@ -1,12 +1,66 @@
 import { useState, useEffect } from 'react';
 
-export function TypingIndicator() {
-  const [showColdStart, setShowColdStart] = useState(false);
+interface TypingIndicatorProps {
+  /** Optional hint about what was asked — used to pick relevant step messages */
+  context?: string;
+}
+
+const COLD_START_DELAY = 6000;
+const STEP_INTERVAL = 4000;
+
+const DEFAULT_STEPS = [
+  'Nachricht wird verarbeitet…',
+  'Erinnerungen werden durchsucht…',
+  'Antwort wird formuliert…',
+];
+
+const MATERIAL_STEPS = [
+  'Anforderungen werden analysiert…',
+  'Lehrplan wird berücksichtigt…',
+  'Material wird zusammengestellt…',
+  'Aufgaben werden formuliert…',
+  'Erwartungshorizont wird erstellt…',
+];
+
+const KLAUSUR_STEPS = [
+  'Thema wird analysiert…',
+  'AFB-Verteilung wird geplant…',
+  'Aufgaben werden erstellt…',
+  'Erwartungshorizont wird geschrieben…',
+  'Klassenarbeit wird finalisiert…',
+];
+
+const H5P_STEPS = [
+  'Übungstyp wird ausgewählt…',
+  'Fragen werden generiert…',
+  'Interaktive Übung wird erstellt…',
+  'Übungsseite wird vorbereitet…',
+];
+
+function pickSteps(context?: string): string[] {
+  if (!context) return DEFAULT_STEPS;
+  const c = context.toLowerCase();
+  if (c.includes('klausur') || c.includes('klassenarbeit') || c.includes('prüfung')) return KLAUSUR_STEPS;
+  if (c.includes('material') || c.includes('arbeitsblatt') || c.includes('differenz')) return MATERIAL_STEPS;
+  if (c.includes('übung') || c.includes('h5p') || c.includes('quiz') || c.includes('interaktiv')) return H5P_STEPS;
+  return DEFAULT_STEPS;
+}
+
+export function TypingIndicator({ context }: TypingIndicatorProps) {
+  const [stepIndex, setStepIndex] = useState(-1);
+  const steps = pickSteps(context);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowColdStart(true), 8000);
-    return () => clearTimeout(timer);
+    // Show first step after cold-start delay
+    const initial = setTimeout(() => setStepIndex(0), COLD_START_DELAY);
+    return () => clearTimeout(initial);
   }, []);
+
+  useEffect(() => {
+    if (stepIndex < 0 || stepIndex >= steps.length - 1) return;
+    const timer = setTimeout(() => setStepIndex((i) => i + 1), STEP_INTERVAL);
+    return () => clearTimeout(timer);
+  }, [stepIndex, steps.length]);
 
   return (
     <div className="flex gap-3">
@@ -27,11 +81,12 @@ export function TypingIndicator() {
               />
             ))}
           </div>
-          {showColdStart && (
-            <span className="text-xs text-text-muted">
-              Server startet gerade… kann bis zu 60s dauern
-            </span>
-          )}
+          <span
+            className="text-xs text-text-muted transition-opacity duration-500"
+            style={{ opacity: stepIndex >= 0 ? 1 : 0 }}
+          >
+            {stepIndex >= 0 ? steps[stepIndex] : ''}
+          </span>
         </div>
       </div>
     </div>
