@@ -36,11 +36,23 @@ const ExercisePage: React.FC = () => {
   const getIconForType = (type: string) => {
     switch (type) {
       case 'H5P.MultiChoice': return '📝';
+      case 'H5P.QuestionSet': return '📋';
       case 'H5P.Blanks': return '🔤';
       case 'H5P.TrueFalse': return '✅';
       case 'H5P.DragText': return '🔀';
       default: return '📄';
     }
+  };
+
+  const getTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      'H5P.MultiChoice': 'Multiple Choice',
+      'H5P.QuestionSet': 'Quiz',
+      'H5P.Blanks': 'Lückentext',
+      'H5P.TrueFalse': 'Wahr oder Falsch',
+      'H5P.DragText': 'Wörter zuordnen',
+    };
+    return labels[type] || type.replace('H5P.', '');
   };
 
   if (loading) {
@@ -125,7 +137,7 @@ const ExercisePage: React.FC = () => {
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="text-sm font-semibold text-[#2D2018] line-clamp-2">{exercise.title}</h2>
-              <span className="text-xs text-[#8B7355]">{exercise.h5p_type.replace('H5P.', '')}</span>
+              <span className="text-xs text-[#8B7355]">{getTypeLabel(exercise.h5p_type)}</span>
             </div>
             <div className="flex-shrink-0 text-[#8B7355] text-sm">
               {index + 1}/{exercises.length}

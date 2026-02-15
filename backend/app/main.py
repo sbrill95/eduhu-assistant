@@ -748,6 +748,7 @@ H5P_TYPE_MAP = {
     "H5P.Blanks": {"machineName": "H5P.Blanks", "majorVersion": 1, "minorVersion": 14},
     "H5P.TrueFalse": {"machineName": "H5P.TrueFalse", "majorVersion": 1, "minorVersion": 8},
     "H5P.DragText": {"machineName": "H5P.DragText", "majorVersion": 1, "minorVersion": 10},
+    "H5P.QuestionSet": {"machineName": "H5P.QuestionSet", "majorVersion": 1, "minorVersion": 20},
 }
 
 
@@ -762,18 +763,28 @@ async def get_h5p_manifest(exercise_id: str):
     if not record:
         raise HTTPException(status_code=404, detail="Exercise not found")
     lib = H5P_TYPE_MAP.get(record["h5p_type"], H5P_TYPE_MAP["H5P.MultiChoice"])
+    deps = [
+        {"machineName": lib["machineName"], "majorVersion": lib["majorVersion"], "minorVersion": lib["minorVersion"]},
+        {"machineName": "FontAwesome", "majorVersion": 4, "minorVersion": 5},
+        {"machineName": "H5P.JoubelUI", "majorVersion": 1, "minorVersion": 3},
+        {"machineName": "H5P.Question", "majorVersion": 1, "minorVersion": 5},
+        {"machineName": "H5P.Transition", "majorVersion": 1, "minorVersion": 0},
+        {"machineName": "H5P.FontIcons", "majorVersion": 1, "minorVersion": 0},
+    ]
+    # QuestionSet needs sub-content library dependencies
+    if record["h5p_type"] == "H5P.QuestionSet":
+        deps.extend([
+            {"machineName": "H5P.MultiChoice", "majorVersion": 1, "minorVersion": 16},
+            {"machineName": "H5P.TrueFalse", "majorVersion": 1, "minorVersion": 8},
+            {"machineName": "H5P.Video", "majorVersion": 1, "minorVersion": 6},
+            {"machineName": "H5P.Components", "majorVersion": 1, "minorVersion": 0},
+            {"machineName": "H5P.TextUtilities", "majorVersion": 1, "minorVersion": 3},
+        ])
     return {
         "title": record["title"],
         "language": "de",
         "mainLibrary": lib["machineName"],
-        "preloadedDependencies": [
-            {"machineName": lib["machineName"], "majorVersion": lib["majorVersion"], "minorVersion": lib["minorVersion"]},
-            {"machineName": "FontAwesome", "majorVersion": 4, "minorVersion": 5},
-            {"machineName": "H5P.JoubelUI", "majorVersion": 1, "minorVersion": 3},
-            {"machineName": "H5P.Question", "majorVersion": 1, "minorVersion": 5},
-            {"machineName": "H5P.Transition", "majorVersion": 1, "minorVersion": 0},
-            {"machineName": "H5P.FontIcons", "majorVersion": 1, "minorVersion": 0},
-        ],
+        "preloadedDependencies": deps,
     }
 
 

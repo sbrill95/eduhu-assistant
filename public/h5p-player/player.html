@@ -135,6 +135,26 @@
       color: var(--h5p-theme-main-cta-base) !important;
       border: 2px solid var(--h5p-theme-main-cta-base) !important;
     }
+    /* QuestionSet progress dots — clean styling */
+    .h5p-question-set-progress .h5p-joubelui-progressbar {
+      background: var(--h5p-theme-alternative-dark) !important;
+    }
+    .h5p-question-set-progress .h5p-joubelui-progressbar .h5p-joubelui-progressbar-background {
+      background: var(--h5p-theme-main-cta-base) !important;
+    }
+    /* Hide broken/empty score elements that don't render properly in standalone */
+    .h5p-score-icon-star,
+    .h5p-score-icon {
+      display: none !important;
+    }
+    /* Clean up score bar */
+    .h5p-question-scorebar {
+      margin: 0.5em 0 !important;
+    }
+    /* QuestionSet navigation dots */
+    .h5p-question-set-footer .h5p-joubelui-score-bar-star {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
