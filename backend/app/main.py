@@ -255,11 +255,11 @@ async def chat_history(conversation_id: str, teacher_id: str):
     # BUG-003 fix: Verify conversation belongs to requesting teacher
     conv = await db.select(
         "conversations",
-        columns="id, teacher_id",
+        columns="id, user_id",
         filters={"id": conversation_id},
         single=True,
     )
-    if not conv or conv.get("teacher_id") != teacher_id:
+    if not conv or conv.get("user_id") != teacher_id:
         raise HTTPException(status_code=403, detail="Zugriff verweigert")
     messages = await db.select(
         "messages",
@@ -330,11 +330,11 @@ async def update_conversation(conversation_id: str, title: str = "", teacher_id:
         raise HTTPException(status_code=400, detail="teacher_id required")
     conv = await db.select(
         "conversations",
-        columns="id, teacher_id",
+        columns="id, user_id",
         filters={"id": conversation_id},
         single=True,
     )
-    if not conv or conv.get("teacher_id") != teacher_id:
+    if not conv or conv.get("user_id") != teacher_id:
         raise HTTPException(status_code=403, detail="Zugriff verweigert")
     if title:
         await db.update(
