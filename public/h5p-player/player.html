@@ -155,6 +155,27 @@
     .h5p-question-set-footer .h5p-joubelui-score-bar-star {
       display: none !important;
     }
+    /* Hide empty icon-only buttons that lack text (broken h5p-theme font) */
+    .h5p-theme-button:empty,
+    button.h5p-theme-button .h5p-theme-icon:only-child {
+      display: none !important;
+    }
+    /* QuestionSet progress dots — styled with eduhu brand */
+    .progress-dot {
+      width: 12px !important;
+      height: 12px !important;
+      border-radius: 50% !important;
+      border: 2px solid var(--h5p-theme-main-cta-base) !important;
+      background: transparent !important;
+      display: inline-block !important;
+    }
+    .progress-dot.current {
+      background: var(--h5p-theme-main-cta-base) !important;
+    }
+    .progress-dot.answered {
+      background: var(--h5p-theme-feedback-correct-main) !important;
+      border-color: var(--h5p-theme-feedback-correct-main) !important;
+    }
   </style>
 </head>
 <body>

@@ -87,32 +87,36 @@ const ExercisePage: React.FC = () => {
             >
               ← Übersicht
             </button>
-            <span className="text-sm text-[#8B7355]">
-              {currentIndex + 1} / {exercises.length}
-            </span>
+            {exercises.length > 1 && (
+              <span className="text-sm text-[#8B7355]">
+                {currentIndex + 1} / {exercises.length}
+              </span>
+            )}
           </div>
           {currentExercise && (
             <h2 className="text-lg font-semibold text-[#2D2018] mb-4">{currentExercise.title}</h2>
           )}
           <H5PPlayer exerciseId={activeExercise} />
-          <div className="flex justify-between mt-4">
-            {hasPrev ? (
-              <button
-                onClick={() => setActiveExercise(exercises[currentIndex - 1]?.id ?? null)}
-                className="text-[#C8552D] hover:text-[#A8461F] text-sm font-medium"
-              >
-                ← Vorherige
-              </button>
-            ) : <div />}
-            {hasNext && (
-              <button
-                onClick={() => setActiveExercise(exercises[currentIndex + 1]?.id ?? null)}
-                className="bg-[#C8552D] text-white py-2 px-5 rounded-lg hover:bg-[#A8461F] transition-colors text-sm font-medium"
-              >
-                Nächste →
-              </button>
-            )}
-          </div>
+          {exercises.length > 1 && (
+            <div className="flex justify-between mt-4">
+              {hasPrev ? (
+                <button
+                  onClick={() => setActiveExercise(exercises[currentIndex - 1]?.id ?? null)}
+                  className="text-[#C8552D] hover:text-[#A8461F] text-sm font-medium"
+                >
+                  ← Vorherige
+                </button>
+              ) : <div />}
+              {hasNext && (
+                <button
+                  onClick={() => setActiveExercise(exercises[currentIndex + 1]?.id ?? null)}
+                  className="bg-[#C8552D] text-white py-2 px-5 rounded-lg hover:bg-[#A8461F] transition-colors text-sm font-medium"
+                >
+                  Nächste →
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
