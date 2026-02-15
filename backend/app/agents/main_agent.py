@@ -167,11 +167,10 @@ def create_agent() -> Agent[AgentDeps, str]:
             base = ctx.deps.base_url or ""
             page_url = f"https://eduhu-assistant.pages.dev/s/{access_code}"
             qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={page_url}"
+            qr_card = json.dumps({"title": exercise_set.title, "code": access_code, "url": page_url, "qr_url": qr_url, "count": len(h5p_exercises)}, ensure_ascii=False)
             return (
                 f"**{len(h5p_exercises)} Übungen** erstellt: {exercise_set.title}\n\n"
-                f"🔑 Zugangscode: **{access_code}**\n"
-                f"🔗 Link für Schüler: {page_url}\n\n"
-                f"📱 QR-Code zum Ausdrucken/Teilen:\n![QR-Code]({qr_url})"
+                f"```qr-card\n{qr_card}\n```"
             )
         except Exception as e:
             logger.error(f"Exercise generation failed: {e}")
@@ -460,18 +459,22 @@ def create_agent() -> Agent[AgentDeps, str]:
                 todos = r.json()
                 if not todos:
                     return "Keine offenen Todos vorhanden. 🎉"
-                lines = []
-                for t in todos:
-                    due = f" (bis {t['due_date']})" if t.get("due_date") else ""
-                    prio = " ⚠️" if t.get("priority") == "high" else ""
-                    lines.append(f"- [{t['id'][:8]}] {t['text']}{due}{prio}")
-                return "Offene Todos:\n" + "\n".join(lines)
+                import json as _json
+                card_data = [{"id": t["id"][:8], "text": t["text"], "done": t.get("done", False), "due_date": t.get("due_date"), "priority": t.get("priority", "normal")} for t in todos]
+                return f"Hier sind deine offenen Todos:\n\n```todo-card\n{_json.dumps(card_data, ensure_ascii=False)}\n```"
 
             elif action == "add":
                 data: dict = {"text": text}
                 if due_date:
                     data["due_date"] = due_date
                 r = await client.post(f"{base}/api/todos", json=data, headers=headers)
+                # Show updated todo list as card
+                r2 = await client.get(f"{base}/api/todos?done=false", headers=headers)
+                all_todos = r2.json() if r2.status_code == 200 else []
+                if all_todos:
+                    import json as _json
+                    card_data = [{"id": t["id"][:8], "text": t["text"], "done": t.get("done", False), "due_date": t.get("due_date"), "priority": t.get("priority", "normal")} for t in all_todos]
+                    return f"✅ Todo erstellt: {text}\n\n```todo-card\n{_json.dumps(card_data, ensure_ascii=False)}\n```"
                 return f"✅ Todo erstellt: {text}" + (f" (bis {due_date})" if due_date else "")
 
             elif action == "complete":

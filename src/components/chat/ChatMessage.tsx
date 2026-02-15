@@ -5,6 +5,8 @@ import type { ChatMessage as ChatMessageType } from '@/lib/types';
 import { ChipSelector } from './ChipSelector';
 import { FilePreview } from './FilePreview';
 import { CountdownTimer } from './CountdownTimer';
+import { QRCard } from './QRCard';
+import { TodoCard } from './TodoCard';
 
 interface Props {
   message: ChatMessageType;
@@ -41,6 +43,23 @@ export function ChatMessage({ message, onChipSelect }: Props) {
                   code({ node, inline, className, children, ...props }: any) {
                     const match = /language-(\w+)/.exec(className || '');
                     const language = match ? match[1] : '';
+
+                    if (language === 'todo-card') {
+                      try {
+                        const todos = JSON.parse(String(children));
+                        return <TodoCard todos={todos} />;
+                      } catch {
+                        return <code {...props}>{children}</code>;
+                      }
+                    }
+                    if (language === 'qr-card') {
+                      try {
+                        const data = JSON.parse(String(children));
+                        return <QRCard {...data} />;
+                      } catch {
+                        return <code {...props}>{children}</code>;
+                      }
+                    }
                     
                     if (!inline && language) {
                       return (
