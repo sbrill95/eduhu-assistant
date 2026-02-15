@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
+from starlette.responses import StreamingResponse
 from app import db
 from app.models import (
     ChatRequest, ChatResponse, ChatMessageOut, ConversationOut,
@@ -11,6 +12,7 @@ from app.config import get_settings
 from app.deps import get_current_teacher_id
 from datetime import datetime, timezone
 import asyncio
+import json
 import logging
 import httpx
 
@@ -19,12 +21,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
-@router.post("/send", response_model=ChatResponse)
-async def chat_send(
-    req: ChatRequest, 
-    request: Request,
-    teacher_id: str = Depends(get_current_teacher_id)
-):
+
+async def _prepare_chat(req: ChatRequest, request: Request, teacher_id: str):
     # Verify the request body matches the authenticated user
     if req.teacher_id and req.teacher_id != teacher_id:
         raise HTTPException(403, "Zugriff verweigert (ID Mismatch)")
@@ -60,7 +58,7 @@ async def chat_send(
     messages = history if isinstance(history, list) else []
 
     # Maybe summarize if conversation is long
-    summary = await maybe_summarize(conversation_id, teacher_id, messages)
+    await maybe_summarize(conversation_id, teacher_id, messages)
 
     # Run the agent
     agent = get_agent()
@@ -118,11 +116,35 @@ async def chat_send(
                 logger.error(f"PDF extraction failed: {e}")
                 user_prompt = f"{req.message}\n\n[PDF '{req.attachment_name}' konnte nicht gelesen werden]"
                 user_prompt_parts = [UserPromptPart(content=user_prompt)]
+    
+    has_image = req.attachment_type and req.attachment_type.startswith("image/")
+    run_input = user_prompt_parts if has_image else user_prompt
 
+    return {
+        "conversation_id": conversation_id,
+        "messages": messages,
+        "agent": agent,
+        "deps": deps,
+        "message_history": message_history,
+        "run_input": run_input,
+    }
+
+
+@router.post("/send", response_model=ChatResponse)
+async def chat_send(
+    req: ChatRequest, 
+    request: Request,
+    teacher_id: str = Depends(get_current_teacher_id)
+):
+    prepared_chat = await _prepare_chat(req, request, teacher_id)
+    conversation_id = prepared_chat["conversation_id"]
+    messages = prepared_chat["messages"]
+    agent = prepared_chat["agent"]
+    deps = prepared_chat["deps"]
+    message_history = prepared_chat["message_history"]
+    run_input = prepared_chat["run_input"]
+    
     try:
-        # Use parts if we have an image, otherwise plain text
-        has_image = req.attachment_type and req.attachment_type.startswith("image/")
-        run_input = user_prompt_parts if has_image else user_prompt
         result = await agent.run(
             run_input,
             deps=deps,
@@ -178,6 +200,75 @@ async def chat_send(
             timestamp=saved.get("created_at", ""),
         ),
     )
+
+
+@router.post("/send-stream")
+async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str = Depends(get_current_teacher_id)):
+    prepared_chat = await _prepare_chat(req, request, teacher_id)
+    conversation_id = prepared_chat["conversation_id"]
+    messages = prepared_chat["messages"]
+    agent = prepared_chat["agent"]
+    deps = prepared_chat["deps"]
+    message_history = prepared_chat["message_history"]
+    run_input = prepared_chat["run_input"]
+
+    async def event_generator():
+        # Send conversation_id first
+        yield f"data: {json.dumps({'type': 'meta', 'conversation_id': conversation_id})}\n\n"
+        
+        full_text = ""
+        try:
+            async with agent.run_stream(run_input, deps=deps, message_history=message_history) as stream:
+                async for chunk in stream.stream_text(delta=True):
+                    full_text += chunk
+                    yield f"data: {json.dumps({'type': 'delta', 'text': chunk})}\n\n"
+        except Exception as e:
+            logger.error(f"Agent stream error: {type(e).__name__}: {e}", exc_info=True)
+            # Yield an error message if something goes wrong during the stream
+            error_payload = {'type': 'error', 'message': f"KI-Antwort fehlgeschlagen: {type(e).__name__}"}
+            yield f"data: {json.dumps(error_payload)}\n\n"
+            return
+
+        # Save message to DB after stream completes
+        saved = await db.insert("messages", {
+            "conversation_id": conversation_id,
+            "role": "assistant", 
+            "content": full_text,
+        })
+        
+        # Send final event with message ID
+        yield f"data: {json.dumps({'type': 'done', 'message_id': saved.get('id', '')})}\n\n"
+        
+        # Update conversation timestamp
+        await db.update(
+            "conversations",
+            {"updated_at": datetime.now(timezone.utc).isoformat()},
+            filters={"id": conversation_id},
+        )
+        
+        # Fire-and-forget memory + learning agents (same as chat_send)
+        def _on_memory_done(task: asyncio.Task):
+            if task.exception():
+                logger.error(f"Memory agent failed: {task.exception()}")
+
+        full_messages = messages + [{"role": "assistant", "content": full_text}]
+
+        mem_task = asyncio.create_task(
+            run_memory_agent(teacher_id, conversation_id, full_messages)
+        )
+        mem_task.add_done_callback(_on_memory_done)
+
+        # Fire-and-forget: material learning agent
+        def _on_learning_done(task: asyncio.Task):
+            if task.exception():
+                logger.error(f"Material learning agent failed: {task.exception()}")
+
+        learn_task = asyncio.create_task(
+            run_material_learning(teacher_id, conversation_id, full_messages)
+        )
+        learn_task.add_done_callback(_on_learning_done)
+    
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @router.get("/history")
 async def chat_history(

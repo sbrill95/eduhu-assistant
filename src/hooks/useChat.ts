@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getSession } from '../lib/auth';
-import { sendMessage, getHistory, API_BASE } from '../lib/api';
+import { sendMessage, getHistory, API_BASE, sendMessageStream } from '../lib/api';
 import type { ChatMessage } from '../lib/types';
 
 export function useChat() {
@@ -71,20 +71,46 @@ export function useChat() {
     setMessages((prev) => [...prev, userMsg]);
     setIsTyping(true);
 
+    const streamMsgId = `stream-${Date.now()}`;
+    // Add empty assistant message that will be filled
+    setMessages(prev => [...prev, { id: streamMsgId, role: 'assistant', content: '', timestamp: new Date().toISOString() }]);
+    
     try {
-      const response = await sendMessage(text, conversationId, file);
-      setConversationId(response.conversation_id);
-      setMessages((prev) => [...prev, response.message]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `error-${Date.now()}`,
-          role: 'assistant',
-          content: 'Da ist etwas schiefgelaufen. Versuch\'s nochmal. 🦉',
-          timestamp: new Date().toISOString(),
+      await sendMessageStream(
+        text, conversationId, file,
+        // onDelta
+        (delta) => {
+          setMessages(prev => prev.map(m => 
+            m.id === streamMsgId ? { ...m, content: m.content + delta } : m
+          ));
         },
-      ]);
+        // onMeta
+        (meta) => { setConversationId(meta.conversation_id); },
+        // onDone
+        (done) => {
+          setMessages(prev => prev.map(m =>
+            m.id === streamMsgId ? { ...m, id: done.message_id || streamMsgId } : m
+          ));
+        },
+      );
+    } catch {
+      // Fallback to non-streaming
+      setMessages(prev => prev.filter(m => m.id !== streamMsgId));
+      try {
+        const response = await sendMessage(text, conversationId, file);
+        setConversationId(response.conversation_id);
+        setMessages((prev) => [...prev, response.message]);
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `error-${Date.now()}`,
+            role: 'assistant',
+            content: 'Da ist etwas schiefgelaufen. Versuch\'s nochmal. 🦉',
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+      }
     } finally {
       setIsTyping(false);
     }

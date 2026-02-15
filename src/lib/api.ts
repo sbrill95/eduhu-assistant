@@ -44,6 +44,56 @@ export async function sendMessage(
   return res.json() as Promise<{ conversation_id: string; message: ChatMessage }>;
 }
 
+export async function sendMessageStream(
+  message: string,
+  conversationId: string | null,
+  file?: { name: string; type: string; base64: string },
+  onDelta: (text: string) => void,
+  onMeta: (data: { conversation_id: string }) => void,
+  onDone: (data: { message_id: string }) => void,
+): Promise<void> {
+  const teacher = getSession();
+  if (!teacher) throw new Error('Nicht angemeldet');
+
+  const body: Record<string, unknown> = {
+    message,
+    conversation_id: conversationId,
+    teacher_id: teacher.teacher_id,
+  };
+  if (file) {
+    body.attachment_base64 = file.base64;
+    body.attachment_name = file.name;
+    body.attachment_type = file.type;
+  }
+
+  const res = await fetch(`${BASE}/api/chat/send-stream`, {
+    method: 'POST',
+    headers: getAuthHeaders(teacher.teacher_id),
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) throw new Error('Stream failed');
+  
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = JSON.parse(line.slice(6));
+      if (data.type === 'delta') onDelta(data.text);
+      else if (data.type === 'meta') onMeta(data);
+      else if (data.type === 'done') onDone(data);
+    }
+  }
+}
+
 export async function getHistory(conversationId: string): Promise<ChatMessage[]> {
   const teacher = getSession();
   if (!teacher) throw new Error('Nicht angemeldet');

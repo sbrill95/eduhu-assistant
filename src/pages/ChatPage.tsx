@@ -122,7 +122,7 @@ export default function ChatPage() {
                 </div>
               )}
 
-              {isTyping && <TypingIndicator context={messages.filter(m => m.role === 'user').at(-1)?.content} />}
+              {isTyping && !messages.some(m => m.id.startsWith('stream-')) && <TypingIndicator context={messages.filter(m => m.role === 'user').at(-1)?.content} />}
             </div>
           </div>
 
