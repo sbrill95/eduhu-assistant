@@ -90,7 +90,7 @@ async def generate_h5p_exercise(req: H5PExerciseRequest):
             page_id=page_id,
             access_code=access_code,
             title=exercise_set.title,
-            page_url=f"/s/{access_code}"
+            page_url=f"https://eduhu-assistant.pages.dev/ueben/{access_code}"
         )
 
     except Exception as e:
