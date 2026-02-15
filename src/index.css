@@ -6,23 +6,33 @@
   --color-primary: #C8552D;
   --color-primary-hover: #A8461F;
   --color-primary-soft: #FADDD0;
-  
+
   --color-text-strong: #2D2018;
   --color-text-default: #3A3530;
   --color-text-secondary: #6B6360;
   --color-text-muted: #9E9A96;
-  
+
   --color-bg-page: #F5F0EB;
   --color-bg-card: #FFFFFF;
   --color-bg-card-dark: #3A2E2A;
   --color-bg-subtle: #F0EDEA;
-  
+
   --color-border: #D9D3CD;
   --color-border-focus: #C8552D;
-  
+
   --color-success: #4A8C5C;
   --color-error: #C0392B;
   --color-warning: #D4872A;
+
+  /* Secondary colors (eduhu Design System) */
+  --color-sage: #C5D5A0;
+  --color-sage-soft: #E8F0D8;
+  --color-salmon: #F2A8A0;
+  --color-salmon-soft: #FDE8E5;
+  --color-gold: #E8D568;
+  --color-gold-soft: #F7F0C8;
+  --color-sky: #A8B8D8;
+  --color-sky-soft: #DDE5F0;
 
   /* Fonts */
   --font-sans: 'Inter', system-ui, sans-serif;
