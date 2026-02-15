@@ -78,13 +78,14 @@ async def _cleanup_teacher(teacher_id: str) -> dict:
         except Exception as e:
             logger.warning(f"Failed to delete duplicate {mid}: {e}")
 
-    # ── Phase 2: Key-Duplikate mergen (gleicher key, verschiedener value) ──
-    # Behalte den neuesten Value pro (scope, category, key)
+    # ── Phase 2: Key-Duplikate mergen (gleicher key, egal welche category) ──
+    # Memory-Agent speichert "duration: 45 Min" unter 5 verschiedenen categories.
+    # Behalte nur den neuesten pro key.
     key_groups: dict[str, list[dict]] = defaultdict(list)
     remaining = [m for m in memories if m["id"] not in to_delete]
 
     for m in remaining:
-        group_key = f"{m['scope']}|{m['category']}|{m['key']}"
+        group_key = m['key']  # Nur key, NICHT scope|category
         key_groups[group_key].append(m)
 
     for group_key, group in key_groups.items():
