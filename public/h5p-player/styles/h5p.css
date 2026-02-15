@@ -993,3 +993,26 @@ button.h5p-core-cancel-button:focus {
     clear: both;
   }
 }
+
+/* === eduhu H5P fixes === */
+/* Fix iframe height collapse when h5p-standalone uses iframe embedType */
+.h5p-iframe-wrapper {
+  min-height: 300px !important;
+  height: auto !important;
+}
+.h5p-iframe-wrapper iframe.h5p-iframe {
+  min-height: 300px !important;
+}
+/* Ensure div-mode content is fully visible */
+.h5p-content {
+  min-height: 200px !important;
+  overflow: visible !important;
+}
+/* Question content spacing */
+.h5p-question-content {
+  padding: 1em !important;
+}
+/* Make check/retry buttons more visible */
+.h5p-question-buttons {
+  padding: 0.5em 1em 1em !important;
+}
