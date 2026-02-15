@@ -1,25 +1,28 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getSession } from '@/lib/auth';
-import { sendMessage, getHistory } from '@/lib/api';
 import { AppShell } from '@/components/layout/AppShell';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { ChipSelector } from '@/components/chat/ChipSelector';
 import { ConversationSidebar } from '@/components/chat/ConversationSidebar';
-import type { ChatMessage as MessageType } from '@/lib/types';
-import { API_BASE } from '@/lib/api';
+import { useChat } from '@/hooks/useChat';
 
 export default function ChatPage() {
   const navigate = useNavigate();
-  const teacher = getSession();
-  const [messages, setMessages] = useState<MessageType[]>([]);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(true);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [isTyping, setIsTyping] = useState(false);
-  const [showWelcomeChips, setShowWelcomeChips] = useState(true);
+  const {
+    messages,
+    suggestions,
+    loadingSuggestions,
+    conversationId,
+    isTyping,
+    showWelcomeChips,
+    loadConversation,
+    resetChat,
+    send,
+    teacher,
+  } = useChat();
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -28,16 +31,6 @@ export default function ChatPage() {
     if (!teacher) void navigate('/');
   }, [teacher, navigate]);
 
-  useEffect(() => {
-    const teacher = getSession();
-    if (!teacher) return;
-    fetch(`${API_BASE}/api/suggestions?teacher_id=${teacher.teacher_id}`)
-      .then(res => res.json())
-      .then(data => setSuggestions(data.suggestions))
-      .catch(() => setSuggestions(["Plane eine Unterrichtsstunde", "Erstelle Material", "Hilf mir bei der Vorbereitung"]))
-      .finally(() => setLoadingSuggestions(false));
-  }, []);
-
   // Auto-scroll on new messages
   useEffect(() => {
     if (scrollRef.current) {
@@ -45,73 +38,8 @@ export default function ChatPage() {
     }
   }, [messages, isTyping]);
 
-  // Show welcome chips when no messages exist
-  useEffect(() => {
-    if (teacher && messages.length === 0 && !conversationId) {
-      setShowWelcomeChips(true);
-    }
-  }, [teacher, messages.length, conversationId]);
-
-  // Load existing conversation
-  const loadConversation = useCallback(async (convId: string) => {
-    setConversationId(convId);
-    setShowWelcomeChips(false);
-    try {
-      const history = await getHistory(convId);
-      setMessages(history.map((m) => ({
-        ...m,
-        timestamp: m.timestamp || new Date().toISOString(),
-      })));
-    } catch {
-      setMessages([{
-        id: 'error',
-        role: 'assistant',
-        content: 'Gespräch konnte nicht geladen werden.',
-        timestamp: new Date().toISOString(),
-      }]);
-    }
-  }, []);
-
-  // New chat
-  const handleNewChat = useCallback(() => {
-    setConversationId(null);
-    setMessages([]);
-    setShowWelcomeChips(true);
-  }, []);
-
-  const handleSend = useCallback(async (text: string) => {
-    setShowWelcomeChips(false);
-
-    const userMsg: MessageType = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: text,
-      timestamp: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, userMsg]);
-    setIsTyping(true);
-
-    try {
-      const response = await sendMessage(text, conversationId);
-      setConversationId(response.conversation_id);
-      setMessages((prev) => [...prev, response.message]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `error-${Date.now()}`,
-          role: 'assistant',
-          content: 'Da ist etwas schiefgelaufen. Versuch\'s nochmal. 🦉',
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-    } finally {
-      setIsTyping(false);
-    }
-  }, [conversationId]);
-
   function handleChipSelect(label: string) {
-    void handleSend(label);
+    void send(label);
   }
 
   if (!teacher) return null;
@@ -124,9 +52,9 @@ export default function ChatPage() {
           <ConversationSidebar
             currentId={conversationId}
             onSelect={(id) => void loadConversation(id)}
-            onNewChat={handleNewChat}
+            onNewChat={resetChat}
             open={true}
-            onClose={() => {}}
+            onClose={() => { }}
           />
         </div>
 
@@ -138,7 +66,7 @@ export default function ChatPage() {
               <ConversationSidebar
                 currentId={conversationId}
                 onSelect={(id) => { void loadConversation(id); setSidebarOpen(false); }}
-                onNewChat={() => { handleNewChat(); setSidebarOpen(false); }}
+                onNewChat={() => { resetChat(); setSidebarOpen(false); }}
                 open={true}
                 onClose={() => setSidebarOpen(false)}
               />
@@ -170,7 +98,7 @@ export default function ChatPage() {
                 />
               ))}
 
-              {showWelcomeChips && messages.length === 0 && !conversationId && (
+              {showWelcomeChips && (
                 <div className="flex flex-col items-center justify-center py-12">
                   <div className="text-6xl mb-6">🦉</div>
                   <h1 className="text-2xl font-semibold mb-2">
@@ -200,7 +128,7 @@ export default function ChatPage() {
 
           {/* Input */}
           <div className="mx-auto w-full max-w-3xl">
-            <ChatInput onSend={(t) => void handleSend(t)} disabled={isTyping} />
+            <ChatInput onSend={(t) => void send(t)} disabled={isTyping} />
           </div>
         </div>
       </div>
