@@ -26,6 +26,7 @@ from app.agents.h5p_agent import run_h5p_agent
 from app.h5p_generator import exercise_set_to_h5p
 from app.agents.main_agent import get_agent, AgentDeps
 from app.agents.memory_agent import run_memory_agent
+from app.agents.material_learning_agent import run_material_learning
 from app.agents.summary_agent import maybe_summarize
 from app.ingestion import ingest_curriculum
 
@@ -228,12 +229,22 @@ async def chat_send(req: ChatRequest, request: Request):
         if task.exception():
             logger.error(f"Memory agent failed: {task.exception()}")
 
+    full_messages = messages + [{"role": "assistant", "content": assistant_text}]
+
     mem_task = asyncio.create_task(
-        run_memory_agent(teacher_id, conversation_id, messages + [
-            {"role": "assistant", "content": assistant_text}
-        ])
+        run_memory_agent(teacher_id, conversation_id, full_messages)
     )
     mem_task.add_done_callback(_on_memory_done)
+
+    # Fire-and-forget: material learning agent
+    def _on_learning_done(task: asyncio.Task):
+        if task.exception():
+            logger.error(f"Material learning agent failed: {task.exception()}")
+
+    learn_task = asyncio.create_task(
+        run_material_learning(teacher_id, conversation_id, full_messages)
+    )
+    learn_task.add_done_callback(_on_learning_done)
 
     return ChatResponse(
         conversation_id=conversation_id,
