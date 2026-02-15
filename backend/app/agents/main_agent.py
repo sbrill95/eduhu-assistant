@@ -165,11 +165,13 @@ def create_agent() -> Agent[AgentDeps, str]:
                 })
 
             base = ctx.deps.base_url or ""
-            page_url = f"{base}/s/{access_code}" if base else f"/s/{access_code}"
+            page_url = f"https://eduhu-assistant.pages.dev/s/{access_code}"
+            qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={page_url}"
             return (
-                f"**{len(h5p_exercises)} Übungen** erstellt: {exercise_set.title}\n"
-                f"Zugangscode: **{access_code}**\n"
-                f"Link für Schüler: {page_url}\n"
+                f"**{len(h5p_exercises)} Übungen** erstellt: {exercise_set.title}\n\n"
+                f"🔑 Zugangscode: **{access_code}**\n"
+                f"🔗 Link für Schüler: {page_url}\n\n"
+                f"📱 QR-Code zum Ausdrucken/Teilen:\n![QR-Code]({qr_url})"
             )
         except Exception as e:
             logger.error(f"Exercise generation failed: {e}")
