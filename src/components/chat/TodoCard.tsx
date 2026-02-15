@@ -61,13 +61,13 @@ export function TodoCard({ todos: initialTodos }: TodoCardProps) {
   }
 
   return (
-    <div className="my-2 max-w-[340px] overflow-hidden rounded-xl border border-[var(--color-sage)]/40 bg-[var(--color-sage-soft)] text-sm shadow-sm">
-      <div className="bg-[var(--color-sage)]/30 px-4 py-2.5">
-        <h3 className="flex items-center gap-2 text-base font-bold text-[var(--color-text-strong)]">
+    <div className="my-2 max-w-[340px] overflow-hidden rounded-xl border border-[#C5D5A0] bg-[#E8F0D8] text-sm shadow-sm">
+      <div className="bg-[#D6E4BC] px-4 py-2.5">
+        <h3 className="flex items-center gap-2 text-base font-bold text-[#2D2018]">
           📋 Meine Todos
         </h3>
       </div>
-      <ul className="space-y-0 divide-y divide-[var(--color-sage)]/20 px-4">
+      <ul className="space-y-0 divide-y divide-[#C5D5A0] px-4">
         {todos.map((todo) => (
           <li key={todo.id} className="flex items-start gap-2.5 py-2.5">
             <button
@@ -76,20 +76,20 @@ export function TodoCard({ todos: initialTodos }: TodoCardProps) {
               className="mt-0.5 text-base transition-transform hover:scale-110 active:scale-95 cursor-pointer select-none"
               title={todo.done ? 'Als offen markieren' : 'Als erledigt markieren'}
             >
-              {todo.done ? '✅' : <span className="text-[var(--color-primary)]">☐</span>}
+              {todo.done ? '✅' : <span className="text-[#C8552D]">☐</span>}
             </button>
             <div className="flex-grow min-w-0">
-              <span className={`block transition-all ${todo.done ? 'text-[var(--color-text-muted)] line-through' : 'text-[var(--color-text-strong)] font-medium'}`}>
+              <span className={`block transition-all ${todo.done ? 'text-[#9E9A96] line-through' : 'text-[#2D2018] font-medium'}`}>
                 {todo.text}
               </span>
               {todo.due_date && (
-                <span className="text-xs text-[var(--color-text-secondary)]">
+                <span className="text-xs text-[#6B6360]">
                   📅 {new Date(todo.due_date + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
                 </span>
               )}
             </div>
             {todo.priority === 'high' && !todo.done && (
-              <span className="mt-0.5 shrink-0 rounded-full bg-[var(--color-salmon)] px-2 py-0.5 text-xs font-semibold text-white">
+              <span className="mt-0.5 shrink-0 rounded-full bg-[#F2A8A0] px-2 py-0.5 text-xs font-semibold text-white">
                 Dringend
               </span>
             )}
@@ -98,9 +98,9 @@ export function TodoCard({ todos: initialTodos }: TodoCardProps) {
       </ul>
 
       {/* Add new todo */}
-      <div className="border-t border-[var(--color-sage)]/20 px-4 py-2">
+      <div className="border-t border-[#C5D5A0] px-4 py-2">
         <form onSubmit={(e) => { e.preventDefault(); void addTodo(); }} className="flex items-center gap-2">
-          <span className="text-[var(--color-primary)]">＋</span>
+          <span className="text-[#C8552D] font-bold">＋</span>
           <input
             ref={inputRef}
             type="text"
@@ -108,28 +108,28 @@ export function TodoCard({ todos: initialTodos }: TodoCardProps) {
             onChange={(e) => setNewText(e.target.value)}
             placeholder="Neues Todo..."
             disabled={adding}
-            className="flex-grow bg-transparent text-sm text-[var(--color-text-default)] placeholder:text-[var(--color-text-muted)] outline-none"
+            className="flex-grow bg-transparent text-sm text-[#3A3530] placeholder:text-[#9E9A96] outline-none"
           />
           {newText.trim() && (
             <button
               type="submit"
               disabled={adding}
-              className="shrink-0 rounded-full bg-[var(--color-primary)] px-2.5 py-0.5 text-xs font-medium text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-50"
+              className="shrink-0 rounded-full bg-[#C8552D] px-2.5 py-0.5 text-xs font-medium text-white hover:bg-[#A8461F] disabled:opacity-50"
             >
-              {adding ? '...' : 'Hinzufügen'}
+              {adding ? '...' : '＋'}
             </button>
           )}
         </form>
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between border-t border-[var(--color-sage)]/30 bg-[var(--color-sage)]/15 px-4 py-2">
-        <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+      <div className="flex items-center justify-between border-t border-[#C5D5A0] bg-[#D6E4BC] px-4 py-2">
+        <span className="text-xs font-medium text-[#6B6360]">
           {openTodos} von {totalTodos} offen
         </span>
-        <div className="h-1.5 w-20 rounded-full bg-white/60">
+        <div className="h-1.5 w-20 rounded-full bg-white">
           <div
-            className="h-full rounded-full bg-[var(--color-success)] transition-all"
+            className="h-full rounded-full bg-[#4A8C5C] transition-all"
             style={{ width: `${totalTodos > 0 ? ((totalTodos - openTodos) / totalTodos) * 100 : 0}%` }}
           />
         </div>
