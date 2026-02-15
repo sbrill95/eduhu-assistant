@@ -783,6 +783,128 @@ Wenn der Hauptagent ALLES macht, muss er ALLES wissen — Klausur-Good-Practices
 → Hauptagent = **Konversation + Vorklärung**
 → Subagent = **Fachliche Tiefe + Generierung**
 
+## Skalierbarkeit — Über Material-Agents hinaus
+
+### Agent-Roadmap
+
+| Phase | Agent | Wissenskarte-Scope | Modell |
+|---|---|---|---|
+| **Jetzt** | Klausur | Fach × Lehrer | Sonnet |
+| **Jetzt** | Differenzierung | Fach × Lehrer | Sonnet |
+| **Jetzt** | H5P | Fach × Lehrer | Haiku |
+| **Bald** | Unterrichtsplanung | Fach × Lehrer | Sonnet |
+| **Bald** | Feedback (Schülertexte bewerten) | Fach × Lehrer | Sonnet |
+| **Bald** | Elternbrief | Klasse × Lehrer | Haiku |
+| **Mittel** | Diagnose (Lernstand-Analyse) | Fach × **Klasse** | Sonnet |
+| **Mittel** | Förderplan | Fach × **Schüler** | Sonnet |
+| **Mittel** | Fortbildungs-Empfehlungen | Lehrer-übergreifend | Haiku |
+| **Später** | Prüfungs-Analyse | Fach × **Klasse** | Sonnet |
+| **Später** | Kollegiums-Agent (Material teilen) | **Schule** | Sonnet |
+| **Später** | Schulentwicklung (Fachschaft beraten) | **Schule** | Sonnet |
+
+### Das Schema muss über `teacher_id` hinauswachsen
+
+Material-Agents arbeiten auf der Achse **Fach × Lehrer**. Aber:
+- **Diagnose-Agent**: Braucht Wissen über *Klassen* ("10a hat Probleme mit Bruchrechnung")
+- **Förderplan-Agent**: Braucht Wissen über *einzelne Schüler*
+- **Schulentwicklung**: Braucht schulweites Wissen, mehrere Lehrer greifen zu
+- **Kollegiums-Agent**: Globale Good Practices, anonymisiert geteilt
+
+### Lösung: Scope-Erweiterung
+
+Statt `teacher_id` als einziger Zuordnung → `scope_type` + `scope_id`:
+
+```sql
+CREATE TABLE agent_knowledge (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  -- Agent-Zuordnung
+  agent_type TEXT NOT NULL,
+
+  -- Scope: WER sieht dieses Wissen?
+  scope_type TEXT NOT NULL DEFAULT 'teacher',  -- 'teacher', 'class', 'school', 'global'
+  scope_id UUID,                               -- teacher_id, class_id, school_id, oder NULL
+  owner_id UUID NOT NULL,                      -- Wer hat es erstellt (immer teacher_id)
+  
+  -- Inhalt
+  fach TEXT NOT NULL,
+  thema TEXT,
+  knowledge_type TEXT NOT NULL,    -- 'generic', 'example', 'good_practice', 'preference'
+  
+  -- Payload
+  content JSONB NOT NULL,
+  description TEXT,
+  
+  -- Qualität
+  quality_score FLOAT DEFAULT 0.5,
+  times_used INT DEFAULT 0,
+  source TEXT NOT NULL,            -- 'system', 'upload', 'generated', 'conversation'
+  
+  -- RAG
+  embedding vector(1536),
+  
+  -- Meta
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+### Sichtbarkeits-Logik
+
+```python
+async def get_visible_knowledge(
+    agent_type: str,
+    fach: str,
+    teacher_id: str,
+    class_id: str | None = None,
+    school_id: str | None = None,
+) -> list[dict]:
+    """Lade alles Wissen das dieser Agent sehen darf."""
+    # Sichtbar: eigenes + klassen + schul + global
+    visible_scopes = [
+        ("teacher", teacher_id),
+        ("global", None),
+    ]
+    if class_id:
+        visible_scopes.append(("class", class_id))
+    if school_id:
+        visible_scopes.append(("school", school_id))
+    
+    # Supabase RPC oder OR-Query
+    return await db.rpc("get_visible_knowledge", {
+        "p_agent_type": agent_type,
+        "p_fach": fach,
+        "p_scopes": visible_scopes,
+    })
+```
+
+### Beispiel: Diagnose-Agent
+
+```
+Wissenskarte für Diagnose-Agent (Physik, Klasse 10a):
+
+scope=teacher:  Steffens Bewertungspräferenzen
+scope=class:    "10a: 40% haben Probleme mit Einheiten-Umrechnung"
+scope=class:    "10a: Letzte Klausur Ø 3,2 — Optik war schwach"  
+scope=school:   "Physik-Fachschaft: Einheiten ab Klasse 7 systematisch üben"
+scope=global:   "Typische Physik-Fehler Klasse 10: Vorzeichenfehler, Einheiten vergessen"
+```
+
+Der Agent sieht alle vier Ebenen und kann sie kombinieren.
+
+### Was gleich bleibt, was sich ändert
+
+| Komponente | Material-Agents | Schüler-/Klassen-Agents | Änderung |
+|---|---|---|---|
+| `agent_knowledge` Tabelle | ✅ | ✅ | scope_type/scope_id statt teacher_id |
+| Wissenskarte (SQL-Aggregation) | ✅ | ✅ | Filter erweitert um scope |
+| `get_context` Tool | ✅ | ✅ | Neuer scope: "class_data", "student_data" |
+| `material_router` | ✅ | ✅ (wird "agent_router") | Agent-Typ-Routing bleibt gleich |
+| Multi-Turn Rückfragen | ✅ | ✅ | Identisch |
+| `material_learning_agent` | ✅ | ✅ (wird "learning_agent") | Gleiches Pattern |
+
+→ **Die Architektur ist ein generisches Agent-Framework.** Material-Agents sind nur die erste Instanz. Neue Agents = System-Prompt + Output-Modell + Seed-Daten. Infrastruktur steht.
+
 ## Implementierungs-Phasen
 
 ### Phase 1: Wissenskarte + Sonnet-Subagent (One-Shot mit Tools)
