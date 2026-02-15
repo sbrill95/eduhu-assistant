@@ -29,6 +29,9 @@ async def chat_send(
     if req.teacher_id and req.teacher_id != teacher_id:
         raise HTTPException(403, "Zugriff verweigert (ID Mismatch)")
 
+    if not req.message or not req.message.strip():
+        raise HTTPException(400, "Nachricht darf nicht leer sein")
+
     conversation_id = req.conversation_id
 
     # Create conversation if new
