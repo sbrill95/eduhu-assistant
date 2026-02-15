@@ -94,6 +94,18 @@ async def upsert(
     return r.json()
 
 
+async def delete(table: str, filters: dict[str, str]) -> Any:
+    """Delete rows matching filters."""
+    url = _url(table)
+    params = {}
+    for col, val in filters.items():
+        params[col] = f"eq.{val}"
+    client = _get_client()
+    r = await client.request("DELETE", url, params=params, headers=_headers())
+    r.raise_for_status()
+    return r.json() if r.text else None
+
+
 async def insert_batch(table: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Insert multiple rows in a single request (much faster than N individual inserts)."""
     if not rows:

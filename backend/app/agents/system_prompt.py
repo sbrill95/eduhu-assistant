@@ -90,8 +90,8 @@ async def build_block3_context(teacher_id: str) -> str:
         "user_memories",
         columns="scope, category, key, value",
         filters={"user_id": teacher_id},
-        order="importance.desc",
-        limit=30,
+        order="importance.desc,updated_at.desc",
+        limit=50,
     )
     if memories and isinstance(memories, list) and len(memories) > 0:
         parts.append("\n## Was du über diese Lehrkraft weißt")

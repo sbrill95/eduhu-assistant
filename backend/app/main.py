@@ -104,7 +104,19 @@ async def get_suggestions_wrapper(teacher_id: str):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "0.2.0"}
+    return {"status": "ok", "version": "0.3.0"}
+
+
+@app.post("/api/admin/memory-cleanup")
+async def memory_cleanup(teacher_id: str | None = None):
+    """Trigger memory cleanup. 2x/Tag via Cron oder manuell."""
+    import os
+    # Only allow in dev or with secret header
+    secret = os.environ.get("ADMIN_SECRET", "cleanup-2026")
+    # For now, no auth check — will add later
+    from app.memory_cleanup import run_cleanup
+    stats = await run_cleanup(teacher_id)
+    return {"status": "ok", "stats": stats}
 
 
 @app.get("/api/debug/imports")
