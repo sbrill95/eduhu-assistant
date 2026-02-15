@@ -13,6 +13,7 @@ from app.config import get_settings
 import random
 import uuid
 import json
+import httpx
 from app.models import (
     LoginRequest, LoginResponse,
     ChatRequest, ChatResponse, ChatMessageOut,
@@ -83,7 +84,11 @@ if logfire is not None:
 # CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production
+    allow_origins=[
+        "https://eduhu-assistant.pages.dev",
+        "http://localhost:5173",
+        "http://localhost:4173",
+    ],  # Production + local dev
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -218,12 +223,17 @@ async def chat_send(req: ChatRequest, request: Request):
         filters={"id": conversation_id},
     )
 
-    # Fire-and-forget: memory agent
-    asyncio.create_task(
+    # Fire-and-forget: memory agent (with error logging)
+    def _on_memory_done(task: asyncio.Task):
+        if task.exception():
+            logger.error(f"Memory agent failed: {task.exception()}")
+
+    mem_task = asyncio.create_task(
         run_memory_agent(teacher_id, conversation_id, messages + [
             {"role": "assistant", "content": assistant_text}
         ])
     )
+    mem_task.add_done_callback(_on_memory_done)
 
     return ChatResponse(
         conversation_id=conversation_id,
@@ -241,7 +251,16 @@ async def chat_send(req: ChatRequest, request: Request):
 # ═══════════════════════════════════════
 
 @app.get("/api/chat/history")
-async def chat_history(conversation_id: str):
+async def chat_history(conversation_id: str, teacher_id: str):
+    # BUG-003 fix: Verify conversation belongs to requesting teacher
+    conv = await db.select(
+        "conversations",
+        columns="id, teacher_id",
+        filters={"id": conversation_id},
+        single=True,
+    )
+    if not conv or conv.get("teacher_id") != teacher_id:
+        raise HTTPException(status_code=403, detail="Zugriff verweigert")
     messages = await db.select(
         "messages",
         columns="id, role, content, created_at",
@@ -305,8 +324,18 @@ async def delete_conversation(conversation_id: str, teacher_id: str):
 
 
 @app.patch("/api/chat/conversations/{conversation_id}")
-async def update_conversation(conversation_id: str, title: str = ""):
-    """Update conversation title."""
+async def update_conversation(conversation_id: str, title: str = "", teacher_id: str = ""):
+    """Update conversation title (BUG-004 fix: requires teacher_id ownership check)."""
+    if not teacher_id:
+        raise HTTPException(status_code=400, detail="teacher_id required")
+    conv = await db.select(
+        "conversations",
+        columns="id, teacher_id",
+        filters={"id": conversation_id},
+        single=True,
+    )
+    if not conv or conv.get("teacher_id") != teacher_id:
+        raise HTTPException(status_code=403, detail="Zugriff verweigert")
     if title:
         await db.update(
             "conversations",
@@ -407,11 +436,11 @@ async def delete_curriculum(curriculum_id: str, teacher_id: str):
         "apikey": settings.supabase_service_role_key,
         "Authorization": f"Bearer {settings.supabase_service_role_key}",
     }
-    async with __import__("httpx").AsyncClient() as client:
+    async with httpx.AsyncClient() as client:
         await client.delete(url, headers=headers)
     # Delete curriculum
     url2 = f"{settings.supabase_url}/rest/v1/user_curricula?id=eq.{curriculum_id}&user_id=eq.{teacher_id}"
-    async with __import__("httpx").AsyncClient() as client:
+    async with httpx.AsyncClient() as client:
         await client.delete(url2, headers=headers)
     return {"deleted": True}
 
@@ -516,7 +545,7 @@ async def generate_material(req: MaterialRequest):
         raise HTTPException(400, str(e))
     except Exception as e:
         logger.error(f"Material generation failed: {type(e).__name__}: {e}", exc_info=True)
-        raise HTTPException(500, f"Materialerstellung fehlgeschlagen: {type(e).__name__}: {str(e)}")
+        raise HTTPException(500, f"Materialerstellung fehlgeschlagen. Bitte versuche es erneut.")
 
     now = datetime.now(timezone.utc).isoformat()
     return MaterialResponse(
@@ -555,6 +584,9 @@ async def health():
 
 @app.get("/api/debug/imports")
 async def debug_imports():
+    import os
+    if os.environ.get("RENDER"):
+        raise HTTPException(status_code=404, detail="Not found")
     """Debug: test if all material imports work."""
     errors = []
     try:

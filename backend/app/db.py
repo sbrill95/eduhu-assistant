@@ -4,6 +4,15 @@ import httpx
 from typing import Any
 from app.config import get_settings
 
+# Shared client — reuses TCP connections (BUG-007 fix)
+_client: httpx.AsyncClient | None = None
+
+def _get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(timeout=30.0)
+    return _client
+
 
 def _headers(extra: dict[str, str] | None = None) -> dict[str, str]:
     s = get_settings()
@@ -42,20 +51,20 @@ async def select(
 
     headers = _headers({"Accept": "application/vnd.pgrst.object+json"} if single else None)
 
-    async with httpx.AsyncClient() as client:
-        r = await client.get(_url(table), params=params, headers=headers)
-        if r.status_code == 406 and single:
-            return None
-        r.raise_for_status()
-        return r.json()
+    client = _get_client()
+    r = await client.get(_url(table), params=params, headers=headers)
+    if r.status_code == 406 and single:
+        return None
+    r.raise_for_status()
+    return r.json()
 
 
 async def insert(table: str, data: dict[str, Any]) -> dict[str, Any]:
-    async with httpx.AsyncClient() as client:
-        r = await client.post(_url(table), json=data, headers=_headers())
-        r.raise_for_status()
-        result = r.json()
-        return result[0] if isinstance(result, list) else result
+    client = _get_client()
+    r = await client.post(_url(table), json=data, headers=_headers())
+    r.raise_for_status()
+    result = r.json()
+    return result[0] if isinstance(result, list) else result
 
 
 async def update(
@@ -66,10 +75,10 @@ async def update(
     params = {}
     for col, val in filters.items():
         params[col] = f"eq.{val}"
-    async with httpx.AsyncClient() as client:
-        r = await client.patch(url, json=data, params=params, headers=_headers())
-        r.raise_for_status()
-        return r.json()
+    client = _get_client()
+    r = await client.patch(url, json=data, params=params, headers=_headers())
+    r.raise_for_status()
+    return r.json()
 
 
 async def upsert(
@@ -79,7 +88,7 @@ async def upsert(
     if on_conflict:
         url += f"?on_conflict={on_conflict}"
     headers = _headers({"Prefer": "resolution=merge-duplicates,return=representation"})
-    async with httpx.AsyncClient() as client:
-        r = await client.post(url, json=data, headers=headers)
-        r.raise_for_status()
-        return r.json()
+    client = _get_client()
+    r = await client.post(url, json=data, headers=headers)
+    r.raise_for_status()
+    return r.json()

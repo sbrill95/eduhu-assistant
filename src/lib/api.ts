@@ -29,7 +29,8 @@ export async function sendMessage(
 }
 
 export async function getHistory(conversationId: string): Promise<ChatMessage[]> {
-  const res = await fetch(`${BASE}/api/chat/history?conversation_id=${conversationId}`);
+  const teacher = JSON.parse(localStorage.getItem('teacher') || '{}');
+  const res = await fetch(`${BASE}/api/chat/history?conversation_id=${conversationId}&teacher_id=${teacher?.teacher_id || ''}`);
   if (!res.ok) throw new Error('Verlauf konnte nicht geladen werden.');
   const data = (await res.json()) as { messages: ChatMessage[] };
   return data.messages;
