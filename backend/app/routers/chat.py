@@ -237,7 +237,8 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
         try:
             async for event in agent.run_stream_events(run_input, deps=deps, message_history=message_history):
                 from pydantic_ai.messages import (
-                    FunctionToolCallEvent, PartDeltaEvent, TextPartDelta,
+                    FunctionToolCallEvent, PartDeltaEvent, PartStartEvent,
+                    TextPartDelta, TextPart,
                 )
                 from pydantic_ai.run import AgentRunResultEvent
 
@@ -245,6 +246,11 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
                     tool_name = event.part.tool_name
                     label = _TOOL_LABELS.get(tool_name, f"⚙️ {tool_name}…")
                     yield f"data: {json.dumps({'type': 'step', 'text': label})}\n\n"
+                elif isinstance(event, PartStartEvent):
+                    if isinstance(event.part, TextPart) and event.part.content:
+                        delta_text = event.part.content
+                        full_text += delta_text
+                        yield f"data: {json.dumps({'type': 'delta', 'text': delta_text})}\n\n"
                 elif isinstance(event, PartDeltaEvent):
                     if isinstance(event.delta, TextPartDelta):
                         delta_text = event.delta.content_delta
