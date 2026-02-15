@@ -10,10 +10,56 @@
     #h5p-container { width: 100%; min-height: 200px; }
     .loading { display: flex; justify-content: center; align-items: center; height: 200px; color: #666; font-size: 16px; }
     .error { color: red; padding: 20px; text-align: center; }
-    /* Fix H5P iframe height collapse — force inner iframe to auto-size */
-    .h5p-iframe-wrapper { min-height: 300px !important; }
-    .h5p-iframe-wrapper iframe { min-height: 300px !important; height: auto !important; }
-    .h5p-content { min-height: 250px !important; overflow: visible !important; }
+
+    /* H5P Theme Variables — required for MultiChoice, Blanks, TrueFalse, DragText */
+    :root {
+      /* Colors — eduhu brand */
+      --h5p-theme-main-cta-base: #C8552D;
+      --h5p-theme-main-cta-dark: #A8461F;
+      --h5p-theme-main-cta-light: #FADDD0;
+      --h5p-theme-secondary-cta-base: #5B7B6A;
+      --h5p-theme-secondary-cta-dark: #4A6A59;
+      --h5p-theme-secondary-cta-light: #D4E6DC;
+      --h5p-theme-secondary-contrast-cta: #fff;
+      --h5p-theme-secondary-contrast-cta-hover: #f5f5f5;
+      --h5p-theme-contrast-cta: #fff;
+      --h5p-theme-contrast-cta-light: #C8552D;
+      --h5p-theme-contrast-cta-white: #fff;
+      --h5p-theme-alternative-base: #F5F0EB;
+      --h5p-theme-alternative-dark: #E8DDD4;
+      --h5p-theme-alternative-darker: #D4C5B8;
+      --h5p-theme-alternative-light: #FAF7F4;
+      --h5p-theme-ui-base: #f0f0f0;
+      --h5p-theme-stroke-1: #ddd;
+      --h5p-theme-text-primary: #2D2018;
+      --h5p-theme-text-secondary: #4A3728;
+      --h5p-theme-text-third: #8B7355;
+      --h5p-theme-feedback-correct-main: #1B873B;
+      --h5p-theme-feedback-correct-secondary: #E6F4EA;
+      --h5p-theme-feedback-correct-third: #A3D9B1;
+      --h5p-theme-feedback-incorrect-main: #D93025;
+      --h5p-theme-feedback-incorrect-secondary: #FCE8E6;
+      --h5p-theme-feedback-incorrect-third: #F5B7B1;
+      /* Typography */
+      --h5p-theme-font-name: 'Inter', sans-serif;
+      --h5p-theme-font-size-s: 0.75rem;
+      --h5p-theme-font-size-m: 0.9375rem;
+      --h5p-theme-font-size-l: 1.125rem;
+      --h5p-theme-font-size-xl: 1.25rem;
+      --h5p-theme-font-size-xxl: 1.5rem;
+      /* Spacing */
+      --h5p-theme-spacing-xxs: 0.25rem;
+      --h5p-theme-spacing-xs: 0.5rem;
+      --h5p-theme-spacing-s: 0.75rem;
+      --h5p-theme-spacing-m: 1rem;
+      --h5p-theme-spacing-l: 1.5rem;
+      --h5p-theme-spacing-xl: 2rem;
+      /* Border radius */
+      --h5p-theme-border-radius-small: 4px;
+      --h5p-theme-border-radius-medium: 8px;
+      --h5p-theme-border-radius-large: 12px;
+      --h5p-theme-scaling: 1;
+    }
   </style>
 </head>
 <body>
