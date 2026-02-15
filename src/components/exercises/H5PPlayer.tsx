@@ -1,70 +1,38 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface H5PPlayerProps {
   exerciseId: string;
 }
 
 export function H5PPlayer({ exerciseId }: H5PPlayerProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const initializedRef = useRef(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState(400);
 
   useEffect(() => {
-    if (!containerRef.current || initializedRef.current) return;
-    initializedRef.current = true;
-
-    const el = containerRef.current;
-
-    const options = {
-      h5pJsonPath: `/api/public/h5p/${exerciseId}`,
-      frameJs: '/h5p-player/frame.bundle.js',
-      frameCss: '/h5p-player/styles/h5p.css',
-      librariesPath: '/h5p-libs',
-      frame: false,
-      copyright: false,
-      export: false,
-      icon: false,
-      fullScreen: false,
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'h5p-resize' && event.data.height) {
+        setHeight(Math.max(event.data.height + 20, 300));
+      }
     };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
-    import('h5p-standalone').then(({ H5P }) => {
-      new H5P(el, options).then(() => {
-        // Auto-resize iframe to fit content
-        const resizeIframe = () => {
-          const iframe = el.querySelector('iframe.h5p-iframe') as HTMLIFrameElement;
-          if (iframe?.contentDocument?.body) {
-            const height = iframe.contentDocument.body.scrollHeight;
-            if (height > 100) {
-              iframe.style.height = `${height + 50}px`;
-            }
-          }
-        };
-
-        // Resize after initial load + periodically for dynamic content
-        setTimeout(resizeIframe, 500);
-        setTimeout(resizeIframe, 1500);
-        setTimeout(resizeIframe, 3000);
-
-        // Listen for H5P resize messages
-        window.addEventListener('message', (event) => {
-          if (event.data?.context === 'h5p' || event.data?.type === 'h5p') {
-            setTimeout(resizeIframe, 100);
-          }
-        });
-      });
-    }).catch((err) => {
-      console.error('H5P Player error:', err);
-      el.innerHTML = `<p style="color:red;padding:20px;">H5P Player Fehler: ${err.message}</p>`;
-    });
-
-    return () => {
-      initializedRef.current = false;
-    };
-  }, [exerciseId]);
+  // Use the dedicated player.html page — same origin, no about:blank issues
+  const playerUrl = `/h5p-player/player.html?id=${exerciseId}`;
 
   return (
-    <div
-      ref={containerRef}
-      style={{ minHeight: '400px', backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden' }}
+    <iframe
+      ref={iframeRef}
+      src={playerUrl}
+      style={{
+        width: '100%',
+        height: `${height}px`,
+        border: 'none',
+        borderRadius: '12px',
+        backgroundColor: 'white',
+      }}
+      title="H5P Exercise"
     />
   );
 }

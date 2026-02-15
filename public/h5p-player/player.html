@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>H5P Exercise</title>
+  <script src="/h5p-player/frame.bundle.js"></script>
+  <link rel="stylesheet" href="/h5p-player/styles/h5p.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: #fff; }
+    #h5p-container { width: 100%; min-height: 200px; }
+    .loading { display: flex; justify-content: center; align-items: center; height: 200px; color: #666; font-size: 16px; }
+    .error { color: red; padding: 20px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div id="h5p-container"><div class="loading">Lade Übung...</div></div>
+  <script src="/h5p-player/main.bundle.js"></script>
+  <script>
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var exerciseId = params.get('id');
+      var apiBase = params.get('api') || '';
+      
+      if (!exerciseId) {
+        document.getElementById('h5p-container').innerHTML = '<div class="error">Keine Übungs-ID angegeben.</div>';
+        return;
+      }
+      
+      var el = document.getElementById('h5p-container');
+      var options = {
+        h5pJsonPath: apiBase + '/api/public/h5p/' + exerciseId,
+        frameJs: '/h5p-player/frame.bundle.js',
+        frameCss: '/h5p-player/styles/h5p.css',
+        librariesPath: '/h5p-libs',
+        frame: false,
+        copyright: false,
+        export: false,
+        icon: false,
+        fullScreen: false,
+        embedType: 'div'
+      };
+      
+      new H5PStandalone.H5P(el, options).then(function() {
+        el.querySelector('.loading')?.remove();
+        // Notify parent of height changes
+        function reportHeight() {
+          var h = document.documentElement.scrollHeight;
+          window.parent.postMessage({ type: 'h5p-resize', height: h }, '*');
+        }
+        setInterval(reportHeight, 500);
+        reportHeight();
+      }).catch(function(err) {
+        el.innerHTML = '<div class="error">Fehler: ' + err.message + '</div>';
+      });
+    })();
+  </script>
+</body>
+</html>
