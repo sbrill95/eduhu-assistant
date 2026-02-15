@@ -216,6 +216,131 @@ def create_agent() -> Agent[AgentDeps, str]:
             return f"Fehler: {str(e)}"
 
     @agent.tool
+    async def search_wikipedia(
+        ctx: RunContext[AgentDeps],
+        query: str,
+        lang: str = "de",
+    ) -> str:
+        """Durchsuche Wikipedia nach Fachinhalten für den Unterricht.
+        Nutze dieses Tool für Definitionen, Erklärungen, historische Fakten,
+        wissenschaftliche Konzepte und alles wo enzyklopädisches Wissen hilft.
+        """
+        import httpx
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                # Search for page
+                r = await client.get(
+                    f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{query.replace(' ', '_')}",
+                    headers={"User-Agent": "eduhu-assistant/1.0"},
+                )
+                if r.status_code == 200:
+                    data = r.json()
+                    title = data.get("title", "")
+                    extract = data.get("extract", "")
+                    url = data.get("content_urls", {}).get("desktop", {}).get("page", "")
+                    return f"**{title}**\n{extract}\n\nQuelle: {url}"
+
+                # Fallback: search API
+                r2 = await client.get(
+                    f"https://{lang}.wikipedia.org/w/api.php",
+                    params={"action": "opensearch", "search": query, "limit": 3, "format": "json"},
+                )
+                results = r2.json()
+                if len(results) >= 4 and results[1]:
+                    titles = results[1][:3]
+                    urls = results[3][:3]
+                    lines = [f"- [{t}]({u})" for t, u in zip(titles, urls)]
+                    return "Wikipedia-Ergebnisse:\n" + "\n".join(lines)
+                return "Keine Wikipedia-Ergebnisse gefunden."
+        except Exception as e:
+            return f"Wikipedia-Suche fehlgeschlagen: {str(e)}"
+
+    @agent.tool
+    async def search_images(
+        ctx: RunContext[AgentDeps],
+        query: str,
+        count: int = 3,
+    ) -> str:
+        """Suche lizenzfreie Bilder auf Pixabay für Unterrichtsmaterialien.
+        Nutze dieses Tool wenn die Lehrkraft Bilder für Arbeitsblätter,
+        Präsentationen oder Materialien braucht.
+        """
+        from app.config import get_settings
+        import httpx
+        s = get_settings()
+        if not s.pixabay_api_key:
+            return "Pixabay API-Key nicht konfiguriert."
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                r = await client.get(
+                    "https://pixabay.com/api/",
+                    params={
+                        "key": s.pixabay_api_key,
+                        "q": query,
+                        "per_page": min(count, 10),
+                        "lang": "de",
+                        "image_type": "photo",
+                        "safesearch": "true",
+                    },
+                )
+                data = r.json()
+                hits = data.get("hits", [])
+                if not hits:
+                    return f"Keine Bilder für '{query}' gefunden."
+                lines = []
+                for h in hits:
+                    lines.append(f"![{h.get('tags', query)}]({h['webformatURL']})")
+                    lines.append(f"  *{h.get('tags', '')}* — [Pixabay]({h['pageURL']})")
+                return f"**{len(hits)} Bilder** für '{query}':\n\n" + "\n".join(lines)
+        except Exception as e:
+            return f"Bildersuche fehlgeschlagen: {str(e)}"
+
+    @agent.tool
+    async def classroom_tools(
+        ctx: RunContext[AgentDeps],
+        action: str,
+        count: int = 0,
+        names: str = "",
+        group_size: int = 0,
+    ) -> str:
+        """Classroom-Tools für den Unterrichtsalltag.
+
+        Actions:
+        - "random_student": Zufällig einen Schüler aus der Liste auswählen (names = kommagetrennte Namen)
+        - "groups": Schüler in Gruppen einteilen (names = kommagetrennte Namen, group_size = Gruppengröße)
+        - "random_number": Zufallszahl generieren (count = max. Zahl)
+        - "dice": Würfeln (count = Anzahl Würfel, default 1)
+        """
+        import random
+
+        if action == "random_student":
+            name_list = [n.strip() for n in names.split(",") if n.strip()]
+            if not name_list:
+                return "Bitte gib eine kommagetrennte Liste von Schülernamen an."
+            chosen = random.choice(name_list)
+            return f"🎯 **{chosen}** ist dran!"
+
+        elif action == "groups":
+            name_list = [n.strip() for n in names.split(",") if n.strip()]
+            if not name_list or group_size < 1:
+                return "Bitte gib Namen und eine Gruppengröße an."
+            random.shuffle(name_list)
+            groups = [name_list[i:i + group_size] for i in range(0, len(name_list), group_size)]
+            lines = [f"**Gruppe {i+1}:** {', '.join(g)}" for i, g in enumerate(groups)]
+            return "🎲 Gruppen:\n\n" + "\n".join(lines)
+
+        elif action == "random_number":
+            max_num = max(count, 10)
+            return f"🎲 Zufallszahl: **{random.randint(1, max_num)}** (1-{max_num})"
+
+        elif action == "dice":
+            num_dice = min(max(count, 1), 10)
+            rolls = [random.randint(1, 6) for _ in range(num_dice)]
+            return f"🎲 Gewürfelt: **{' '.join(str(r) for r in rolls)}**" + (f" = {sum(rolls)}" if len(rolls) > 1 else "")
+
+        return f"Unbekannte Aktion: {action}"
+
+    @agent.tool
     async def manage_todos(
         ctx: RunContext[AgentDeps],
         action: str,

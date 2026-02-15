@@ -225,6 +225,9 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
             "generate_exercise": "🎯 Übung wird generiert…",
             "patch_material_task": "✏️ Aufgabe wird angepasst…",
             "manage_todos": "📋 To-Do-Liste wird aktualisiert…",
+            "search_wikipedia": "📖 Wikipedia wird durchsucht…",
+            "search_images": "🖼️ Bilder werden gesucht…",
+            "classroom_tools": "🎲 Classroom-Tool wird gestartet…",
         }
 
         full_text = ""

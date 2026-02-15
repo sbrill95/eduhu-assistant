@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str
     brave_api_key: str = ""
     openai_api_key: str = ""
+    pixabay_api_key: str = ""
     logfire_token: str = ""
     log_level: str = "INFO"
     # Chunking defaults
