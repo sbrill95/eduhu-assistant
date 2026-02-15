@@ -41,7 +41,7 @@ export function ChatMessage({ message, onChipSelect }: Props) {
               <ReactMarkdown
                 components={{
                   code({ node, inline, className, children, ...props }: any) {
-                    const match = /language-(\w+)/.exec(className || '');
+                    const match = /language-([\w-]+)/.exec(className || '');
                     const language = match ? match[1] : '';
 
                     if (language === 'todo-card') {
