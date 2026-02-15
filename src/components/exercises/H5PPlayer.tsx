@@ -20,18 +20,22 @@ export function H5PPlayer({ exerciseId }: H5PPlayerProps) {
       frameJs: '/h5p-player/frame.bundle.js',
       frameCss: '/h5p-player/styles/h5p.css',
       librariesPath: '/h5p-libs',
-      frame: true,
+      frame: false,
       copyright: false,
       export: false,
       icon: false,
       fullScreen: false,
+      embedType: 'div',
+      assetsRequestFetchOptions: {
+        mode: 'cors' as RequestMode,
+      },
     };
 
     import('h5p-standalone').then(({ H5P }) => {
       new H5P(el, options);
     }).catch((err) => {
       console.error('H5P Player error:', err);
-      el.innerHTML = '<p style="color:red;padding:20px;">H5P Player konnte nicht geladen werden.</p>';
+      el.innerHTML = `<p style="color:red;padding:20px;">H5P Player Fehler: ${err.message}</p>`;
     });
 
     return () => {
