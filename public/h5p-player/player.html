@@ -60,6 +60,42 @@
       --h5p-theme-border-radius-large: 12px;
       --h5p-theme-scaling: 1;
     }
+
+    /* Replace h5p-theme font icons with Unicode — no custom font needed */
+    .h5p-multichoice .h5p-answer[role="radio"] .h5p-alternative-container:before {
+      font-family: sans-serif !important;
+      content: "○" !important;
+      margin-right: 0.5em;
+    }
+    .h5p-multichoice .h5p-answer[role="radio"][aria-checked="true"] .h5p-alternative-container:before {
+      content: "●" !important;
+      color: var(--h5p-theme-main-cta-base);
+    }
+    .h5p-multichoice .h5p-answer[role="checkbox"] .h5p-alternative-container:before {
+      font-family: sans-serif !important;
+      content: "☐" !important;
+      margin-right: 0.5em;
+    }
+    .h5p-multichoice .h5p-answer[role="checkbox"][aria-checked="true"] .h5p-alternative-container:before {
+      content: "☑" !important;
+      color: var(--h5p-theme-main-cta-base);
+    }
+    .h5p-correct .h5p-answer-icon:before {
+      font-family: sans-serif !important;
+      content: "✓" !important;
+      color: var(--h5p-theme-feedback-correct-main) !important;
+    }
+    .h5p-wrong .h5p-answer-icon:before {
+      font-family: sans-serif !important;
+      content: "✗" !important;
+      color: var(--h5p-theme-feedback-incorrect-main) !important;
+    }
+    /* Question check button — also uses h5p-theme font for icons */
+    .h5p-question-check-answer:before,
+    .h5p-question-show-solution:before,
+    .h5p-question-try-again:before {
+      font-family: sans-serif !important;
+    }
   </style>
 </head>
 <body>
