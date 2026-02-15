@@ -351,11 +351,14 @@ async def update_conversation(conversation_id: str, title: str = "", teacher_id:
 
 @app.get("/api/profile/{teacher_id}")
 async def get_profile(teacher_id: str):
-    profile = await db.select(
-        "user_profiles",
-        filters={"id": teacher_id},
-        single=True,
-    )
+    try:
+        profile = await db.select(
+            "user_profiles",
+            filters={"id": teacher_id},
+            single=True,
+        )
+    except Exception:
+        raise HTTPException(404, "Profil nicht gefunden")
     if not profile:
         raise HTTPException(404, "Profil nicht gefunden")
     return profile

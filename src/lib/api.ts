@@ -99,9 +99,10 @@ export async function deleteCurriculum(curriculumId: string): Promise<void> {
   const teacher = getSession();
   if (!teacher) throw new Error('Nicht angemeldet');
 
-  await fetch(`${BASE}/api/curriculum/${curriculumId}?teacher_id=${teacher.teacher_id}`, {
+  const res = await fetch(`${BASE}/api/curriculum/${curriculumId}?teacher_id=${teacher.teacher_id}`, {
     method: 'DELETE',
   });
+  if (!res.ok) throw new Error('Lehrplan konnte nicht gelöscht werden.');
 }
 
 // ── Profile API ──
@@ -128,11 +129,12 @@ export async function updateProfile(data: Partial<Profile>): Promise<void> {
   const teacher = getSession();
   if (!teacher) throw new Error('Nicht angemeldet');
 
-  await fetch(`${BASE}/api/profile/${teacher.teacher_id}`, {
+  const res = await fetch(`${BASE}/api/profile/${teacher.teacher_id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
+  if (!res.ok) throw new Error('Profil konnte nicht gespeichert werden.');
 }
 
 // ── Conversation Management ──
