@@ -1,3 +1,7 @@
+import { useState } from 'react';
+import { getSession } from '@/lib/auth';
+import { API_BASE } from '@/lib/api';
+
 interface TodoItem {
   id: string;
   text: string;
@@ -10,9 +14,41 @@ interface TodoCardProps {
   todos: TodoItem[];
 }
 
-export function TodoCard({ todos }: TodoCardProps) {
+export function TodoCard({ todos: initialTodos }: TodoCardProps) {
+  const [todos, setTodos] = useState(initialTodos);
+
   const openTodos = todos.filter((t) => !t.done).length;
   const totalTodos = todos.length;
+
+  async function toggleTodo(todoId: string, currentDone: boolean) {
+    const teacher = getSession();
+    if (!teacher) return;
+
+    // Optimistic update
+    setTodos((prev) =>
+      prev.map((t) =>
+        t.id === todoId ? { ...t, done: !currentDone } : t
+      )
+    );
+
+    try {
+      await fetch(`${API_BASE}/api/todos/${todoId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Teacher-ID': teacher.teacher_id,
+        },
+        body: JSON.stringify({ done: !currentDone }),
+      });
+    } catch {
+      // Revert on error
+      setTodos((prev) =>
+        prev.map((t) =>
+          t.id === todoId ? { ...t, done: currentDone } : t
+        )
+      );
+    }
+  }
 
   return (
     <div className="my-2 max-w-[320px] overflow-hidden rounded-xl border border-[var(--color-sage)]/40 bg-[var(--color-sage-soft)] text-sm shadow-sm">
@@ -24,16 +60,21 @@ export function TodoCard({ todos }: TodoCardProps) {
       <ul className="space-y-0 divide-y divide-[var(--color-sage)]/20 px-4">
         {todos.map((todo) => (
           <li key={todo.id} className="flex items-start gap-2.5 py-2.5">
-            <span className="mt-0.5 text-base">
+            <button
+              type="button"
+              onClick={() => toggleTodo(todo.id, todo.done)}
+              className="mt-0.5 text-base transition-transform hover:scale-125 active:scale-95 cursor-pointer"
+              title={todo.done ? 'Als offen markieren' : 'Als erledigt markieren'}
+            >
               {todo.done ? (
                 <span className="text-[var(--color-success)]">✅</span>
               ) : (
-                <span className="text-[var(--color-primary)]">○</span>
+                <span className="text-[var(--color-primary)]">☐</span>
               )}
-            </span>
+            </button>
             <div className="flex-grow min-w-0">
               <span
-                className={`block ${
+                className={`block transition-all ${
                   todo.done
                     ? 'text-[var(--color-text-muted)] line-through'
                     : 'text-[var(--color-text-strong)] font-medium'

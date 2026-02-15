@@ -460,7 +460,7 @@ def create_agent() -> Agent[AgentDeps, str]:
                 if not todos:
                     return "Keine offenen Todos vorhanden. 🎉"
                 import json as _json
-                card_data = [{"id": t["id"][:8], "text": t["text"], "done": t.get("done", False), "due_date": t.get("due_date"), "priority": t.get("priority", "normal")} for t in todos]
+                card_data = [{"id": t["id"], "text": t["text"], "done": t.get("done", False), "due_date": t.get("due_date"), "priority": t.get("priority", "normal")} for t in todos]
                 return f"Hier sind deine offenen Todos:\n\n```todo-card\n{_json.dumps(card_data, ensure_ascii=False)}\n```"
 
             elif action == "add":
@@ -473,7 +473,7 @@ def create_agent() -> Agent[AgentDeps, str]:
                 all_todos = r2.json() if r2.status_code == 200 else []
                 if all_todos:
                     import json as _json
-                    card_data = [{"id": t["id"][:8], "text": t["text"], "done": t.get("done", False), "due_date": t.get("due_date"), "priority": t.get("priority", "normal")} for t in all_todos]
+                    card_data = [{"id": t["id"], "text": t["text"], "done": t.get("done", False), "due_date": t.get("due_date"), "priority": t.get("priority", "normal")} for t in all_todos]
                     return f"✅ Todo erstellt: {text}\n\n```todo-card\n{_json.dumps(card_data, ensure_ascii=False)}\n```"
                 return f"✅ Todo erstellt: {text}" + (f" (bis {due_date})" if due_date else "")
 
