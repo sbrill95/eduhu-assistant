@@ -90,18 +90,24 @@
       content: "✗" !important;
       color: var(--h5p-theme-feedback-incorrect-main) !important;
     }
-    /* Correct answer highlight after check — show which was right */
-    .h5p-correct {
+    /* Correct answer highlight after "Lösung anzeigen" — H5P uses .h5p-should */
+    .h5p-should {
       background: var(--h5p-theme-feedback-correct-secondary) !important;
       border-left: 4px solid var(--h5p-theme-feedback-correct-main) !important;
     }
-    .h5p-correct .h5p-alternative-container:before {
+    .h5p-should .h5p-alternative-container:before {
       color: var(--h5p-theme-feedback-correct-main) !important;
+      content: "✓" !important;
+      font-family: sans-serif !important;
     }
     /* Wrong answer styling */
     .h5p-wrong {
       background: var(--h5p-theme-feedback-incorrect-secondary) !important;
       border-left: 4px solid var(--h5p-theme-feedback-incorrect-main) !important;
+    }
+    /* Dim non-relevant answers after check */
+    .h5p-should-not:not(.h5p-selected) {
+      opacity: 0.5;
     }
     /* Bigger radio/checkbox icons for mobile tap targets */
     .h5p-multichoice .h5p-alternative-container:before {
