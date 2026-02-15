@@ -230,9 +230,10 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
         full_text = ""
         try:
             async for event in agent.run_stream_events(run_input, deps=deps, message_history=message_history):
-                from pydantic_ai.messages import FunctionToolCallEvent, FunctionToolResultEvent, PartDeltaEvent
-                from pydantic_ai.messages import TextPartDelta
-                from pydantic_ai.agent import AgentRunResultEvent
+                from pydantic_ai.messages import (
+                    FunctionToolCallEvent, PartDeltaEvent, 
+                    TextPartDelta, FinalResultEvent,
+                )
 
                 if isinstance(event, FunctionToolCallEvent):
                     tool_name = event.part.tool_name
@@ -243,10 +244,9 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
                         delta_text = event.delta.content
                         full_text += delta_text
                         yield f"data: {json.dumps({'type': 'delta', 'text': delta_text})}\n\n"
-                elif isinstance(event, AgentRunResultEvent):
-                    # Final result — if we haven't captured text via deltas, get it here
+                elif isinstance(event, FinalResultEvent):
                     if not full_text:
-                        full_text = event.result.output or ""
+                        full_text = str(event.result.output or "")
         except Exception as e:
             logger.error(f"Agent stream error: {type(e).__name__}: {e}", exc_info=True)
             # Yield an error message if something goes wrong during the stream

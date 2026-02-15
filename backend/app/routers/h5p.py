@@ -165,6 +165,7 @@ async def get_h5p_metadata(exercise_id: str):
 @public_router.get("/h5p/{exercise_id}/content/content.json")
 async def get_h5p_content_json(exercise_id: str):
     """h5p-standalone content file."""
+    import json as _json
     exercise = await db.select(
         "exercises",
         columns="h5p_content",
@@ -173,7 +174,14 @@ async def get_h5p_content_json(exercise_id: str):
     )
     if not exercise:
         raise HTTPException(status_code=404, detail="Übung nicht gefunden")
-    return exercise["h5p_content"]
+    content = exercise["h5p_content"]
+    # Handle double-encoded JSON strings from older entries
+    if isinstance(content, str):
+        try:
+            content = _json.loads(content)
+        except (ValueError, TypeError):
+            pass
+    return content
 
 
 @router.get("/pages", response_model=list[PageOut])
