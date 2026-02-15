@@ -17,6 +17,7 @@ interface TodoCardProps {
 export function TodoCard({ todos: initialTodos }: TodoCardProps) {
   const [todos, setTodos] = useState(initialTodos);
   const [newText, setNewText] = useState('');
+  const [newDate, setNewDate] = useState('');
   const [adding, setAdding] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -49,12 +50,13 @@ export function TodoCard({ todos: initialTodos }: TodoCardProps) {
       const resp = await fetch(`${API_BASE}/api/todos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Teacher-ID': teacher.teacher_id },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, ...(newDate ? { due_date: newDate } : {}) }),
       });
       if (resp.ok) {
         const created = await resp.json();
         setTodos((prev) => [...prev, { id: created.id, text: created.text, done: false, due_date: created.due_date, priority: created.priority || 'normal' }]);
         setNewText('');
+        setNewDate('');
       }
     } catch { /* ignore */ }
     setAdding(false);
@@ -109,6 +111,14 @@ export function TodoCard({ todos: initialTodos }: TodoCardProps) {
             placeholder="Neues Todo..."
             disabled={adding}
             className="flex-grow bg-transparent text-sm text-[#3A3530] placeholder:text-[#9E9A96] outline-none"
+          />
+          <input
+            type="date"
+            value={newDate}
+            onChange={(e) => setNewDate(e.target.value)}
+            disabled={adding}
+            className="w-8 shrink-0 cursor-pointer bg-transparent text-xs text-[#6B6360] opacity-60 hover:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+            title="Fälligkeitsdatum"
           />
           {newText.trim() && (
             <button

@@ -40,6 +40,15 @@ export function ChatMessage({ message, onChipSelect }: Props) {
             <div className="prose prose-sm max-w-none text-text-default prose-headings:text-text-strong prose-strong:text-text-strong prose-a:text-primary">
               <ReactMarkdown
                 components={{
+                  pre({ children }: any) {
+                    // Unwrap <pre> if it contains a custom card component instead of code
+                    const child = Array.isArray(children) ? children[0] : children;
+                    if (child?.type && typeof child.type !== 'string') {
+                      // It's a React component (TodoCard/QRCard), not a DOM element
+                      return <>{children}</>;
+                    }
+                    return <pre className="overflow-auto rounded-lg bg-[#F5F0EB] p-3">{children}</pre>;
+                  },
                   code({ node, inline, className, children, ...props }: any) {
                     const match = /language-([\w-]+)/.exec(className || '');
                     const language = match ? match[1] : '';
