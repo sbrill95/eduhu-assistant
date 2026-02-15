@@ -1,6 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, Depends
 from app.deps import get_current_teacher_id
-from app.config import settings
+from app.config import get_settings
 import httpx
 import logging
 
@@ -19,7 +19,7 @@ async def transcribe_audio(
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(
             "https://api.openai.com/v1/audio/transcriptions",
-            headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+            headers={"Authorization": f"Bearer {get_settings().openai_api_key}"},
             files={
                 "file": (
                     file.filename or "audio.webm",
