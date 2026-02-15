@@ -15,29 +15,55 @@ export function TodoCard({ todos }: TodoCardProps) {
   const totalTodos = todos.length;
 
   return (
-    <div className="max-w-[300px] rounded-[var(--radius-card)] bg-bg-card p-4 text-sm shadow-card">
-      <h3 className="mb-3 font-bold text-text-strong">📋 Meine Todos</h3>
-      <ul className="space-y-2">
+    <div className="my-2 max-w-[320px] rounded-xl border border-[#C8552D]/20 bg-[#FFF8F5] p-4 text-sm shadow-sm">
+      <h3 className="mb-3 flex items-center gap-2 text-base font-bold text-[#2D2A26]">
+        📋 Meine Todos
+      </h3>
+      <ul className="space-y-2.5">
         {todos.map((todo) => (
-          <li key={todo.id} className="flex items-center gap-2">
-            <span>{todo.done ? '☑' : '☐'}</span>
-            <span
-              className={`flex-grow ${
-                todo.done ? 'text-text-muted line-through' : ''
-              }`}
-            >
-              {todo.text}
+          <li key={todo.id} className="flex items-start gap-2.5">
+            <span className="mt-0.5 text-base">
+              {todo.done ? (
+                <span className="text-green-600">✅</span>
+              ) : (
+                <span className="text-[#C8552D]">☐</span>
+              )}
             </span>
-            {todo.due_date && (
-              <span className="text-xs text-text-muted">{todo.due_date}</span>
+            <div className="flex-grow min-w-0">
+              <span
+                className={`block ${
+                  todo.done
+                    ? 'text-[#8A8580] line-through'
+                    : 'text-[#2D2A26] font-medium'
+                }`}
+              >
+                {todo.text}
+              </span>
+              {todo.due_date && (
+                <span className="text-xs text-[#8A8580]">
+                  📅 {new Date(todo.due_date + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+                </span>
+              )}
+            </div>
+            {todo.priority === 'high' && !todo.done && (
+              <span className="mt-0.5 rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
+                Dringend
+              </span>
             )}
-            {todo.priority === 'high' && !todo.done && <span>⚠️</span>}
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-right text-xs text-text-muted">
-        {openTodos} von {totalTodos} offen
-      </p>
+      <div className="mt-3 flex items-center justify-between border-t border-[#C8552D]/10 pt-2">
+        <span className="text-xs text-[#8A8580]">
+          {openTodos} von {totalTodos} offen
+        </span>
+        <div className="h-1.5 w-20 rounded-full bg-[#E8E4E0]">
+          <div
+            className="h-full rounded-full bg-[#C8552D] transition-all"
+            style={{ width: `${totalTodos > 0 ? ((totalTodos - openTodos) / totalTodos) * 100 : 0}%` }}
+          />
+        </div>
+      </div>
     </div>
   );
 }
