@@ -175,6 +175,44 @@ def create_agent() -> Agent[AgentDeps, str]:
             logger.error(f"Exercise generation failed: {e}")
             return f"Fehler bei der Übungserstellung: {str(e)}"
 
+    # ── Tool: patch_material_task ──
+    @agent.tool
+    async def patch_material_task(
+        ctx: RunContext[AgentDeps],
+        material_id: str,
+        task_index: int,
+        anweisung: str,
+    ) -> str:
+        """Ändere eine EINZELNE Aufgabe in einer bestehenden Klausur.
+        Nutze dieses Tool wenn die Lehrkraft sagt 'ändere Aufgabe X', 'mach Aufgabe X schwieriger/leichter',
+        oder eine bestimmte Aufgabe überarbeiten möchte.
+        task_index ist 0-basiert (Aufgabe 1 = Index 0, Aufgabe 2 = Index 1, etc.).
+        Die restlichen Aufgaben bleiben EXAKT IDENTISCH — nur die genannte wird ersetzt."""
+        import httpx
+        base = ctx.deps.base_url or "http://localhost:8000"
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                r = await client.patch(
+                    f"{base}/api/materials/{material_id}/task/{task_index}",
+                    params={"teacher_id": ctx.deps.teacher_id, "anweisung": anweisung},
+                )
+                if r.status_code != 200:
+                    return f"Fehler beim Ändern der Aufgabe: {r.text[:200]}"
+                data = r.json()
+                alte = data["alte_aufgabe"]
+                neue = data["neue_aufgabe"]
+                dl = f"{base}/api/materials/{data['material_id']}/docx" if base else data["docx_url"]
+                return (
+                    f"Aufgabe {task_index + 1} wurde geändert. Alle anderen Aufgaben sind unverändert.\n\n"
+                    f"**Vorher:** {alte.get('aufgabe','')} (AFB {alte.get('afb_level','')}, {alte.get('punkte',0)}P)\n"
+                    f"**Nachher:** {neue.get('aufgabe','')} (AFB {neue.get('afb_level','')}, {neue.get('punkte',0)}P)\n"
+                    f"Beschreibung: {neue.get('beschreibung','')}\n\n"
+                    f"[📥 Aktualisierte Klausur herunterladen]({dl})"
+                )
+        except Exception as e:
+            logger.error(f"Patch material task failed: {e}")
+            return f"Fehler: {str(e)}"
+
     return agent
 
 

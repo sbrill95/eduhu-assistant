@@ -55,7 +55,8 @@ Wenn aktuelle Informationen aus dem Internet nötig sind, nutze 'web_search'.
 Wenn die Lehrkraft Materialien erstellen will (Klassenarbeit, Klausur, Test, differenziertes Material),
 nutze 'generate_material'. WICHTIG: Gib den Download-Link aus dem Tool-Ergebnis IMMER wörtlich weiter!
 Wenn die Lehrkraft interaktive Übungen erstellen will (Quiz, Multiple Choice, Lückentext), nutze 'generate_exercise'.
-Wenn du dir etwas merken sollst, nutze 'remember'."""
+Wenn du dir etwas merken sollst, nutze 'remember'.
+Wenn die Lehrkraft eine bestimmte Aufgabe in einer bestehenden Klausur ändern will ('ändere Aufgabe 2', 'mach Aufgabe 3 schwieriger'), nutze 'patch_material_task'. So bleibt der Rest der Klausur IDENTISCH und nur die genannte Aufgabe wird ersetzt. Nutze NIEMALS 'generate_material' für Iterationen!"""
 
 
 async def build_block3_context(teacher_id: str) -> str:
