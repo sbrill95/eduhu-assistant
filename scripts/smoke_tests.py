@@ -391,6 +391,116 @@ async def test_memory_count(client: httpx.AsyncClient):
 
 
 # ═══════════════════════════════════════════════════
+# NEW TESTS
+# ═══════════════════════════════════════════════════
+
+async def test_sql_injection(client: httpx.AsyncClient):
+    """Sende SQL-Injection-String als X-Teacher-ID, erwarte keinen 500er."""
+    sql_injection_id = "'; DROP TABLE users; --"
+    r = await client.get(
+        f"{BASE_URL}/api/health",
+        headers=headers(teacher_id=sql_injection_id),
+    )
+    assert r.status_code != 500, f"SQL Injection with {sql_injection_id} caused 500"
+    return f"No 500 for SQL injection (got {r.status_code})"
+
+async def test_conversation_delete(client: httpx.AsyncClient):
+    """Erstelle Konversation, lösche sie, prüfe ob sie weg ist."""
+    # 1. Create a conversation
+    r_create = await client.post(
+        f"{BASE_URL}/api/chat/send",
+        headers=headers(),
+        json={
+            "message": "Testnachricht für Löschtest.",
+            "conversation_id": None,
+            "teacher_id": TEST_TEACHER_ID,
+        },
+        timeout=60,
+    )
+    assert r_create.status_code == 200, f"Create conversation failed: {r_create.status_code}"
+    conversation_id = r_create.json()["conversation_id"]
+    assert conversation_id, "No conversation_id returned"
+
+    # 2. Delete the conversation
+    r_delete = await client.delete(
+        f"{BASE_URL}/api/chat/conversations/{conversation_id}",
+        headers=headers(),
+        timeout=30,
+    )
+    assert r_delete.status_code == 200, f"Delete conversation failed: {r_delete.status_code}"
+    
+    # 3. Verify it's gone (try to get history, expect 403/404)
+    r_verify = await client.get(
+        f"{BASE_URL}/api/chat/history?conversation_id={conversation_id}",
+        headers=headers(),
+        timeout=30,
+    )
+    assert r_verify.status_code in (403, 404), f"Expected 403/404 after delete, got {r_verify.status_code}"
+    return f"Conversation {conversation_id[:8]}... deleted and verified gone"
+
+async def test_curriculum_list(client: httpx.AsyncClient):
+    """GET curriculum list returns list structure."""
+    r = await client.get(
+        f"{BASE_URL}/api/curriculum/list?teacher_id={TEST_TEACHER_ID}",
+        headers=headers(),
+        timeout=30,
+    )
+    assert r.status_code == 200, f"Curriculum list: {r.status_code}"
+    data = r.json()
+    assert isinstance(data, list), "Expected list for curriculum list"
+    return f"{len(data)} curricula listed"
+
+async def test_cors_headers(client: httpx.AsyncClient):
+    """Prüfe Access-Control-Headers via OPTIONS preflight."""
+    r = await client.options(
+        f"{BASE_URL}/api/health",
+        headers={"Origin": "https://eduhu-assistant.pages.dev", "Access-Control-Request-Method": "GET"},
+    )
+    # CORS middleware should respond to preflight
+    has_cors = "access-control-allow-origin" in r.headers
+    if not has_cors:
+        # Some setups only add CORS headers on actual requests
+        r2 = await client.get(
+            f"{BASE_URL}/api/health",
+            headers={"Origin": "https://eduhu-assistant.pages.dev"},
+        )
+        has_cors = "access-control-allow-origin" in r2.headers
+    
+    assert has_cors, "No CORS headers on preflight or GET"
+    return "CORS headers present"
+
+async def test_long_message(client: httpx.AsyncClient):
+    """Sende >10000 Zeichen Nachricht, erwarte keinen Crash (non-500)."""
+    long_message = "A" * 10001  # > 10000 characters
+    r = await client.post(
+        f"{BASE_URL}/api/chat/send",
+        headers=headers(),
+        json={
+            "message": long_message,
+            "conversation_id": None,
+            "teacher_id": TEST_TEACHER_ID,
+        },
+        timeout=60,
+    )
+    assert r.status_code != 500, f"Long message caused 500: {r.status_code}"
+    return f"Long message handled (got {r.status_code})"
+
+async def test_invalid_conversation_id(client: httpx.AsyncClient):
+    """Sende Chat mit conversation_id='not-a-uuid', erwarte 4xx."""
+    r = await client.post(
+        f"{BASE_URL}/api/chat/send",
+        headers=headers(),
+        json={
+            "message": "Test with invalid conversation ID",
+            "conversation_id": "not-a-uuid",
+            "teacher_id": TEST_TEACHER_ID,
+        },
+        timeout=30,
+    )
+    assert r.status_code >= 400 and r.status_code < 500, f"Expected 4xx for invalid conversation_id, got {r.status_code}"
+    return f"Invalid conversation_id handled (got {r.status_code})"
+
+# ═══════════════════════════════════════════════════
 # RUNNER
 # ═══════════════════════════════════════════════════
 
@@ -416,10 +526,16 @@ async def main():
         await timed("10. Response Times", test_response_times(client))
         await timed("11. H5P Access Code", test_h5p_access_code(client))
         await timed("12. Memory Cleanup", test_memory_count(client))
+        await timed("13. SQL Injection", test_sql_injection(client))
+        await timed("14. Conversation Delete", test_conversation_delete(client))
+        await timed("15. Curriculum List", test_curriculum_list(client))
+        await timed("16. CORS Headers", test_cors_headers(client))
+        await timed("17. Long Message", test_long_message(client))
+        await timed("18. Invalid Conversation ID", test_invalid_conversation_id(client))
         
         # Slow tests (LLM calls)
-        await timed("13. Chat Send + Response", test_chat_send(client))
-        await timed("14. Chat Empty Message", test_chat_empty_message(client))
+        await timed("19. Chat Send + Response", test_chat_send(client))
+        await timed("20. Chat Empty Message", test_chat_empty_message(client))
         
         # Very slow tests (multiple LLM calls)
         # await timed("15. Material Klausur + DOCX", test_material_klausur(client))
