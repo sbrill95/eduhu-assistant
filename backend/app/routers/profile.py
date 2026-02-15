@@ -1,11 +1,18 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from app import db
 from app.models import ProfileUpdate
+from app.deps import get_current_teacher_id
 
 router = APIRouter(prefix="/api/profile", tags=["Profile"])
 
 @router.get("/{teacher_id}")
-async def get_profile(teacher_id: str):
+async def get_profile(
+    teacher_id: str,
+    current_user_id: str = Depends(get_current_teacher_id)
+):
+    if teacher_id != current_user_id:
+        raise HTTPException(403, "Zugriff verweigert")
+        
     try:
         profile = await db.select(
             "user_profiles",
@@ -19,7 +26,14 @@ async def get_profile(teacher_id: str):
     return profile
 
 @router.patch("/{teacher_id}")
-async def update_profile(teacher_id: str, req: ProfileUpdate):
+async def update_profile(
+    teacher_id: str, 
+    req: ProfileUpdate,
+    current_user_id: str = Depends(get_current_teacher_id)
+):
+    if teacher_id != current_user_id:
+        raise HTTPException(403, "Zugriff verweigert")
+
     data: dict = {}
     if req.bundesland is not None:
         data["bundesland"] = req.bundesland
@@ -35,6 +49,7 @@ async def update_profile(teacher_id: str, req: ProfileUpdate):
 
 def build_suggestions(profile: dict | None, memories: list[dict]) -> list[str]:
     """Build personalized prompt suggestions based on profile and memories."""
+    # ... (implementation remains same) ...
     suggestions = []
     profile = profile or {}
 
@@ -63,16 +78,12 @@ def build_suggestions(profile: dict | None, memories: list[dict]) -> list[str]:
         "Hilf mir bei der Unterrichtsvorbereitung",
     ]
 
-    # Return exactly 3 suggestions, unique and filled with defaults
     final_suggestions = list(dict.fromkeys(suggestions))  # Remove duplicates
     final_suggestions.extend(defaults)
     return final_suggestions[:3]
 
-@router.get("/suggestions")  # Note: This is usually called as /api/suggestions in main, but let's mount it under /api/suggestions or similar. 
-# Wait, main.py had /api/suggestions directly. Let's keep it consistent in main. 
-# I'll put this logical part here but expose it correctly.
-# Ideally, suggestions are related to the user/profile context. Let's keep it here but route it carefully.
-async def get_suggestions(teacher_id: str):
+@router.get("/suggestions") 
+async def get_suggestions(teacher_id: str = Depends(get_current_teacher_id)):
     """Get personalized prompt suggestions for the chat welcome screen."""
     # 1. Load profile
     profile = await db.select("user_profiles", filters={"id": teacher_id}, single=True)

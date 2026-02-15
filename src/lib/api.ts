@@ -1,8 +1,15 @@
-import type { ChatMessage, Conversation } from './types';
+import { type ChatMessage, type Conversation } from './types';
 import { getSession } from './auth';
 
 export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 const BASE = API_BASE;
+
+function getAuthHeaders(teacherId: string) {
+  return {
+    'Content-Type': 'application/json',
+    'X-Teacher-ID': teacherId, // Inject header for security middleware
+  };
+}
 
 export async function sendMessage(
   message: string,
@@ -13,7 +20,7 @@ export async function sendMessage(
 
   const res = await fetch(`${BASE}/api/chat/send`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(teacher.teacher_id),
     body: JSON.stringify({
       message,
       conversation_id: conversationId,
@@ -29,8 +36,13 @@ export async function sendMessage(
 }
 
 export async function getHistory(conversationId: string): Promise<ChatMessage[]> {
-  const teacher = JSON.parse(localStorage.getItem('teacher') || '{}');
-  const res = await fetch(`${BASE}/api/chat/history?conversation_id=${conversationId}&teacher_id=${teacher?.teacher_id || ''}`);
+  const teacher = getSession();
+  if (!teacher) throw new Error('Nicht angemeldet');
+
+  const res = await fetch(`${BASE}/api/chat/history?conversation_id=${conversationId}`, {
+    headers: { 'X-Teacher-ID': teacher.teacher_id }
+  });
+
   if (!res.ok) throw new Error('Verlauf konnte nicht geladen werden.');
   const data = (await res.json()) as { messages: ChatMessage[] };
   return data.messages;
@@ -40,13 +52,15 @@ export async function getConversations(): Promise<Conversation[]> {
   const teacher = getSession();
   if (!teacher) return [];
 
-  const res = await fetch(`${BASE}/api/chat/conversations?teacher_id=${teacher.teacher_id}`);
+  const res = await fetch(`${BASE}/api/chat/conversations`, {
+    headers: { 'X-Teacher-ID': teacher.teacher_id }
+  });
+
   if (!res.ok) return [];
   return res.json() as Promise<Conversation[]>;
 }
 
 // ── Curriculum API ──
-
 export interface Curriculum {
   id: string;
   fach: string;
@@ -75,6 +89,7 @@ export async function uploadCurriculum(
 
   const res = await fetch(`${BASE}/api/curriculum/upload`, {
     method: 'POST',
+    headers: { 'X-Teacher-ID': teacher.teacher_id },
     body: form,
   });
 
@@ -90,7 +105,9 @@ export async function listCurricula(): Promise<Curriculum[]> {
   const teacher = getSession();
   if (!teacher) return [];
 
-  const res = await fetch(`${BASE}/api/curriculum/list?teacher_id=${teacher.teacher_id}`);
+  const res = await fetch(`${BASE}/api/curriculum/list?teacher_id=${teacher.teacher_id}`, {
+    headers: { 'X-Teacher-ID': teacher.teacher_id }
+  });
   if (!res.ok) return [];
   return res.json() as Promise<Curriculum[]>;
 }
@@ -101,12 +118,12 @@ export async function deleteCurriculum(curriculumId: string): Promise<void> {
 
   const res = await fetch(`${BASE}/api/curriculum/${curriculumId}?teacher_id=${teacher.teacher_id}`, {
     method: 'DELETE',
+    headers: { 'X-Teacher-ID': teacher.teacher_id }
   });
   if (!res.ok) throw new Error('Lehrplan konnte nicht gelöscht werden.');
 }
 
 // ── Profile API ──
-
 export interface Profile {
   id: string;
   name: string;
@@ -120,7 +137,10 @@ export async function getProfile(): Promise<Profile | null> {
   const teacher = getSession();
   if (!teacher) return null;
 
-  const res = await fetch(`${BASE}/api/profile/${teacher.teacher_id}`);
+  const res = await fetch(`${BASE}/api/profile/${teacher.teacher_id}`, {
+    headers: { 'X-Teacher-ID': teacher.teacher_id }
+  });
+
   if (!res.ok) return null;
   return res.json() as Promise<Profile>;
 }
@@ -131,19 +151,19 @@ export async function updateProfile(data: Partial<Profile>): Promise<void> {
 
   const res = await fetch(`${BASE}/api/profile/${teacher.teacher_id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(teacher.teacher_id),
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error('Profil konnte nicht gespeichert werden.');
 }
 
 // ── Conversation Management ──
-
 export async function deleteConversation(conversationId: string): Promise<void> {
   const teacher = getSession();
   if (!teacher) throw new Error('Nicht angemeldet');
 
-  await fetch(`${BASE}/api/chat/conversations/${conversationId}?teacher_id=${teacher.teacher_id}`, {
+  await fetch(`${BASE}/api/chat/conversations/${conversationId}`, {
     method: 'DELETE',
+    headers: { 'X-Teacher-ID': teacher.teacher_id }
   });
 }

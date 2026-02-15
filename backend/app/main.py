@@ -12,6 +12,7 @@ from app.agents.main_agent import get_agent
 
 # Import routers
 from app.routers import auth, chat, profile, curriculum, materials, h5p
+from app.exceptions import global_exception_handler
 
 # ── Logfire ──
 try:
@@ -57,6 +58,9 @@ app = FastAPI(
     version="0.2.0",
     lifespan=lifespan,
 )
+
+# Exception Handlers
+app.add_exception_handler(Exception, global_exception_handler)
 
 # Instrument FastAPI with Logfire
 if logfire is not None:

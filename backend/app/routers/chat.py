@@ -1,14 +1,14 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from app import db
 from app.models import (
     ChatRequest, ChatResponse, ChatMessageOut, ConversationOut,
-    ProfileUpdate,
 )
 from app.agents.main_agent import get_agent, AgentDeps
 from app.agents.memory_agent import run_memory_agent
 from app.agents.material_learning_agent import run_material_learning
 from app.agents.summary_agent import maybe_summarize
 from app.config import get_settings
+from app.deps import get_current_teacher_id
 from datetime import datetime, timezone
 import asyncio
 import logging
@@ -20,8 +20,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
 @router.post("/send", response_model=ChatResponse)
-async def chat_send(req: ChatRequest, request: Request):
-    teacher_id = req.teacher_id
+async def chat_send(
+    req: ChatRequest, 
+    request: Request,
+    teacher_id: str = Depends(get_current_teacher_id)
+):
+    # Verify the request body matches the authenticated user
+    if req.teacher_id and req.teacher_id != teacher_id:
+        raise HTTPException(403, "Zugriff verweigert (ID Mismatch)")
+
     conversation_id = req.conversation_id
 
     # Create conversation if new
@@ -135,7 +142,10 @@ async def chat_send(req: ChatRequest, request: Request):
     )
 
 @router.get("/history")
-async def chat_history(conversation_id: str, teacher_id: str):
+async def chat_history(
+    conversation_id: str, 
+    teacher_id: str = Depends(get_current_teacher_id)
+):
     # BUG-003 fix: Verify conversation belongs to requesting teacher
     conv = await db.select(
         "conversations",
@@ -159,7 +169,7 @@ async def chat_history(conversation_id: str, teacher_id: str):
     }
 
 @router.get("/conversations")
-async def chat_conversations(teacher_id: str):
+async def chat_conversations(teacher_id: str = Depends(get_current_teacher_id)):
     convs = await db.select(
         "conversations",
         columns="id, title, updated_at",
@@ -173,8 +183,21 @@ async def chat_conversations(teacher_id: str):
     ]
 
 @router.delete("/conversations/{conversation_id}")
-async def delete_conversation(conversation_id: str, teacher_id: str):
+async def delete_conversation(
+    conversation_id: str, 
+    teacher_id: str = Depends(get_current_teacher_id)
+):
     """Delete a conversation and its messages."""
+    # Verify ownership before deletion!
+    conv = await db.select(
+        "conversations", 
+        columns="user_id", 
+        filters={"id": conversation_id}, 
+        single=True
+    )
+    if not conv or conv.get("user_id") != teacher_id:
+        raise HTTPException(403, "Zugriff verweigert")
+
     settings = get_settings()
     headers = {
         "apikey": settings.supabase_service_role_key,
@@ -193,18 +216,19 @@ async def delete_conversation(conversation_id: str, teacher_id: str):
             f"{base}/rest/v1/session_logs?conversation_id=eq.{conversation_id}",
             headers=headers,
         )
-        # Delete conversation (verify ownership)
+        # Delete conversation
         await client.delete(
-            f"{base}/rest/v1/conversations?id=eq.{conversation_id}&user_id=eq.{teacher_id}",
+            f"{base}/rest/v1/conversations?id=eq.{conversation_id}",
             headers=headers,
         )
     return {"deleted": True}
 
 @router.patch("/conversations/{conversation_id}")
-async def update_conversation(conversation_id: str, title: str = "", teacher_id: str = ""):
-    """Update conversation title (BUG-004 fix: requires teacher_id ownership check)."""
-    if not teacher_id:
-        raise HTTPException(status_code=400, detail="teacher_id required")
+async def update_conversation(
+    conversation_id: str, 
+    title: str = "", 
+    teacher_id: str = Depends(get_current_teacher_id)
+):
     conv = await db.select(
         "conversations",
         columns="id, user_id",
@@ -220,4 +244,3 @@ async def update_conversation(conversation_id: str, title: str = "", teacher_id:
             filters={"id": conversation_id},
         )
     return {"updated": True}
-
