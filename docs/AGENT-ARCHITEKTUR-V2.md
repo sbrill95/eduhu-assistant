@@ -749,11 +749,74 @@ Klausur-Agent denkt:
 
 Kein unnötiges Nachladen. Agent entscheidet selbst. Token-effizient.
 
+## Design-Entscheidung: Spezialisten vs. Monolith
+
+### Geminis Einwand
+"Wäre es nicht einfacher, ALLE Rückfragen im Hauptagent zu machen und den Subagent nur als One-Shot zu nutzen?"
+
+### Unsere Antwort: Spezialisten. Aus folgenden Gründen:
+
+**1. Prompt-Fokus schlägt Generalismus**
+Ein Klausur-Agent mit 2K Tokens System-Prompt der NUR Klausuren kann, schlägt einen Hauptagent mit 8K Tokens der alles können muss. Weniger Kontext = weniger Konfusion = bessere Qualität.
+
+**2. Tool-Isolation**
+Der Klausur-Agent braucht `get_context`, `search_curriculum`. Der Hauptagent braucht `remember`, `web_search`, `generate_material`. Getrennte Tool-Sets = weniger falsche Tool-Calls.
+
+**3. Modell-Austauschbarkeit**
+In 6 Monaten gibt es vielleicht spezialisierte Bildungs-Modelle. Mit Spezialisten tauscht man ein Modell aus. Beim Monolith geht das nicht.
+
+**4. Wissenskarte skaliert nur mit Spezialisten**
+Wenn der Hauptagent ALLES macht, muss er ALLES wissen — Klausur-Good-Practices, Differenzierungs-Muster, H5P-Templates. Das explodiert. Spezialisten sehen nur ihr Fachgebiet.
+
+### Klare Verantwortungsteilung
+
+| Verantwortung | Wer | Warum |
+|---|---|---|
+| Gespräch führen, Ton, Empathie | Hauptagent | Kennt den Lehrer, hat Chat-Historie |
+| Vorklärung: Fach, Klasse, Thema, Wünsche | Hauptagent | Ist Gesprächspartner, stellt natürliche Fragen |
+| Schärfungsfragen (konversational) | Hauptagent | "Schwerpunkt Stromkreise oder Induktion?" |
+| Fachliche Rückfragen beim Generieren | **Subagent** | "SchiC sagt 60P, du willst 45 Min — weniger Aufgaben?" |
+| Curriculum-RAG, Good Practices laden | **Subagent** | Braucht die Details, nicht der Hauptagent |
+| Material generieren | **Subagent** | Fokussierter Prompt, spezialisierte Tools |
+| Ergebnis präsentieren, Download-Link | Hauptagent | Gespräch abschließen |
+
+→ Hauptagent = **Konversation + Vorklärung**
+→ Subagent = **Fachliche Tiefe + Generierung**
+
+## Implementierungs-Phasen
+
+### Phase 1: Wissenskarte + Sonnet-Subagent (One-Shot mit Tools)
+- `agent_knowledge` Tabelle erstellen
+- Seed: Generische Fach-Profile (Top 8 Fächer)
+- Klausur-Agent auf Sonnet upgraden
+- `get_context` Tool mit scope+depth
+- `material_router.py` umbauen: Wissenskarte vorladen
+- `material_learning_agent.py` auf `agent_knowledge` umstellen
+- `db.py` erweitern: `rpc()` + `or`-Filter
+- **Kein Multi-Turn** — Subagent generiert mit dem was er hat
+- E2E-Test mit Steffens Account
+
+### Phase 2: Multi-Turn Rückfragen
+- `agent_sessions` Tabelle für State-Persistierung
+- Two-Phase Tool Pattern: `generate_material` → `continue_material_generation`
+- Pydantic AI `message_history` Serialisierung + Schema-Versionierung
+- System-Prompt Hauptagent: Regel für `continue`-Aufruf
+- Robuste De-Serialisierung (ValidationError → expired, nicht crash)
+- Race-Condition-Handling (User schickt Nachrichten zwischen generate und continue)
+- **Erst wenn Phase 1 nachweislich Qualitätslücken zeigt**
+
+### Phase 3: Erweiterte Features
+- Upload-Parsing (PDF/DOCX → Struktur → `agent_knowledge` type=example)
+- Conversation-Attachments (Bilder/PDFs im Chat → Subagent-Zugriff)
+- Good-Practice-RAG mit pgvector (wenn Aufgabenbank >50 Einträge)
+- Globale Good Practices (anonymisiert zwischen Lehrern, Datenschutz klären)
+- `pydantic-graph` evaluieren als Alternative zur manuellen State Machine
+- Diff-Agent + H5P-Agent: Gleiche Architektur übernehmen
+
 ## Offene Fragen
 
-1. **Upload-Parsing**: Wie extrahieren wir Struktur aus hochgeladenen PDFs? Separates Feature, nicht Blocker
-2. **Conversation-Attachments**: Brauchen wir eine `attachments`-Tabelle für Bilder/PDFs im Chat?
-3. **Quality-Score-Algorithmus**: Lehrer-Rating (1-5) → quality_score (0-1)? Oder auch Wiederverwendung?
-4. **Globale Good Practices teilen**: Anonymisiert zwischen Lehrern? Datenschutz-Implikationen?
-5. **Embedding-Generierung**: Bei jedem Insert automatisch? Oder Batch-Job?
-6. **pydantic-graph**: Pydantic AI hat ein eigenes State-Machine-Framework. Für V3 evaluieren statt manueller Session-Persistierung?
+1. **Upload-Parsing**: Wie extrahieren wir Struktur aus hochgeladenen PDFs? (Phase 3)
+2. **Quality-Score-Algorithmus**: Lehrer-Rating (1-5) → quality_score (0-1)? Oder auch Wiederverwendung?
+3. **Globale Good Practices teilen**: Anonymisiert zwischen Lehrern? Datenschutz-Implikationen?
+4. **Embedding-Generierung**: Bei jedem Insert automatisch? Oder Batch-Job?
+5. **Render Cold-Start + Sonnet-Subagent**: Timeout-Budget? Sonnet braucht ~10-20s für Klausur + Tool-Calls. Render Free Tier hat 30s Timeout?
