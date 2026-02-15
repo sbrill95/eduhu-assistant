@@ -10,6 +10,10 @@
     #h5p-container { width: 100%; min-height: 200px; }
     .loading { display: flex; justify-content: center; align-items: center; height: 200px; color: #666; font-size: 16px; }
     .error { color: red; padding: 20px; text-align: center; }
+    /* Fix H5P iframe height collapse — force inner iframe to auto-size */
+    .h5p-iframe-wrapper { min-height: 300px !important; }
+    .h5p-iframe-wrapper iframe { min-height: 300px !important; height: auto !important; }
+    .h5p-content { min-height: 250px !important; overflow: visible !important; }
   </style>
 </head>
 <body>
