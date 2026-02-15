@@ -1,7 +1,5 @@
 import { useEffect, useRef } from 'react';
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
-
 interface H5PPlayerProps {
   exerciseId: string;
 }
@@ -15,20 +13,18 @@ export function H5PPlayer({ exerciseId }: H5PPlayerProps) {
     initializedRef.current = true;
 
     const el = containerRef.current;
+
+    // All paths are same-origin (proxied through Cloudflare Pages functions)
     const options = {
-      h5pJsonPath: `${API_BASE}/api/public/h5p/${exerciseId}`,
+      h5pJsonPath: `/api/public/h5p/${exerciseId}`,
       frameJs: '/h5p-player/frame.bundle.js',
       frameCss: '/h5p-player/styles/h5p.css',
       librariesPath: '/h5p-libs',
-      frame: false,
+      frame: true,
       copyright: false,
       export: false,
       icon: false,
       fullScreen: false,
-      embedType: 'div',
-      assetsRequestFetchOptions: {
-        mode: 'cors' as RequestMode,
-      },
     };
 
     import('h5p-standalone').then(({ H5P }) => {
@@ -46,7 +42,7 @@ export function H5PPlayer({ exerciseId }: H5PPlayerProps) {
   return (
     <div
       ref={containerRef}
-      style={{ minHeight: '300px', backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden' }}
+      style={{ minHeight: '400px', backgroundColor: 'white', borderRadius: '12px', overflow: 'hidden' }}
     />
   );
 }
