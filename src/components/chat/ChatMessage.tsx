@@ -5,6 +5,7 @@ import type { ChatMessage as ChatMessageType } from '@/lib/types';
 import { ChipSelector } from './ChipSelector';
 import { FilePreview } from './FilePreview';
 import { CountdownTimer } from './CountdownTimer';
+import { ImageCard } from './ImageCard';
 import { QRCard } from './QRCard';
 import { TodoCard } from './TodoCard';
 
@@ -57,6 +58,14 @@ export function ChatMessage({ message, onChipSelect }: Props) {
                       try {
                         const todos = JSON.parse(String(children));
                         return <TodoCard todos={todos} />;
+                      } catch {
+                        return <code {...props}>{children}</code>;
+                      }
+                    }
+                    if (language === 'image-card') {
+                      try {
+                        const data = JSON.parse(String(children));
+                        return <ImageCard {...data} />;
                       } catch {
                         return <code {...props}>{children}</code>;
                       }

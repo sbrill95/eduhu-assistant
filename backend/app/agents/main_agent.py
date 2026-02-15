@@ -176,6 +176,40 @@ def create_agent() -> Agent[AgentDeps, str]:
             logger.error(f"Exercise generation failed: {e}")
             return f"Fehler bei der Übungserstellung: {str(e)}"
 
+    # ── Tool: generate_image ──
+    @agent.tool
+    async def generate_image(
+        ctx: RunContext[AgentDeps],
+        prompt: str,
+        session_id: str = "",
+    ) -> str:
+        """Generiere ein Bild mit KI (Gemini Imagen).
+
+        Nutze dieses Tool wenn die Lehrkraft ein Bild braucht, z.B. für Arbeitsblätter,
+        Präsentationen oder Unterrichtsmaterialien.
+        - prompt: Beschreibung des gewünschten Bildes (auf Englisch für beste Ergebnisse)
+        - session_id: Leer für neues Bild, oder die ID vom vorherigen Bild für Anpassungen
+
+        Beispiel: "Erstelle ein Bild vom Wasserkreislauf" → generate_image("educational diagram of the water cycle...")
+        """
+        from app.agents.image_agent import generate_image as _gen
+        result = await _gen(ctx.deps.teacher_id, prompt, session_id or None)
+
+        if "error" in result:
+            return f"❌ {result['error']}"
+
+        # Return image as markdown with base64 data URI
+        mime = result.get("mime_type", "image/png")
+        b64 = result["image_base64"]
+        sid = result["session_id"]
+        text = result.get("text", "")
+
+        response = f"🎨 Bild generiert!\n\n![Generiertes Bild](data:{mime};base64,{b64[:100]}...)\n\n"
+        response += f"```image-card\n{{\"image\": \"data:{mime};base64,{b64}\", \"session_id\": \"{sid}\"}}\n```"
+        if text:
+            response += f"\n\n{text}"
+        return response
+
     # ── Tool: patch_material_task ──
     @agent.tool
     async def patch_material_task(

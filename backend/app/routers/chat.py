@@ -231,6 +231,7 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
             "set_timer": "⏱️ Timer wird gestellt…",
             "create_poll": "📊 Abstimmung wird erstellt…",
             "poll_results": "📊 Ergebnisse werden geladen…",
+            "generate_image": "🎨 Bild wird generiert…",
         }
 
         full_text = ""
