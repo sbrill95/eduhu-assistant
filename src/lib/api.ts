@@ -14,18 +14,27 @@ function getAuthHeaders(teacherId: string) {
 export async function sendMessage(
   message: string,
   conversationId: string | null,
+  file?: { name: string; type: string; base64: string },
 ): Promise<{ conversation_id: string; message: ChatMessage }> {
   const teacher = getSession();
   if (!teacher) throw new Error('Nicht angemeldet');
 
+  const body: Record<string, unknown> = {
+    message,
+    conversation_id: conversationId,
+    teacher_id: teacher.teacher_id,
+  };
+
+  if (file) {
+    body.attachment_base64 = file.base64;
+    body.attachment_name = file.name;
+    body.attachment_type = file.type;
+  }
+
   const res = await fetch(`${BASE}/api/chat/send`, {
     method: 'POST',
     headers: getAuthHeaders(teacher.teacher_id),
-    body: JSON.stringify({
-      message,
-      conversation_id: conversationId,
-      teacher_id: teacher.teacher_id,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {

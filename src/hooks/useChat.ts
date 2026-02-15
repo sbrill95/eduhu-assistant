@@ -56,7 +56,7 @@ export function useChat() {
     setShowWelcomeChips(true);
   }, []);
 
-  const send = useCallback(async (text: string) => {
+  const send = useCallback(async (text: string, file?: { name: string; type: string; base64: string }) => {
     if (!teacher) return;
     
     setShowWelcomeChips(false);
@@ -64,7 +64,7 @@ export function useChat() {
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content: text,
+      content: file ? `${text}\n📎 ${file.name}` : text,
       timestamp: new Date().toISOString(),
     };
     
@@ -72,7 +72,7 @@ export function useChat() {
     setIsTyping(true);
 
     try {
-      const response = await sendMessage(text, conversationId);
+      const response = await sendMessage(text, conversationId, file);
       setConversationId(response.conversation_id);
       setMessages((prev) => [...prev, response.message]);
     } catch {

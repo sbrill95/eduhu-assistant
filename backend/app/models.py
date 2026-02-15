@@ -17,6 +17,9 @@ class ChatRequest(BaseModel):
     message: str
     conversation_id: Optional[str] = None
     teacher_id: str
+    attachment_base64: Optional[str] = None
+    attachment_name: Optional[str] = None
+    attachment_type: Optional[str] = None
 
 
 class ChatMessageOut(BaseModel):

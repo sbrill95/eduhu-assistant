@@ -128,7 +128,7 @@ export default function ChatPage() {
 
           {/* Input */}
           <div className="mx-auto w-full max-w-3xl">
-            <ChatInput onSend={(t) => void send(t)} disabled={isTyping} />
+            <ChatInput onSend={(t, f) => void send(t, f)} disabled={isTyping} />
           </div>
         </div>
       </div>

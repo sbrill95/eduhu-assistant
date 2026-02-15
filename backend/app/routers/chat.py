@@ -87,9 +87,44 @@ async def chat_send(
                 ModelResponse(parts=[TextPart(content=m["content"])])
             )
 
+    # Build the user prompt — may include image or PDF text
+    user_prompt = req.message
+    user_prompt_parts: list = [UserPromptPart(content=req.message)]
+
+    if req.attachment_base64 and req.attachment_type:
+        if req.attachment_type.startswith("image/"):
+            # Send image to Claude Vision
+            import base64
+            from pydantic_ai.messages import BinaryImage
+            image_bytes = base64.b64decode(req.attachment_base64)
+            user_prompt_parts.append(
+                BinaryImage(data=image_bytes, media_type=req.attachment_type)
+            )
+            logger.info(f"Image attachment: {req.attachment_name} ({len(image_bytes)} bytes)")
+        elif req.attachment_type == "application/pdf":
+            # Extract text from PDF
+            import base64
+            try:
+                import fitz  # PyMuPDF
+                pdf_bytes = base64.b64decode(req.attachment_base64)
+                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                pdf_text = "\n".join(page.get_text() for page in doc)
+                doc.close()
+                if pdf_text.strip():
+                    user_prompt = f"{req.message}\n\n--- Inhalt der Datei '{req.attachment_name}' ---\n{pdf_text[:15000]}"
+                    user_prompt_parts = [UserPromptPart(content=user_prompt)]
+                    logger.info(f"PDF extracted: {req.attachment_name} ({len(pdf_text)} chars)")
+            except Exception as e:
+                logger.error(f"PDF extraction failed: {e}")
+                user_prompt = f"{req.message}\n\n[PDF '{req.attachment_name}' konnte nicht gelesen werden]"
+                user_prompt_parts = [UserPromptPart(content=user_prompt)]
+
     try:
+        # Use parts if we have an image, otherwise plain text
+        has_image = req.attachment_type and req.attachment_type.startswith("image/")
+        run_input = user_prompt_parts if has_image else user_prompt
         result = await agent.run(
-            req.message,
+            run_input,
             deps=deps,
             message_history=message_history,
         )

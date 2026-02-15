@@ -347,6 +347,8 @@ protobuf==6.33.5
     #   opentelemetry-proto
     #   temporalio
     #   xai-sdk
+psycopg2-binary==2.9.11
+    # via eduhu-assistant
 py-key-value-aio==0.3.0
     # via
     #   fastmcp
@@ -408,6 +410,8 @@ pygments==2.19.2
     # via rich
 pyjwt==2.11.0
     # via mcp
+pymupdf==1.27.1
+    # via eduhu-assistant
 pypdfium2==5.4.0
     # via pdfplumber
 pyperclip==1.11.0
