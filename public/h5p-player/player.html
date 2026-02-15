@@ -142,18 +142,17 @@
     .h5p-question-set-progress .h5p-joubelui-progressbar .h5p-joubelui-progressbar-background {
       background: var(--h5p-theme-main-cta-base) !important;
     }
-    /* Hide broken/empty score elements that don't render properly in standalone */
-    .h5p-score-icon-star,
-    .h5p-score-icon {
+    /* Hide star SVG in score bar — renders as broken empty shape in standalone */
+    .h5p-joubelui-score-bar-star,
+    .h5p-joubelui-score-bar svg {
       display: none !important;
     }
-    /* Clean up score bar */
+    /* Clean up score bar — just show the bar + numeric score */
+    .h5p-joubelui-score-bar {
+      padding-right: 3em !important;
+    }
     .h5p-question-scorebar {
       margin: 0.5em 0 !important;
-    }
-    /* QuestionSet navigation dots */
-    .h5p-question-set-footer .h5p-joubelui-score-bar-star {
-      display: none !important;
     }
     /* Hide empty icon-only buttons that lack text (broken h5p-theme font) */
     .h5p-theme-button:empty,
