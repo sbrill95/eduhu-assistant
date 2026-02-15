@@ -51,6 +51,7 @@ export async function sendMessageStream(
   onDelta: (text: string) => void,
   onMeta: (data: { conversation_id: string }) => void,
   onDone: (data: { message_id: string }) => void,
+  onStep?: (text: string) => void,
 ): Promise<void> {
   const teacher = getSession();
   if (!teacher) throw new Error('Nicht angemeldet');
@@ -90,6 +91,7 @@ export async function sendMessageStream(
       if (data.type === 'delta') onDelta(data.text);
       else if (data.type === 'meta') onMeta(data);
       else if (data.type === 'done') onDone(data);
+      else if (data.type === 'step' && onStep) onStep(data.text);
     }
   }
 }

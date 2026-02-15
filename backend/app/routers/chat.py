@@ -216,12 +216,36 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
         # Send conversation_id first
         yield f"data: {json.dumps({'type': 'meta', 'conversation_id': conversation_id})}\n\n"
         
+        # Human-readable labels for tool calls
+        _TOOL_LABELS = {
+            "search_curriculum": "📚 Lehrplan wird durchsucht…",
+            "search_web": "🔍 Recherche im Internet…",
+            "remember": "💾 Wird gespeichert…",
+            "generate_material": "📝 Material wird erstellt…",
+            "generate_exercise": "🎯 Übung wird generiert…",
+            "patch_material_task": "✏️ Aufgabe wird angepasst…",
+        }
+
         full_text = ""
         try:
-            async with agent.run_stream(run_input, deps=deps, message_history=message_history) as stream:
-                async for chunk in stream.stream_text(delta=True):
-                    full_text += chunk
-                    yield f"data: {json.dumps({'type': 'delta', 'text': chunk})}\n\n"
+            async for event in agent.run_stream_events(run_input, deps=deps, message_history=message_history):
+                from pydantic_ai.messages import FunctionToolCallEvent, FunctionToolResultEvent, PartDeltaEvent
+                from pydantic_ai.messages import TextPartDelta
+                from pydantic_ai.agent import AgentRunResultEvent
+
+                if isinstance(event, FunctionToolCallEvent):
+                    tool_name = event.part.tool_name
+                    label = _TOOL_LABELS.get(tool_name, f"⚙️ {tool_name}…")
+                    yield f"data: {json.dumps({'type': 'step', 'text': label})}\n\n"
+                elif isinstance(event, PartDeltaEvent):
+                    if isinstance(event.delta, TextPartDelta):
+                        delta_text = event.delta.content
+                        full_text += delta_text
+                        yield f"data: {json.dumps({'type': 'delta', 'text': delta_text})}\n\n"
+                elif isinstance(event, AgentRunResultEvent):
+                    # Final result — if we haven't captured text via deltas, get it here
+                    if not full_text:
+                        full_text = event.result.output or ""
         except Exception as e:
             logger.error(f"Agent stream error: {type(e).__name__}: {e}", exc_info=True)
             # Yield an error message if something goes wrong during the stream

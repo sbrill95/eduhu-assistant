@@ -66,8 +66,11 @@ export function ChatMessage({ message, onChipSelect }: Props) {
                   },
                 }}
               >
-                {message.content}
+                {message.content.startsWith('⏳') ? '' : message.content}
               </ReactMarkdown>
+              {message.content.startsWith('⏳') && (
+                <p className="text-sm text-text-muted animate-pulse">{message.content}</p>
+              )}
             </div>
           )}
 

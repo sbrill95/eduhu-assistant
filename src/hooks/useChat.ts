@@ -76,13 +76,18 @@ export function useChat() {
     setMessages(prev => [...prev, { id: streamMsgId, role: 'assistant', content: '', timestamp: new Date().toISOString() }]);
     
     try {
+      let hasContent = false;
       await sendMessageStream(
         text, conversationId, file,
         // onDelta
         (delta) => {
-          setMessages(prev => prev.map(m => 
-            m.id === streamMsgId ? { ...m, content: m.content + delta } : m
-          ));
+          hasContent = true;
+          setMessages(prev => prev.map(m => {
+            if (m.id !== streamMsgId) return m;
+            // Strip step prefix once real content arrives
+            const cleanContent = m.content.startsWith('⏳') ? '' : m.content;
+            return { ...m, content: cleanContent + delta };
+          }));
         },
         // onMeta
         (meta) => { setConversationId(meta.conversation_id); },
@@ -91,6 +96,14 @@ export function useChat() {
           setMessages(prev => prev.map(m =>
             m.id === streamMsgId ? { ...m, id: done.message_id || streamMsgId } : m
           ));
+        },
+        // onStep
+        (stepText) => {
+          if (!hasContent) {
+            setMessages(prev => prev.map(m =>
+              m.id === streamMsgId ? { ...m, content: `⏳ ${stepText}` } : m
+            ));
+          }
         },
       );
     } catch {
