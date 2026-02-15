@@ -116,33 +116,40 @@ def generate_drag_text(text_with_draggables: str) -> dict:
         }
     }
 
-def exercise_set_to_h5p(exercise_set) -> tuple[dict, str]:
-    """Convert an ExerciseSet from the H5P agent into H5P content.json.
+def exercise_set_to_h5p(exercise_set) -> list[tuple[dict, str, str]]:
+    """Convert an ExerciseSet from the H5P agent into H5P exercises.
 
-    Returns (h5p_content_dict, h5p_type_string)."""
+    Returns list of (h5p_content_dict, h5p_type_string, title_string).
+    Each question becomes a separate exercise."""
     etype = exercise_set.exercise_type
+    results = []
+
     if etype == "multichoice" and exercise_set.questions:
-        # For multichoice, combine all questions into one content
-        # Use the first question for now (H5P MultiChoice is single-question)
-        q = exercise_set.questions[0]
-        answers = [{"text": a.text, "correct": a.correct, "feedback": a.feedback} for a in q.answers]
-        content = generate_multichoice(q.question, answers)
-        return content, "H5P.MultiChoice"
+        for i, q in enumerate(exercise_set.questions):
+            answers = [{"text": a.text, "correct": a.correct, "feedback": a.feedback} for a in q.answers]
+            content = generate_multichoice(q.question, answers)
+            title = f"{exercise_set.title} - Frage {i+1}" if len(exercise_set.questions) > 1 else exercise_set.title
+            results.append((content, "H5P.MultiChoice", title))
     elif etype == "blanks" and exercise_set.text_with_gaps:
         content = generate_blanks(exercise_set.text_with_gaps)
-        return content, "H5P.Blanks"
+        results.append((content, "H5P.Blanks", exercise_set.title))
     elif etype == "truefalse" and exercise_set.questions:
-        q = exercise_set.questions[0]
-        content = generate_truefalse(q.question, q.correct or False)
-        return content, "H5P.TrueFalse"
+        for i, q in enumerate(exercise_set.questions):
+            content = generate_truefalse(q.question, q.correct or False)
+            title = f"{exercise_set.title} - Frage {i+1}" if len(exercise_set.questions) > 1 else exercise_set.title
+            results.append((content, "H5P.TrueFalse", title))
     elif etype == "dragtext" and exercise_set.text_with_gaps:
         content = generate_drag_text(exercise_set.text_with_gaps)
-        return content, "H5P.DragText"
+        results.append((content, "H5P.DragText", exercise_set.title))
     else:
         # Fallback to multichoice
         if exercise_set.questions:
-            q = exercise_set.questions[0]
-            answers = [{"text": a.text, "correct": a.correct, "feedback": a.feedback} for a in q.answers]
-            content = generate_multichoice(q.question, answers)
-            return content, "H5P.MultiChoice"
-        raise ValueError(f"Cannot convert exercise_type '{etype}' with given data")
+            for i, q in enumerate(exercise_set.questions):
+                answers = [{"text": a.text, "correct": a.correct, "feedback": a.feedback} for a in q.answers]
+                content = generate_multichoice(q.question, answers)
+                title = f"{exercise_set.title} - Frage {i+1}" if len(exercise_set.questions) > 1 else exercise_set.title
+                results.append((content, "H5P.MultiChoice", title))
+        if not results:
+            raise ValueError(f"Cannot convert exercise_type '{etype}' with given data")
+
+    return results

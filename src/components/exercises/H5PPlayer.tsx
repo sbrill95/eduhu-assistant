@@ -6,12 +6,12 @@ interface H5PPlayerProps {
 
 export function H5PPlayer({ exerciseId }: H5PPlayerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [height, setHeight] = useState(400);
+  const [height, setHeight] = useState(0);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'h5p-resize' && event.data.height) {
-        setHeight(Math.max(event.data.height + 20, 300));
+        setHeight(event.data.height);
       }
     };
     window.addEventListener('message', handleMessage);
@@ -27,10 +27,11 @@ export function H5PPlayer({ exerciseId }: H5PPlayerProps) {
       src={playerUrl}
       style={{
         width: '100%',
-        height: `${height}px`,
+        height: height > 0 ? `${height}px` : '400px',
         border: 'none',
         borderRadius: '12px',
         backgroundColor: 'white',
+        transition: 'height 0.2s ease',
       }}
       title="H5P Exercise"
     />

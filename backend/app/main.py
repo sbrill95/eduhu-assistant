@@ -592,16 +592,14 @@ async def generate_h5p_exercise(req: H5PExerciseRequest):
             req.fach, req.klasse, req.thema, req.exercise_type, req.num_questions
         )
 
-        # 2. Convert to H5P content.json
-        h5p_content, h5p_type = exercise_set_to_h5p(exercise_set)
-        title = exercise_set.title
+        # 2. Convert to H5P content — returns list of (content, type, title)
+        h5p_exercises = exercise_set_to_h5p(exercise_set)
 
         page_id = req.page_id
         access_code = None
 
         # 3. If no page_id, create one
         if not page_id:
-            # Check if a page for this class already exists
             page_record = await db.select(
                 "exercise_pages",
                 columns="id, access_code",
@@ -619,19 +617,23 @@ async def generate_h5p_exercise(req: H5PExerciseRequest):
                     {"id": page_id, "teacher_id": req.teacher_id, "title": f"Klasse {req.klasse}", "access_code": access_code}
                 )
         
-        # 4. Insert exercise into DB
-        exercise_id = str(uuid.uuid4())
-        await db.insert(
-            "exercises",
-            {
-                "id": exercise_id,
-                "page_id": page_id,
-                "teacher_id": req.teacher_id,
-                "title": title,
-                "h5p_type": h5p_type,
-                "h5p_content": h5p_content
-            }
-        )
+        # 4. Insert each question as separate exercise
+        first_exercise_id = None
+        for h5p_content, h5p_type, title in h5p_exercises:
+            exercise_id = str(uuid.uuid4())
+            if first_exercise_id is None:
+                first_exercise_id = exercise_id
+            await db.insert(
+                "exercises",
+                {
+                    "id": exercise_id,
+                    "page_id": page_id,
+                    "teacher_id": req.teacher_id,
+                    "title": title,
+                    "h5p_type": h5p_type,
+                    "h5p_content": h5p_content
+                }
+            )
 
         # Get access code if it wasn't fetched/created
         if not access_code:
@@ -641,12 +643,11 @@ async def generate_h5p_exercise(req: H5PExerciseRequest):
             if page_info:
                 access_code = page_info["access_code"]
 
-
         return H5PExerciseResponse(
-            exercise_id=exercise_id,
+            exercise_id=first_exercise_id,
             page_id=page_id,
             access_code=access_code,
-            title=title,
+            title=exercise_set.title,
             page_url=f"/s/{access_code}"
         )
 

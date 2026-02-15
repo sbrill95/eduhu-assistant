@@ -94,21 +94,19 @@
         var loadingEl = document.querySelector('.loading');
         if (loadingEl) loadingEl.remove();
         
-        // Auto-report height to parent
+        // Auto-report height to parent — use actual content height
         function reportHeight() {
-          var h = Math.max(
-            document.documentElement.scrollHeight,
-            document.body.scrollHeight,
-            400
-          );
-          window.parent.postMessage({ type: 'h5p-resize', height: h + 20 }, '*');
+          var container = document.querySelector('.h5p-content') || document.querySelector('#h5p-container');
+          var h = container ? container.scrollHeight : document.body.scrollHeight;
+          // Add small padding but don't over-inflate
+          window.parent.postMessage({ type: 'h5p-resize', height: h + 40 }, '*');
         }
         
-        setTimeout(reportHeight, 500);
-        setTimeout(reportHeight, 1500);
-        setTimeout(reportHeight, 3000);
-        setTimeout(reportHeight, 5000);
-        setInterval(reportHeight, 2000);
+        setTimeout(reportHeight, 300);
+        setTimeout(reportHeight, 800);
+        setTimeout(reportHeight, 2000);
+        // Re-report on interaction (answer click, check, etc.)
+        document.addEventListener('click', function() { setTimeout(reportHeight, 300); });
       }).catch(function(err) {
         el.innerHTML = '<div class="error">Fehler beim Laden: ' + err.message + '</div>';
         console.error('H5P Error:', err);

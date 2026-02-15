@@ -134,8 +134,7 @@ def create_agent() -> Agent[AgentDeps, str]:
         ]
         try:
             exercise_set = await run_h5p_agent(fach, klasse, thema, exercise_type, num_questions)
-            h5p_content, h5p_type = exercise_set_to_h5p(exercise_set)
-            title = exercise_set.title
+            h5p_exercises = exercise_set_to_h5p(exercise_set)
 
             # Find or create exercise page for this teacher
             pages = await db.select("exercise_pages", filters={"teacher_id": ctx.deps.teacher_id}, limit=1)
@@ -153,22 +152,22 @@ def create_agent() -> Agent[AgentDeps, str]:
                     "title": f"{fach} Klasse {klasse}",
                 })
 
-            # Insert exercise
-            exercise_id = str(uuid.uuid4())
-            await db.insert("exercises", {
-                "id": exercise_id,
-                "page_id": page_id,
-                "teacher_id": ctx.deps.teacher_id,
-                "title": title,
-                "h5p_type": h5p_type,
-                "h5p_content": h5p_content,
-            })
+            # Insert each question as separate exercise
+            for h5p_content, h5p_type, title in h5p_exercises:
+                exercise_id = str(uuid.uuid4())
+                await db.insert("exercises", {
+                    "id": exercise_id,
+                    "page_id": page_id,
+                    "teacher_id": ctx.deps.teacher_id,
+                    "title": title,
+                    "h5p_type": h5p_type,
+                    "h5p_content": h5p_content,
+                })
 
             base = ctx.deps.base_url or ""
             page_url = f"{base}/s/{access_code}" if base else f"/s/{access_code}"
             return (
-                f"Übung erstellt: **{title}**\n"
-                f"Typ: {h5p_type}\n"
+                f"**{len(h5p_exercises)} Übungen** erstellt: {exercise_set.title}\n"
                 f"Zugangscode: **{access_code}**\n"
                 f"Link für Schüler: {page_url}\n"
             )

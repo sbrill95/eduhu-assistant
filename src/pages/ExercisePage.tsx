@@ -60,40 +60,75 @@ const ExercisePage: React.FC = () => {
   }
 
   if (activeExercise) {
+    const currentIndex = exercises.findIndex(e => e.id === activeExercise);
+    const currentExercise = exercises[currentIndex];
+    const hasNext = currentIndex < exercises.length - 1;
+    const hasPrev = currentIndex > 0;
+
     return (
       <div className="min-h-screen bg-[#F5F0EB] p-5 font-[Inter]">
-        <button
-          onClick={() => setActiveExercise(null)}
-          className="mb-5 bg-[#C8552D] text-white border-none py-2.5 px-5 rounded-lg cursor-pointer hover:bg-[#A8461F] transition-colors"
-        >
-          ← Zurück zur Übersicht
-        </button>
-        <H5PPlayer exerciseId={activeExercise} />
+        <div className="max-w-3xl mx-auto">
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={() => setActiveExercise(null)}
+              className="text-[#8B7355] hover:text-[#2D2018] transition-colors text-sm flex items-center gap-1"
+            >
+              ← Übersicht
+            </button>
+            <span className="text-sm text-[#8B7355]">
+              {currentIndex + 1} / {exercises.length}
+            </span>
+          </div>
+          {currentExercise && (
+            <h2 className="text-lg font-semibold text-[#2D2018] mb-4">{currentExercise.title}</h2>
+          )}
+          <H5PPlayer exerciseId={activeExercise} />
+          <div className="flex justify-between mt-4">
+            {hasPrev ? (
+              <button
+                onClick={() => setActiveExercise(exercises[currentIndex - 1]?.id ?? null)}
+                className="text-[#C8552D] hover:text-[#A8461F] text-sm font-medium"
+              >
+                ← Vorherige
+              </button>
+            ) : <div />}
+            {hasNext && (
+              <button
+                onClick={() => setActiveExercise(exercises[currentIndex + 1]?.id ?? null)}
+                className="bg-[#C8552D] text-white py-2 px-5 rounded-lg hover:bg-[#A8461F] transition-colors text-sm font-medium"
+              >
+                Nächste →
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[#F5F0EB] font-[Inter] p-5">
-      <header className="text-center mb-10">
+      <header className="text-center mb-8">
         <div className="text-5xl mb-3">🦉</div>
-        <h1 className="text-3xl font-bold text-[#2D2018]">{pageTitle}</h1>
-        <p className="text-gray-500 mt-2">Wähle eine Übung aus</p>
+        <h1 className="text-2xl font-bold text-[#2D2018]">{pageTitle}</h1>
+        <p className="text-[#8B7355] mt-1 text-sm">{exercises.length} Übungen</p>
       </header>
-      <div className="grid gap-5 max-w-4xl mx-auto" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
-        {exercises.map((exercise) => (
+      <div className="max-w-2xl mx-auto space-y-3">
+        {exercises.map((exercise, index) => (
           <div
             key={exercise.id}
             onClick={() => setActiveExercise(exercise.id)}
-            className="bg-white rounded-xl shadow-md p-6 text-center cursor-pointer hover:scale-[1.03] hover:shadow-lg transition-all"
+            className="bg-white rounded-xl shadow-sm p-4 cursor-pointer hover:shadow-md hover:bg-[#FAF7F4] transition-all flex items-center gap-4"
           >
-            <div className="text-5xl mb-3">{getIconForType(exercise.h5p_type)}</div>
-            <h2 className="text-lg font-semibold text-[#2D2018] mb-3">{exercise.title}</h2>
-            <span className="text-xs text-gray-400">{exercise.h5p_type.replace('H5P.', '')}</span>
-            <div className="mt-4">
-              <button className="bg-[#C8552D] text-white border-none py-2 px-6 rounded-lg cursor-pointer hover:bg-[#A8461F] transition-colors">
-                Starten
-              </button>
+            <div className="w-10 h-10 rounded-lg bg-[#FADDD0] flex items-center justify-center text-lg flex-shrink-0">
+              {getIconForType(exercise.h5p_type)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-semibold text-[#2D2018] truncate">{exercise.title}</h2>
+              <span className="text-xs text-[#8B7355]">{exercise.h5p_type.replace('H5P.', '')}</span>
+            </div>
+            <div className="flex-shrink-0 text-[#8B7355] text-sm">
+              {index + 1}/{exercises.length}
             </div>
           </div>
         ))}
