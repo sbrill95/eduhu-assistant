@@ -184,6 +184,42 @@ async def get_h5p_content_json(exercise_id: str):
     return content
 
 
+@public_router.get("/poll/{access_code}")
+async def get_poll(access_code: str):
+    """Public: Get poll data for voting page."""
+    poll = await db.select("polls", filters={"access_code": access_code, "active": True}, single=True)
+    if not poll:
+        raise HTTPException(status_code=404, detail="Abstimmung nicht gefunden")
+    return {
+        "id": poll["id"],
+        "question": poll["question"],
+        "options": poll["options"],
+        "access_code": access_code,
+    }
+
+
+@public_router.post("/poll/{access_code}/vote")
+async def vote_poll(access_code: str, body: dict):
+    """Public: Cast a vote."""
+    option = body.get("option", "")
+    if not option:
+        raise HTTPException(status_code=400, detail="Option fehlt")
+    
+    poll = await db.select("polls", filters={"access_code": access_code, "active": True}, single=True)
+    if not poll:
+        raise HTTPException(status_code=404, detail="Abstimmung nicht gefunden")
+    
+    options = poll["options"] if isinstance(poll["options"], list) else []
+    if option not in options:
+        raise HTTPException(status_code=400, detail="Ungültige Option")
+    
+    votes = poll["votes"] if isinstance(poll["votes"], dict) else {}
+    votes[option] = votes.get(option, 0) + 1
+    
+    await db.update("polls", {"votes": votes}, filters={"id": poll["id"]})
+    return {"voted": True, "total": sum(votes.values())}
+
+
 @router.get("/pages", response_model=list[PageOut])
 async def list_exercise_pages(teacher_id: str):
     # This requires a custom query, which is not directly supported by the simple db wrapper.

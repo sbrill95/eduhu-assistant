@@ -4,6 +4,7 @@ import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { ChatMessage as ChatMessageType } from '@/lib/types';
 import { ChipSelector } from './ChipSelector';
 import { FilePreview } from './FilePreview';
+import { CountdownTimer } from './CountdownTimer';
 
 interface Props {
   message: ChatMessageType;
@@ -66,11 +67,18 @@ export function ChatMessage({ message, onChipSelect }: Props) {
                   },
                 }}
               >
-                {message.content.startsWith('⏳') ? '' : message.content}
+                {message.content.startsWith('⏳') ? '' : message.content.replace(/\{\{TIMER:\d+:[^}]*\}\}/g, '')}
               </ReactMarkdown>
               {message.content.startsWith('⏳') && (
                 <p className="text-sm text-text-muted animate-pulse">{message.content}</p>
               )}
+              {(() => {
+                const timerMatch = message.content.match(/\{\{TIMER:(\d+):([^}]*)\}\}/);
+                if (timerMatch) {
+                  return <CountdownTimer seconds={parseInt(timerMatch[1])} label={timerMatch[2]} />;
+                }
+                return null;
+              })()}
             </div>
           )}
 

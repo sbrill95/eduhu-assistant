@@ -6,6 +6,7 @@ import ProfilePage from '@/pages/ProfilePage';
 import MaterialPage from '@/pages/MaterialPage';
 import ExerciseAccessPage from '@/pages/ExerciseAccessPage';
 import ExercisePage from '@/pages/ExercisePage';
+import PollPage from '@/pages/PollPage';
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/s" element={<ExerciseAccessPage />} />
         <Route path="/s/:code" element={<ExercisePage />} />
+        <Route path="/poll/:code" element={<PollPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

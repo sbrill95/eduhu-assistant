@@ -228,6 +228,9 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
             "search_wikipedia": "📖 Wikipedia wird durchsucht…",
             "search_images": "🖼️ Bilder werden gesucht…",
             "classroom_tools": "🎲 Classroom-Tool wird gestartet…",
+            "set_timer": "⏱️ Timer wird gestellt…",
+            "create_poll": "📊 Abstimmung wird erstellt…",
+            "poll_results": "📊 Ergebnisse werden geladen…",
         }
 
         full_text = ""

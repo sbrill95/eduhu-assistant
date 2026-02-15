@@ -341,6 +341,95 @@ def create_agent() -> Agent[AgentDeps, str]:
         return f"Unbekannte Aktion: {action}"
 
     @agent.tool
+    async def set_timer(
+        ctx: RunContext[AgentDeps],
+        minutes: int,
+        label: str = "",
+    ) -> str:
+        """Starte einen Countdown-Timer für die Klasse.
+        Nutze dieses Tool wenn die Lehrkraft sagt: 'Timer auf 5 Minuten',
+        'Stell 10 Minuten ein', 'Countdown starten', etc.
+        """
+        seconds = max(1, minutes) * 60
+        timer_label = label or f"{minutes}-Minuten-Timer"
+        return f'⏱️ **{timer_label}** gestartet!\n\n{{{{TIMER:{seconds}:{timer_label}}}}}'
+
+    @agent.tool
+    async def create_poll(
+        ctx: RunContext[AgentDeps],
+        question: str,
+        options: str,
+    ) -> str:
+        """Erstelle eine Quick-Poll-Abstimmung für die Klasse.
+        options: Kommagetrennte Antwortmöglichkeiten (z.B. 'Ja, Nein, Vielleicht')
+        Nutze dieses Tool wenn die Lehrkraft sagt: 'Abstimmung', 'Umfrage',
+        'Wer hat...?', 'Quick Poll', etc.
+        """
+        import random
+        option_list = [o.strip() for o in options.split(",") if o.strip()]
+        if len(option_list) < 2:
+            return "Bitte mindestens 2 Optionen angeben."
+
+        _NOUNS = ["tiger", "wolke", "stern", "apfel", "vogel", "blume", "stein", "welle",
+                   "fuchs", "regen", "sonne", "mond", "baum", "fisch", "adler", "palme"]
+        access_code = f"{random.choice(_NOUNS)}{random.randint(10, 99)}"
+
+        poll = await db.insert("polls", {
+            "teacher_id": ctx.deps.teacher_id,
+            "question": question,
+            "options": option_list,
+            "votes": {},
+            "access_code": access_code,
+        })
+
+        poll_url = f"https://eduhu-assistant.pages.dev/poll/{access_code}"
+        qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={poll_url}"
+
+        return (
+            f"📊 **Abstimmung erstellt:** {question}\n\n"
+            f"Optionen: {' | '.join(f'**{o}**' for o in option_list)}\n\n"
+            f"🔑 Code: **{access_code}**\n"
+            f"🔗 Link: {poll_url}\n\n"
+            f"📱 QR-Code:\n![QR]({qr_url})\n\n"
+            f"Frag mich nach den Ergebnissen wenn alle abgestimmt haben!"
+        )
+
+    @agent.tool
+    async def poll_results(
+        ctx: RunContext[AgentDeps],
+        access_code: str = "",
+    ) -> str:
+        """Zeige die Ergebnisse einer Abstimmung.
+        Nutze dieses Tool wenn die Lehrkraft nach Ergebnissen einer Abstimmung fragt.
+        access_code: Der Zugangscode der Abstimmung (optional — nimmt die letzte wenn leer)
+        """
+        if access_code:
+            poll = await db.select("polls", filters={"access_code": access_code, "teacher_id": ctx.deps.teacher_id}, single=True)
+        else:
+            polls = await db.select("polls", filters={"teacher_id": ctx.deps.teacher_id, "active": True}, order="created_at.desc", limit=1)
+            poll = polls[0] if isinstance(polls, list) and polls else None
+
+        if not poll:
+            return "Keine aktive Abstimmung gefunden."
+
+        question = poll["question"]
+        options = poll["options"] if isinstance(poll["options"], list) else []
+        votes = poll["votes"] if isinstance(poll["votes"], dict) else {}
+
+        total = sum(votes.values()) if votes else 0
+        lines = []
+        for opt in options:
+            count = votes.get(opt, 0)
+            pct = round(count / total * 100) if total > 0 else 0
+            bar = "█" * (pct // 5) + "░" * (20 - pct // 5)
+            lines.append(f"**{opt}**: {bar} {count} ({pct}%)")
+
+        return (
+            f"📊 **Ergebnisse: {question}**\n"
+            f"({total} Stimmen)\n\n" + "\n".join(lines)
+        )
+
+    @agent.tool
     async def manage_todos(
         ctx: RunContext[AgentDeps],
         action: str,
