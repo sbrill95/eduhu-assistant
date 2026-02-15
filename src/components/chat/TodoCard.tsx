@@ -70,13 +70,16 @@ export function TodoCard({ todos: initialTodos }: TodoCardProps) {
         </h3>
       </div>
       <ul className="space-y-0 divide-y divide-[#D9D3CD] px-4">
+        {todos.length === 0 && (
+          <li className="py-3 text-center text-[#9E9A96]">Keine Todos vorhanden 🎉</li>
+        )}
         {todos.map((todo) => (
           <li key={todo.id} className="flex items-start gap-2.5 py-2.5">
             <button
               type="button"
               onClick={() => toggleTodo(todo.id, todo.done)}
               className="mt-0.5 text-base transition-transform hover:scale-110 active:scale-95 cursor-pointer select-none"
-              title={todo.done ? 'Als offen markieren' : 'Als erledigt markieren'}
+              aria-label={todo.done ? `${todo.text} als offen markieren` : `${todo.text} als erledigt markieren`}
             >
               {todo.done ? '✅' : <span className="text-[#C8552D]">☐</span>}
             </button>
