@@ -32,13 +32,15 @@ async def web_search(query: str, count: int = 5) -> str:
             return f"Keine Ergebnisse für '{query}' gefunden."
 
         formatted = []
-        for item in results[:count]:
+        sources = []
+        for i, item in enumerate(results[:count], 1):
             title = item.get("title", "")
             url = item.get("url", "")
             snippet = item.get("description", "")
-            formatted.append(f"**{title}**\n{snippet}\n🔗 {url}")
+            formatted.append(f"[{i}] **{title}**: {snippet}")
+            sources.append(f"[{i}] [{title}]({url})")
 
-        return "\n\n".join(formatted)
+        return "\n".join(formatted) + "\n\n---\n**Quellen:**\n" + "\n".join(sources)
 
     except Exception as e:
         logger.error(f"Brave search failed: {e}")

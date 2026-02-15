@@ -86,7 +86,13 @@ async def _embedding_search(
         text = chunk["chunk_text"][:1000]  # Limit per chunk
         formatted.append(f"**{label}** (Relevanz: {sim:.0%}):\n{text}")
 
-    return "\n\n---\n\n".join(formatted)
+    sources = set()
+    for chunk in results:
+        cid = chunk["curriculum_id"]
+        info = curriculum_map.get(cid, {})
+        sources.add(f"{info.get('fach', '?')} {info.get('jahrgang', '')} ({info.get('bundesland', '?')})")
+    source_line = "📖 **Quelle: Rahmenlehrplan " + ", ".join(sources) + "**"
+    return source_line + "\n\n" + "\n\n---\n\n".join(formatted)
 
 
 async def _keyword_search(
@@ -131,4 +137,9 @@ async def _keyword_search(
 
     seen = set()
     unique = [r for r in results if r[:200] not in seen and not seen.add(r[:200])]  # type: ignore
-    return "\n\n---\n\n".join(unique[:5])
+    # Add source header
+    source_labels = set()
+    for c in curriculum_map.values():
+        source_labels.add(f"{c.get('fach', '?')} {c.get('jahrgang', '')} ({c.get('bundesland', '?')})")
+    source_line = "📖 **Quelle: Rahmenlehrplan " + ", ".join(source_labels) + "**"
+    return source_line + "\n\n" + "\n\n---\n\n".join(unique[:5])

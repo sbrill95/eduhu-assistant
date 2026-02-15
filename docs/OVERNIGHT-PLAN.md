@@ -1,65 +1,100 @@
-# Overnight Plan — 2026-02-16
+# Overnight Plan — 2026-02-16 (v2)
 
-## Steffens Aufträge (gesammelt aus der Session)
+## Steffens Aufträge (vollständig)
 
-### Neue Features (heute gebaut)
-1. ✅ **Visuelle Todo-Cards** im Chat (todo-card Code-Block → React Component)
-2. ✅ **Visuelle QR-Cards** im Chat (qr-card Code-Block → React Component)
-3. ✅ **Diktier-Button** (🎤 Mic → Whisper → Text)
-4. ✅ **Interaktive Checkboxen** (Todos abhaken)
-5. ✅ **Neues Todo hinzufügen** direkt in der Card
-6. ✅ **Datumspicker** beim Todo-Hinzufügen
-7. ✅ **Sekundärfarben** aus Pitch Deck (sage, salmon, gold, sky)
+### A. Flows testen & fixen
 
-### Bugs gefixt
-1. ✅ TypeScript Build-Errors (blockierten Cloudflare Deploy)
-2. ✅ `settings` → `get_settings()` Import-Fehler
-3. ✅ Regex `\w+` → `[\w-]+` für todo-card/qr-card Erkennung
-4. ✅ System-Prompt: Agent muss Code-Blocks durchreichen
-5. ✅ SSE Streaming Cutoff (PartStartEvent fehlte)
-6. ✅ CSS var() mit /opacity funktioniert nicht in Tailwind
-7. ✅ Volle UUIDs statt gekürzte 8-Char IDs
-8. 🔧 Schwarzer Hintergrund (pre-Wrapper) → Fix gepusht, noch zu verifizieren
+#### A1. Onboarding-Flow neuer Lehrer
+- [ ] Neuen Account anlegen, einloggen
+- [ ] Curriculum hochladen → wird es im Chat verwendet?
+- [ ] Auto-Erkennung: Ist das ein Curriculum? (Format-Check)
+- [ ] Klar definiertes Curriculum → kein Schulform nötig
+- [ ] Upload-Feedback sinnvoll?
 
-### Noch offen (Steffens Wünsche)
-- [ ] **Farbsystem nochmal sauber durchziehen** (Steffen schickt nochmal Details)
-- [ ] **Scope definieren**: Was soll die App können? Feature-Liste
-- [ ] **Alles selbst testen** mit Gemini/MiniMax
-- [ ] **Iterieren bis perfekt** — Prototyp muss morgen früh einwandfrei laufen
+#### A2. Memory-System Stresstest
+- [ ] Viele Memories erzeugen (verschiedene Fächer, Klassen, Themen)
+- [ ] Priorisierung testen: Kommen die wichtigsten Memories?
+- [ ] Alte vs. neue Memories: Recency Boost?
+- [ ] Über mehrere Chats: Erinnert sich der Agent korrekt?
 
-## Testplan
+#### A3. Zusammenfassungs-Job
+- [ ] Existiert ein Cron-Job für Chat-Zusammenfassungen?
+- [ ] Wenn ja: Qualität prüfen
+- [ ] Wenn nein: Wurde das nur konzipiert aber nicht gebaut?
 
-### 1. Frontend Visual Tests (Playwright)
-- [ ] Login funktioniert
-- [ ] Chat-Eingabe: 📎 Attach, 🎤 Mic, Textarea, ⬆ Send — alle sichtbar
-- [ ] Todo: "Zeige meine Todos" → Card rendert (NICHT raw JSON)
-- [ ] Todo: Card hat weißen Hintergrund (kein schwarz)
-- [ ] Todo: Checkbox klickbar, togglet ✅/☐
-- [ ] Todo: Neues Todo hinzufügen via ＋ Feld
-- [ ] Todo: Datumspicker funktioniert
-- [ ] H5P: Übung erstellen → QR-Card rendert
-- [ ] SSE Streaming: Antwort beginnt vollständig (kein abgeschnittener Anfang)
+#### A4. Klausur + Differenzierung mit Kontext
+- [ ] Mit vielen Memories: Stellt der Agent noch Schärfungsfragen?
+- [ ] AFB-Verteilung korrekt?
+- [ ] Differenzierung: Fragt er nach Form? (Niveau, Umfang, etc.)
 
-### 2. Backend API Tests
-- [ ] POST /api/transcribe — Endpoint existiert (nicht 404)
-- [ ] GET /api/todos — Returns todo list
-- [ ] POST /api/todos — Creates todo with due_date
-- [ ] PATCH /api/todos/{id} — Toggles done
-- [ ] POST /api/chat/send-stream — SSE stream, erster Delta enthält vollen Text
-- [ ] POST /api/chat/send — Non-streaming fallback works
+#### A5. H5P Full Flow
+- [ ] "Erstelle Physik-Übung Klasse 8 Optik"
+- [ ] QR-Card wird angezeigt?
+- [ ] Link öffnen → Schüler-Seite laden
+- [ ] Übungen durchspielbar?
+- [ ] Mehrere Übungstypen (MultiChoice, Blanks, TrueFalse)
 
-### 3. E2E Flows
-- [ ] Login → Chat → "Erstelle eine Physik-Übung für Klasse 8" → QR-Card
-- [ ] Login → Chat → "Erstelle mir eine Klausur" → Schärfungsfragen → Material + DOCX Link
-- [ ] Login → Chat → "Erinnere mich an Elternabend" → Todo-Card
-- [ ] Login → Chat → Todo abhaken → Card updated
-- [ ] Login → Chat → Neues Todo in Card hinzufügen → erscheint
+### B. UI/UX Verbesserungen
 
-## Execution Order
-1. Warte auf Render + Cloudflare Deploy (~10 Min)
-2. Playwright Visual Tests
-3. API Tests via curl
-4. Gemini Pro Review des gesamten Codes
-5. Fixes iterieren
-6. Finale E2E Tests
-7. Zusammenfassung für Steffen
+#### B1. "Materialien" Menü-Item entfernen
+- [ ] Prüfen was MaterialPage macht
+- [ ] Wenn überflüssig: aus Navigation entfernen
+
+#### B2. Denk-/Agent-Indikator verbessern
+- [ ] Kontrast erhöhen (aktuell zu blass)
+- [ ] Wechselnde Texte für verschiedene Tätigkeiten
+- [ ] z.B. "📚 Lehrplan wird durchsucht..." → "📝 Material wird erstellt..."
+
+#### B3. Brave Search Quellenangaben
+- [ ] Wenn web_search Tool verwendet: Quellen als Fußnoten
+- [ ] Klickbare Links am Ende der Bubble
+- [ ] Format: [1] Titel — url
+
+#### B4. Curriculum-Nutzungs-Hinweis
+- [ ] Wenn curriculum_search Tool verwendet: Hinweis anzeigen
+- [ ] z.B. "📖 Basierend auf: Physik Sachsen Kl. 8"
+
+#### B5. Visuelle Überprüfung
+- [ ] Alle Seiten screenshots, prüfen auf:
+  - Kaputte Layouts
+  - Unsinnige Elemente
+  - Kontrast-Probleme
+  - Mobile-Tauglichkeit
+
+### C. Qualitätstests als verschiedene Lehrer
+
+#### C1. Physik-Lehrer (Klasse 8-10, Sachsen)
+- Curriculum: Physik Sachsen
+- Tests: Klausur Optik, Differenzierung Mechanik, H5P Elektrizität
+
+#### C2. Deutsch-Lehrer (Klasse 5-7, Berlin)
+- Kein Curriculum
+- Tests: Arbeitsblatt Grammatik, Klausur Textanalyse
+
+#### C3. Bio-Lehrer (Abendschule, Gesamtschule)
+- Tests: Memory über Klassensituation, angepasste Materialien
+
+### D. Neues Feature: Bildgenerierung (Gemini Imagen)
+
+#### D1. Backend
+- [ ] Gemini Imagen API researchen (Modell, Endpoint, Kosten)
+- [ ] `image_agent.py` — Prompt → Bild generieren
+- [ ] Tool `generate_image` im Hauptagent
+- [ ] Regenerierung/Anpassung: "Mach X anders" → neues Bild
+- [ ] Bild als Base64 oder URL zurückgeben
+
+#### D2. Frontend
+- [ ] Bild in Chat-Bubble anzeigen (inline)
+- [ ] Download-Button
+- [ ] Share-Option (Link kopieren oder in Material einbetten)
+
+#### D3. Workflow
+- [ ] "Erstelle ein Bild für mein Arbeitsblatt: Wasserkreislauf"
+- [ ] Agent generiert → zeigt Preview → Lehrer sagt "Mehr Wolken"
+- [ ] Agent regeneriert → Lehrer zufrieden → Download/Einbetten
+
+## Regeln
+- **NUR Gemini + MiniMax für Code-Änderungen**
+- **Playwright für alle visuellen Tests**
+- **Jeden Fix sofort committen und pushen**
+- **Qualität > Quantität — lieber 3 Flows perfekt als 10 halb**

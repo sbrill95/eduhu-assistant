@@ -82,7 +82,7 @@ export function TypingIndicator({ context }: TypingIndicatorProps) {
             ))}
           </div>
           <span
-            className="text-xs text-text-muted transition-opacity duration-500"
+            className="text-sm font-medium text-text-secondary transition-opacity duration-500"
             style={{ opacity: stepIndex >= 0 ? 1 : 0 }}
           >
             {stepIndex >= 0 ? steps[stepIndex] : ''}
