@@ -92,3 +92,13 @@ async def upsert(
     r = await client.post(url, json=data, headers=headers)
     r.raise_for_status()
     return r.json()
+
+
+async def insert_batch(table: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Insert multiple rows in a single request (much faster than N individual inserts)."""
+    if not rows:
+        return []
+    client = _get_client()
+    r = await client.post(_url(table), json=rows, headers=_headers())
+    r.raise_for_status()
+    return r.json()

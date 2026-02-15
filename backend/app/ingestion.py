@@ -193,26 +193,25 @@ async def ingest_curriculum(
     # First delete old chunks for this curriculum
     await _delete_old_chunks(curriculum_id)
 
-    # Insert new chunks (batch)
+    # Insert new chunks (single batch request instead of N individual inserts)
+    rows = []
     for chunk, embedding in zip(chunks, embeddings):
-        # pgvector expects embedding as string: '[0.1, 0.2, ...]'
         embedding_str = "[" + ",".join(str(v) for v in embedding) + "]"
-        await db.insert(
-            "curriculum_chunks",
-            {
-                "curriculum_id": curriculum_id,
-                "section_path": f"chunk_{chunk['index']}",
-                "chunk_text": chunk["text"],
-                "embedding": embedding_str,
-                "metadata": json.dumps({
-                    "char_start": chunk["char_start"],
-                    "char_end": chunk["char_end"],
-                    "fach": fach,
-                    "jahrgang": jahrgang,
-                    "bundesland": bundesland,
-                }),
-            },
-        )
+        rows.append({
+            "curriculum_id": curriculum_id,
+            "section_path": f"chunk_{chunk['index']}",
+            "chunk_text": chunk["text"],
+            "embedding": embedding_str,
+            "metadata": json.dumps({
+                "char_start": chunk["char_start"],
+                "char_end": chunk["char_end"],
+                "fach": fach,
+                "jahrgang": jahrgang,
+                "bundesland": bundesland,
+            }),
+        })
+    await db.insert_batch("curriculum_chunks", rows)
+    logger.info(f"Inserted {len(rows)} chunks in single batch")
 
     # 7. Mark as active
     await db.update(
