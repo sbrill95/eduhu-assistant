@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="eduhu-assistant",
-    version="0.2.0",
+    version="0.4.0",
     lifespan=lifespan,
 )
 
@@ -116,7 +116,7 @@ async def get_suggestions_wrapper(teacher_id: str):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "0.3.0"}
+    return {"status": "ok", "version": "0.4.0", "material_types": 12, "routes": 45}
 
 
 @app.post("/api/admin/memory-cleanup")
