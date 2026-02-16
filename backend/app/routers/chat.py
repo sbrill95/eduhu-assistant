@@ -58,6 +58,17 @@ async def _prepare_chat(req: ChatRequest, request: Request, teacher_id: str):
     # Maybe summarize if conversation is long
     await maybe_summarize(conversation_id, teacher_id, messages)
 
+    # Fix #1: Load existing summary and prepend to history
+    summary_record = await db.select(
+        "session_logs",
+        columns="summary",
+        filters={"conversation_id": conversation_id},
+        single=True,
+    )
+    if summary_record and summary_record.get("summary"):
+        summary_text = f"[Zusammenfassung des bisherigen Gesprächs: {summary_record['summary']}]"
+        messages = [{"role": "assistant", "content": summary_text}] + messages
+
     # Run the agent
     agent = get_agent()
     deps = AgentDeps(
@@ -142,16 +153,27 @@ async def chat_send(
     message_history = prepared_chat["message_history"]
     run_input = prepared_chat["run_input"]
     
-    try:
-        result = await agent.run(
-            run_input,
-            deps=deps,
-            message_history=message_history,
-        )
-        assistant_text = result.output
-    except Exception as e:
-        logger.error(f"Agent error: {type(e).__name__}: {e}", exc_info=True)
-        raise HTTPException(500, f"KI-Antwort fehlgeschlagen: {type(e).__name__}")
+    # Fix #3: Retry on rate limit / overload
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            result = await agent.run(
+                run_input,
+                deps=deps,
+                message_history=message_history,
+            )
+            assistant_text = result.output
+            break
+        except Exception as e:
+            err_str = f"{type(e).__name__}: {e}".lower()
+            is_retryable = any(k in err_str for k in ("429", "rate", "overloaded", "503", "529"))
+            if is_retryable and attempt < max_retries:
+                wait_time = 2 ** (attempt + 1)  # 2s, 4s
+                logger.warning(f"Agent rate limited, retry {attempt + 1} in {wait_time}s: {e}")
+                await asyncio.sleep(wait_time)
+                continue
+            logger.error(f"Agent error: {type(e).__name__}: {e}", exc_info=True)
+            raise HTTPException(500, f"KI-Antwort fehlgeschlagen: {type(e).__name__}")
 
     # Store assistant message
     saved = await db.insert("messages", {
@@ -167,17 +189,20 @@ async def chat_send(
         filters={"id": conversation_id},
     )
 
-    # Fire-and-forget: memory agent (with error logging)
-    def _on_memory_done(task: asyncio.Task):
-        if task.exception():
-            logger.error(f"Memory agent failed: {task.exception()}")
-
+    # Fire-and-forget: memory agent — Fix #5: only on substantial messages (every 3rd or >50 chars)
     full_messages = messages + [{"role": "assistant", "content": assistant_text}]
+    msg_count = len([m for m in messages if m["role"] == "user"])
+    user_msg_substantial = len(req.message.strip()) > 50
 
-    mem_task = asyncio.create_task(
-        run_memory_agent(teacher_id, conversation_id, full_messages)
-    )
-    mem_task.add_done_callback(_on_memory_done)
+    if user_msg_substantial or msg_count % 3 == 0:
+        def _on_memory_done(task: asyncio.Task):
+            if task.exception():
+                logger.error(f"Memory agent failed: {task.exception()}")
+
+        mem_task = asyncio.create_task(
+            run_memory_agent(teacher_id, conversation_id, full_messages)
+        )
+        mem_task.add_done_callback(_on_memory_done)
 
     # Fire-and-forget: material learning agent
     def _on_learning_done(task: asyncio.Task):
@@ -286,17 +311,20 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
             filters={"id": conversation_id},
         )
         
-        # Fire-and-forget memory + learning agents (same as chat_send)
-        def _on_memory_done(task: asyncio.Task):
-            if task.exception():
-                logger.error(f"Memory agent failed: {task.exception()}")
-
+        # Fire-and-forget memory + learning agents — Fix #5: throttled
         full_messages = messages + [{"role": "assistant", "content": full_text}]
+        msg_count = len([m for m in messages if m["role"] == "user"])
+        user_msg_substantial = len(req.message.strip()) > 50
 
-        mem_task = asyncio.create_task(
-            run_memory_agent(teacher_id, conversation_id, full_messages)
-        )
-        mem_task.add_done_callback(_on_memory_done)
+        if user_msg_substantial or msg_count % 3 == 0:
+            def _on_memory_done(task: asyncio.Task):
+                if task.exception():
+                    logger.error(f"Memory agent failed: {task.exception()}")
+
+            mem_task = asyncio.create_task(
+                run_memory_agent(teacher_id, conversation_id, full_messages)
+            )
+            mem_task.add_done_callback(_on_memory_done)
 
         # Fire-and-forget: material learning agent
         def _on_learning_done(task: asyncio.Task):

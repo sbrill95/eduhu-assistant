@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from app import db
 from app.models import (
     H5PExerciseRequest, H5PExerciseResponse, PageOut
@@ -184,11 +185,15 @@ async def get_h5p_metadata(exercise_id: str):
     
     preloaded = base_deps + type_deps.get(h5p_type, [])
     
-    return {
-        "mainLibrary": h5p_type,
-        "title": exercise.get("title", "Übung"),
-        "preloadedDependencies": preloaded,
-    }
+    # Fix #4: Cache H5P responses — content never changes after creation
+    return JSONResponse(
+        content={
+            "mainLibrary": h5p_type,
+            "title": exercise.get("title", "Übung"),
+            "preloadedDependencies": preloaded,
+        },
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
 
 
 @public_router.get("/h5p/{exercise_id}/content/content.json")
@@ -210,7 +215,7 @@ async def get_h5p_content_json(exercise_id: str):
             content = _json.loads(content)
         except (ValueError, TypeError):
             pass
-    return content
+    return JSONResponse(content=content, headers={"Cache-Control": "public, max-age=3600"})
 
 
 @public_router.get("/poll/{access_code}")

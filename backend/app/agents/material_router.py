@@ -46,7 +46,7 @@ def _normalize_type(material_type: str) -> str:
 
 def _is_retryable(exc: Exception) -> bool:
     name = type(exc).__name__
-    return any(keyword in name for keyword in ("Timeout", "Connection", "Server", "502", "503", "529"))
+    return any(keyword in name.lower() or keyword in str(exc).lower() for keyword in ("timeout", "connection", "server", "502", "503", "529", "429", "rate", "overloaded"))
 
 
 async def run_material_agent(request: MaterialRequest):
