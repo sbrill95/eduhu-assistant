@@ -38,7 +38,7 @@ async def generate_image(teacher_id: str, prompt: str, session_id: str | None = 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={api_key}",
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key={api_key}",
                 json={
                     "contents": messages,
                     "generationConfig": {
