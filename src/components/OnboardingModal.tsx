@@ -40,11 +40,10 @@ export function OnboardingModal({ teacherId, onComplete }: Props) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch(`${API}/api/profile`, {
-        method: 'PUT',
+      await fetch(`${API}/api/profile/${teacherId}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          teacher_id: teacherId,
           bundesland,
           schulform,
           faecher: selectedFaecher,
