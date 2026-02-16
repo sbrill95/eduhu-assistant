@@ -77,109 +77,45 @@ def get_youtube_quiz_agent():
 
 
 async def extract_transcript(video_url: str) -> tuple[str, str, str]:
-    """Extract transcript from YouTube video.
+    """Extract transcript from YouTube video using youtube-transcript-api.
     
     Returns (transcript_text, video_title, video_url).
     """
     import asyncio
-    import yt_dlp
 
     def _extract():
-        from app.config import get_settings
-        settings = get_settings()
+        from youtube_transcript_api import YouTubeTranscriptApi
         
-        ydl_opts = {
-            'skip_download': True,
-            'writesubtitles': True,
-            'writeautomaticsub': True,
-            'subtitleslangs': ['de', 'de-DE', 'en'],
-            'quiet': False,
-            'no_warnings': False,
-        }
+        # Extract video ID from URL
+        video_id = video_url
+        if "youtube.com/watch" in video_url:
+            video_id = video_url.split("v=")[1].split("&")[0]
+        elif "youtu.be/" in video_url:
+            video_id = video_url.split("youtu.be/")[1].split("?")[0]
         
-        if settings.webshare_proxy_url:
-            ydl_opts['proxy'] = settings.webshare_proxy_url
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(video_url, download=False)
-
-        title = info.get('title', 'Unbekanntes Video')
-        url = info.get('webpage_url', video_url)
-
-        # Try to get subtitles (manual first, then auto)
-        subs = info.get('subtitles', {})
-        auto_subs = info.get('automatic_captions', {})
-
-        transcript_data = None
-        for lang in ['de', 'de-DE', 'en']:
-            if lang in subs:
-                transcript_data = subs[lang]
-                break
-            if lang in auto_subs:
-                transcript_data = auto_subs[lang]
-                break
-
-        if not transcript_data:
-            # Try any available language
-            all_subs = {**subs, **auto_subs}
-            if all_subs:
-                first_lang = next(iter(all_subs))
-                transcript_data = all_subs[first_lang]
-
-        if not transcript_data:
-            return "", title, url
-
-        # Find a text format (json3, srv3, vtt, etc.)
-        text_url = None
-        for fmt in transcript_data:
-            if fmt.get('ext') in ('json3', 'srv3', 'vtt', 'ttml'):
-                text_url = fmt.get('url')
-                break
-        if not text_url and transcript_data:
-            text_url = transcript_data[0].get('url')
-
-        if not text_url:
-            return "", title, url
-
-        # Download and parse transcript
-        import httpx
-        with httpx.Client(timeout=30) as client:
-            r = client.get(text_url)
-            r.raise_for_status()
-            raw = r.text
-
-        # Parse different formats
-        if 'json3' in str(text_url) or raw.strip().startswith('{'):
-            import json
-            data = json.loads(raw)
-            events = data.get('events', [])
-            lines = []
-            for event in events:
-                segs = event.get('segs', [])
-                text = ''.join(s.get('utf8', '') for s in segs).strip()
-                if text and text != '\n':
-                    lines.append(text)
-            transcript = ' '.join(lines)
-        else:
-            # VTT/SRT format — strip timestamps
-            lines = []
-            for line in raw.split('\n'):
-                line = line.strip()
-                if not line or '-->' in line or line.isdigit() or line.startswith('WEBVTT'):
-                    continue
-                # Remove HTML tags
-                line = re.sub(r'<[^>]+>', '', line)
-                if line:
-                    lines.append(line)
-            transcript = ' '.join(lines)
-
+        ytt = YouTubeTranscriptApi()
+        transcript_obj = ytt.fetch(video_id, languages=['de', 'en'])
+        
+        text = ' '.join(s.text for s in transcript_obj.snippets)
+        
         # Clean up
-        transcript = re.sub(r'\s+', ' ', transcript).strip()
+        text = re.sub(r'\s+', ' ', text).strip()
         # Limit to ~10000 chars for LLM context
-        if len(transcript) > 10000:
-            transcript = transcript[:10000] + "..."
-
-        return transcript, title, url
+        if len(text) > 10000:
+            text = text[:10000] + "..."
+        
+        # Try to get title via oEmbed (no API key needed)
+        title = "YouTube Video"
+        try:
+            import httpx
+            r = httpx.get(f"https://www.youtube.com/oembed?url={video_url}&format=json", timeout=5)
+            if r.status_code == 200:
+                title = r.json().get("title", title)
+        except Exception:
+            pass
+        
+        clean_url = f"https://www.youtube.com/watch?v={video_id}"
+        return text, title, clean_url
 
     return await asyncio.to_thread(_extract)
 

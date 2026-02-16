@@ -17,6 +17,7 @@ dependencies = [
     "pymupdf>=1.27.1",
     "asyncpg>=0.31.0",
     "yt-dlp>=2026.1",
+    "youtube-transcript-api>=1.2.4",
 ]
 
 [project.optional-dependencies]
