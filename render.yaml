@@ -19,5 +19,7 @@ services:
         sync: false
       - key: LOGFIRE_TOKEN
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
     healthCheckPath: /api/health
     plan: free
