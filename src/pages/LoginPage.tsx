@@ -1,12 +1,19 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '@/lib/auth';
+
+const API = import.meta.env.VITE_API_URL || '';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Wake up backend on page load (cold start ~30-60s on Render free tier)
+  useEffect(() => {
+    fetch(`${API}/api/health`).catch(() => {});
+  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

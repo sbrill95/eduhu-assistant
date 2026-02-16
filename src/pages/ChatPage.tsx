@@ -7,6 +7,7 @@ import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { ChipSelector } from '@/components/chat/ChipSelector';
 import { ConversationSidebar } from '@/components/chat/ConversationSidebar';
 import { useChat } from '@/hooks/useChat';
+import { OnboardingModal } from '@/components/OnboardingModal';
 
 export default function ChatPage() {
   const navigate = useNavigate();
@@ -24,12 +25,22 @@ export default function ChatPage() {
   } = useChat();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Redirect if not logged in
   useEffect(() => {
     if (!teacher) void navigate('/');
   }, [teacher, navigate]);
+
+  // Check if onboarding needed (first login — no profile data)
+  useEffect(() => {
+    if (!teacher) return;
+    const onboarded = localStorage.getItem(`eduhu_onboarded_${teacher.teacher_id}`);
+    if (!onboarded) {
+      setShowOnboarding(true);
+    }
+  }, [teacher]);
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -46,6 +57,15 @@ export default function ChatPage() {
 
   return (
     <AppShell>
+      {showOnboarding && (
+        <OnboardingModal
+          teacherId={teacher.teacher_id}
+          onComplete={() => {
+            setShowOnboarding(false);
+            localStorage.setItem(`eduhu_onboarded_${teacher.teacher_id}`, '1');
+          }}
+        />
+      )}
       <div className="flex h-full">
         {/* Sidebar */}
         <div className="hidden sm:block">
