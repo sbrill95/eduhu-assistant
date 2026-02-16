@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -16,6 +17,47 @@ interface Props {
 
 export function ChatMessage({ message, onChipSelect }: Props) {
   const isUser = message.role === 'user';
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const stripMarkdown = (markdownText: string) => {
+    // Remove code blocks
+    let plainText = markdownText.replace(/```[\s\S]*?```/g, '');
+    // Remove inline code
+    plainText = plainText.replace(/`[^`]*?`/g, '');
+    // Remove headings
+    plainText = plainText.replace(/#{1,6}\s/g, '');
+    // Remove bold/italic
+    plainText = plainText.replace(/(\*\*|__)(.*?)\1/g, '$2');
+    plainText = plainText.replace(/(\*|_)(.*?)\1/g, '$2');
+    // Remove links (text and URL)
+    plainText = plainText.replace(/\[(.*?)\]\((.*?)\)/g, '$1');
+    // Remove blockquotes
+    plainText = plainText.replace(/^>\s/gm, '');
+    // Remove list items
+    plainText = plainText.replace(/^(\*|-|\d+\.)\s/gm, '');
+    // Remove horizontal rules
+    plainText = plainText.replace(/^-{3,}$/gm, '');
+    // Remove special cards like {{TIMER:seconds:label}}
+    plainText = plainText.replace(/\{\{TIMER:\d+:[^}]*\}\}/g, '');
+    // Remove leading/trailing whitespace
+    return plainText.trim();
+  };
+
+  const handleSpeak = () => {
+    const plainText = stripMarkdown(message.content);
+    if (plainText) {
+      const utterance = new SpeechSynthesisUtterance(plainText);
+      utterance.lang = 'de-DE';
+      utterance.onend = () => setIsSpeaking(false);
+      speechSynthesis.speak(utterance);
+      setIsSpeaking(true);
+    }
+  };
+
+  const handleStop = () => {
+    speechSynthesis.cancel();
+    setIsSpeaking(false);
+  };
 
   return (
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -123,6 +165,25 @@ export function ChatMessage({ message, onChipSelect }: Props) {
           {message.attachments?.map((att, i) => (
             <FilePreview key={i} attachment={att} />
           ))}
+          {!isUser && (
+            <div className="mt-2 text-right">
+              {isSpeaking ? (
+                <button
+                  onClick={handleStop}
+                  className="text-xs text-text-muted hover:text-text-default focus:outline-none"
+                >
+                  🔇 Stopp
+                </button>
+              ) : (
+                <button
+                  onClick={handleSpeak}
+                  className="text-xs text-text-muted hover:text-text-default focus:outline-none"
+                >
+                  🔊 Vorlesen
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Chips */}

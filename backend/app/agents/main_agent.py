@@ -95,6 +95,8 @@ def create_agent() -> Agent[AgentDeps, str]:
         - "lernspiel" für Lernspiele (Regeln, Material, Varianten)
         - "versuchsanleitung" für Versuchsanleitungen/Arbeitsblätter (Experimente)
         - "stundenplanung" für Stundenverlaufspläne (Verlaufsplan-Tabelle)
+        - "podcast" für Podcast-Skripte (Multi-Voice, didaktisch gerahmt)
+        - "gespraechssimulation" für Gesprächssimulationen (Patienten-/Kundengespräch)
         Gibt eine Zusammenfassung mit Download-Link zurück."""
         from app.services.material_service import generate_material as gen_mat
 
@@ -505,6 +507,53 @@ def create_agent() -> Agent[AgentDeps, str]:
                 return "Todo gelöscht."
 
             return f"Unbekannte Aktion: {action}"
+
+    # ── Tool: text_to_speech ──
+    @agent.tool
+    async def text_to_speech_tool(
+        ctx: RunContext[AgentDeps],
+        text: str,
+        voice: str = "educator",
+    ) -> str:
+        """Wandle Text in Sprache um (ElevenLabs TTS).
+        Nutze dieses Tool wenn die Lehrkraft sagt: 'Lies das vor', 'Als Audio',
+        'Sprachausgabe', 'Text vorlesen', etc.
+        voice kann sein: 'male', 'female', 'educator' (Standard), 'storyteller'.
+        Gibt einen Link zur Audio-Datei zurück."""
+        from app.agents.tts_agent import text_to_speech
+
+        try:
+            audio_id, _ = await text_to_speech(text[:5000], voice)
+            base = ctx.deps.base_url or ""
+            return f"🔊 Audio erstellt: [{voice}-Stimme]({base}/api/audio/{audio_id})"
+        except Exception as e:
+            logger.error(f"TTS failed: {e}")
+            return f"TTS-Fehler: {str(e)}"
+
+    # ── Tool: generate_audio_dialogue ──
+    @agent.tool
+    async def generate_audio_dialogue(
+        ctx: RunContext[AgentDeps],
+        script_json: str,
+    ) -> str:
+        """Generiere einen Audio-Dialog aus einem Skript (z.B. Podcast oder Gesprächssimulation).
+        script_json ist ein JSON-Array: [{"speaker": "Name", "voice": "male|female|educator|storyteller", "text": "..."}]
+        Nutze dieses Tool NACH dem Erstellen eines Podcast- oder Gesprächssimulations-Materials,
+        um daraus ein hörbares Audio zu erzeugen."""
+        import json
+        from app.agents.tts_agent import generate_dialogue
+
+        try:
+            script = json.loads(script_json)
+            audio_id, audio_bytes = await generate_dialogue(script)
+            base = ctx.deps.base_url or ""
+            duration_est = len(audio_bytes) / 16000  # ~16KB/s for MP3
+            return f"🎙️ Audio-Dialog erstellt ({len(script)} Segmente, ~{duration_est:.0f}s): [Anhören]({base}/api/audio/{audio_id})"
+        except json.JSONDecodeError:
+            return "Fehler: script_json ist kein gültiges JSON."
+        except Exception as e:
+            logger.error(f"Audio dialogue failed: {e}")
+            return f"Audio-Fehler: {str(e)}"
 
     return agent
 

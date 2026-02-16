@@ -14,6 +14,8 @@ from app.agents.lernsituation_agent import get_lernsituation_agent, Lernsituatio
 from app.agents.lernspiel_agent import get_lernspiel_agent, LernspielDeps
 from app.agents.versuchsanleitung_agent import get_versuchsanleitung_agent, VersuchsanleitungDeps
 from app.agents.stundenplanung_agent import get_stundenplanung_agent, StundenplanungDeps
+from app.agents.podcast_agent import get_podcast_agent, PodcastDeps
+from app.agents.gespraechssimulation_agent import get_gespraechssimulation_agent, GespraechssimulationDeps
 from app.agents.system_prompt import build_block3_context
 from app.agents.knowledge import build_wissenskarte
 from app import db
@@ -25,7 +27,7 @@ SUPPORTED_TYPES = {
     "klausur", "klassenarbeit", "differenzierung",
     "hilfekarte", "escape_room", "mystery",
     "lernsituation", "lernspiel", "versuchsanleitung",
-    "stundenplanung",
+    "stundenplanung", "podcast", "gespraechssimulation",
 }
 
 # Normalize aliases
@@ -102,6 +104,14 @@ async def run_material_agent(request: MaterialRequest):
         agent = get_stundenplanung_agent()
         deps = StundenplanungDeps(teacher_id=request.teacher_id, fach=request.fach,
                                   teacher_context=teacher_context, wissenskarte=wissenskarte)
+    elif material_type == "podcast":
+        agent = get_podcast_agent()
+        deps = PodcastDeps(teacher_id=request.teacher_id, fach=request.fach,
+                           teacher_context=teacher_context, wissenskarte=wissenskarte)
+    elif material_type == "gespraechssimulation":
+        agent = get_gespraechssimulation_agent()
+        deps = GespraechssimulationDeps(teacher_id=request.teacher_id, fach=request.fach,
+                                        teacher_context=teacher_context, wissenskarte=wissenskarte)
     else:
         raise ValueError(f"Kein Agent für Typ '{material_type}'")
 
@@ -140,6 +150,8 @@ def _build_prompt(request: MaterialRequest, material_type: str) -> str:
         "lernspiel": "ein Lernspiel",
         "versuchsanleitung": "eine Versuchsanleitung / ein Arbeitsblatt",
         "stundenplanung": "einen Stundenverlaufsplan",
+        "podcast": "ein Podcast-Skript",
+        "gespraechssimulation": "eine Gesprächssimulation",
     }
 
     parts = [

@@ -98,6 +98,9 @@ app.include_router(transcribe.router)
 from app.routers import images
 app.include_router(images.router)
 
+from app.routers import audio
+app.include_router(audio.router)
+
 
 @app.get("/api/suggestions")
 async def get_suggestions_wrapper(teacher_id: str):
