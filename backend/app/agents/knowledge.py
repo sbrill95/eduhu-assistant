@@ -342,9 +342,7 @@ async def cleanup_knowledge(teacher_id: str | None = None) -> dict[str, int]:
                     seen.add(key)
             
             if ids_to_delete:
-                # Assuming no bulk delete, iterate
-                for pref_id in ids_to_delete:
-                    await db.delete("agent_knowledge", filters={"id": pref_id})
+                await db.delete_by_ids("agent_knowledge", ids_to_delete)
                 results["duplicates_removed"] = len(ids_to_delete)
                 logger.info(f"Removed {len(ids_to_delete)} duplicate preferences.")
 
@@ -367,8 +365,7 @@ async def cleanup_knowledge(teacher_id: str | None = None) -> dict[str, int]:
         if to_archive and isinstance(to_archive, list):
             ids_to_archive = [item['id'] for item in to_archive]
             if ids_to_archive:
-                for entry_id in ids_to_archive:
-                    await db.delete("agent_knowledge", filters={"id": entry_id})
+                await db.delete_by_ids("agent_knowledge", ids_to_archive)
                 results["archived"] = len(ids_to_archive)
                 logger.info(f"Archived {len(ids_to_archive)} low-quality entries.")
 
@@ -403,8 +400,7 @@ async def cleanup_knowledge(teacher_id: str | None = None) -> dict[str, int]:
                     ids_to_delete.extend([item["id"] for item in items[:excess]])
             
             if ids_to_delete:
-                for entry_id in ids_to_delete:
-                    await db.delete("agent_knowledge", filters={"id": entry_id})
+                await db.delete_by_ids("agent_knowledge", ids_to_delete)
                 results["capped"] = len(ids_to_delete)
                 logger.info(f"Capped {len(ids_to_delete)} entries to meet limits.")
 

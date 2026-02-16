@@ -106,6 +106,17 @@ async def delete(table: str, filters: dict[str, str]) -> Any:
     return r.json() if r.text else None
 
 
+async def delete_by_ids(table: str, ids: list[str]) -> None:
+    """Delete rows by list of IDs in a single request."""
+    if not ids:
+        return
+    client = _get_client()
+    id_filter = ",".join(ids)
+    url = f"{_url(table)}?id=in.({id_filter})"
+    r = await client.request("DELETE", url, headers=_headers())
+    r.raise_for_status()
+
+
 async def insert_batch(table: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Insert multiple rows in a single request (much faster than N individual inserts)."""
     if not rows:

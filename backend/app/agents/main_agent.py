@@ -329,27 +329,29 @@ def create_agent() -> Agent[AgentDeps, str]:
         oder eine bestimmte Aufgabe überarbeiten möchte.
         task_index ist 0-basiert (Aufgabe 1 = Index 0, Aufgabe 2 = Index 1, etc.).
         Die restlichen Aufgaben bleiben EXAKT IDENTISCH — nur die genannte wird ersetzt."""
-        import httpx
+        from app.services.material_service import patch_task
+        from fastapi import HTTPException
+
         base = ctx.deps.base_url or "http://localhost:8000"
         try:
-            async with httpx.AsyncClient(timeout=120) as client:
-                r = await client.patch(
-                    f"{base}/api/materials/{material_id}/task/{task_index}",
-                    params={"teacher_id": ctx.deps.teacher_id, "anweisung": anweisung},
-                )
-                if r.status_code != 200:
-                    return f"Fehler beim Ändern der Aufgabe: {r.text[:200]}"
-                data = r.json()
-                alte = data["alte_aufgabe"]
-                neue = data["neue_aufgabe"]
-                dl = f"{base}/api/materials/{data['material_id']}/docx" if base else data["docx_url"]
-                return (
-                    f"Aufgabe {task_index + 1} wurde geändert. Alle anderen Aufgaben sind unverändert.\n\n"
-                    f"**Vorher:** {alte.get('aufgabe','')} (AFB {alte.get('afb_level','')}, {alte.get('punkte',0)}P)\n"
-                    f"**Nachher:** {neue.get('aufgabe','')} (AFB {neue.get('afb_level','')}, {neue.get('punkte',0)}P)\n"
-                    f"Beschreibung: {neue.get('beschreibung','')}\n\n"
-                    f"[📥 Aktualisierte Klausur herunterladen]({dl})"
-                )
+            data = await patch_task(
+                material_id=material_id,
+                task_index=task_index,
+                teacher_id=ctx.deps.teacher_id,
+                anweisung=anweisung,
+            )
+            alte = data["alte_aufgabe"]
+            neue = data["neue_aufgabe"]
+            dl = f"{base}/api/materials/{data['material_id']}/docx" if base else data["docx_url"]
+            return (
+                f"Aufgabe {task_index + 1} wurde geändert. Alle anderen Aufgaben sind unverändert.\n\n"
+                f"**Vorher:** {alte.get('aufgabe','')} (AFB {alte.get('afb_level','')}, {alte.get('punkte',0)}P)\n"
+                f"**Nachher:** {neue.get('aufgabe','')} (AFB {neue.get('afb_level','')}, {neue.get('punkte',0)}P)\n"
+                f"Beschreibung: {neue.get('beschreibung','')}\n\n"
+                f"[📥 Aktualisierte Klausur herunterladen]({dl})"
+            )
+        except HTTPException as e:
+            return f"Fehler beim Ändern der Aufgabe: {e.detail}"
         except Exception as e:
             logger.error(f"Patch material task failed: {e}")
             return f"Fehler: {str(e)}"
@@ -548,46 +550,39 @@ def create_agent() -> Agent[AgentDeps, str]:
         'todo:', 'was steht an?', 'was muss ich noch machen?', oder ähnlich.
         """
         teacher_id = ctx.deps.teacher_id
-        base = ctx.deps.base_url or "http://localhost:8000"
 
-        import httpx
-        headers = {"Content-Type": "application/json", "X-Teacher-ID": teacher_id}
+        if action == "list":
+            todos = await db.select("todos", filters={"teacher_id": teacher_id, "done": False}, order="due_date.asc.nullslast,created_at.desc")
+            if not isinstance(todos, list) or not todos:
+                return "Keine offenen Todos vorhanden. 🎉"
+            import json as _json
+            card_data = [{"id": t["id"], "text": t["text"], "done": t.get("done", False), "due_date": t.get("due_date"), "priority": t.get("priority", "normal")} for t in todos]
+            return f"Hier sind deine offenen Todos:\n\n```todo-card\n{_json.dumps(card_data, ensure_ascii=False)}\n```"
 
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            if action == "list":
-                r = await client.get(f"{base}/api/todos?done=false", headers=headers)
-                todos = r.json()
-                if not todos:
-                    return "Keine offenen Todos vorhanden. 🎉"
+        elif action == "add":
+            data: dict = {"teacher_id": teacher_id, "text": text, "priority": "normal"}
+            if due_date:
+                data["due_date"] = due_date
+            await db.insert("todos", data)
+            # Show updated todo list as card
+            todos = await db.select("todos", filters={"teacher_id": teacher_id, "done": False}, order="due_date.asc.nullslast,created_at.desc")
+            all_todos = todos if isinstance(todos, list) else []
+            if all_todos:
                 import json as _json
-                card_data = [{"id": t["id"], "text": t["text"], "done": t.get("done", False), "due_date": t.get("due_date"), "priority": t.get("priority", "normal")} for t in todos]
-                return f"Hier sind deine offenen Todos:\n\n```todo-card\n{_json.dumps(card_data, ensure_ascii=False)}\n```"
+                card_data = [{"id": t["id"], "text": t["text"], "done": t.get("done", False), "due_date": t.get("due_date"), "priority": t.get("priority", "normal")} for t in all_todos]
+                return f"✅ Todo erstellt: {text}\n\n```todo-card\n{_json.dumps(card_data, ensure_ascii=False)}\n```"
+            return f"✅ Todo erstellt: {text}" + (f" (bis {due_date})" if due_date else "")
 
-            elif action == "add":
-                data: dict = {"text": text}
-                if due_date:
-                    data["due_date"] = due_date
-                r = await client.post(f"{base}/api/todos", json=data, headers=headers)
-                # Show updated todo list as card
-                r2 = await client.get(f"{base}/api/todos?done=false", headers=headers)
-                all_todos = r2.json() if r2.status_code == 200 else []
-                if all_todos:
-                    import json as _json
-                    card_data = [{"id": t["id"], "text": t["text"], "done": t.get("done", False), "due_date": t.get("due_date"), "priority": t.get("priority", "normal")} for t in all_todos]
-                    return f"✅ Todo erstellt: {text}\n\n```todo-card\n{_json.dumps(card_data, ensure_ascii=False)}\n```"
-                return f"✅ Todo erstellt: {text}" + (f" (bis {due_date})" if due_date else "")
+        elif action == "complete":
+            from datetime import datetime, timezone
+            await db.update("todos", {"done": True, "completed_at": datetime.now(timezone.utc).isoformat()}, filters={"id": todo_id, "teacher_id": teacher_id})
+            return "Todo erledigt! ✅"
 
-            elif action == "complete":
-                r = await client.patch(
-                    f"{base}/api/todos/{todo_id}", json={"done": True}, headers=headers
-                )
-                return "Todo erledigt! ✅"
+        elif action == "delete":
+            await db.delete("todos", filters={"id": todo_id, "teacher_id": teacher_id})
+            return "Todo gelöscht."
 
-            elif action == "delete":
-                r = await client.delete(f"{base}/api/todos/{todo_id}", headers=headers)
-                return "Todo gelöscht."
-
-            return f"Unbekannte Aktion: {action}"
+        return f"Unbekannte Aktion: {action}"
 
     # ── Tool: text_to_speech ──
     @agent.tool

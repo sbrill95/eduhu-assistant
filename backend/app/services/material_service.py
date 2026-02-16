@@ -6,9 +6,13 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
+from fastapi import HTTPException
+from pydantic_ai import Agent
+
 from app import db
-from app.models import MaterialRequest, ExamStructure, DifferenzierungStructure
+from app.models import MaterialRequest, ExamStructure, DifferenzierungStructure, ExamTask
 from app.agents.material_router import run_material_agent, _normalize_type
+from app.agents.llm import get_haiku
 from app.docx_generator import (
     generate_exam_docx, generate_diff_docx, generate_generic_docx,
     generate_stundenplanung_docx, generate_mystery_docx, generate_escape_room_docx,
@@ -199,3 +203,76 @@ def _format_diff_summary(diff: DifferenzierungStructure, material_id: str) -> st
         f"**Niveaustufen:**\n{niveaus_summary}\n\n"
         f"Download: /api/materials/{material_id}/docx"
     )
+
+
+async def patch_task(material_id: str, task_index: int, teacher_id: str, anweisung: str) -> dict:
+    """Patch a single task in a Klausur. Returns dict with alte_aufgabe, neue_aufgabe, material_id, docx_url."""
+    # 1. Load material
+    record = await db.select(
+        "generated_materials",
+        columns="content_json, teacher_id, type",
+        filters={"id": material_id},
+        single=True,
+    )
+    if not record:
+        raise HTTPException(404, "Material nicht gefunden")
+    if record.get("teacher_id") != teacher_id:
+        raise HTTPException(403, "Zugriff verweigert")
+    if record.get("type") != "klausur":
+        raise HTTPException(400, "Nur Klausuren können gepatcht werden")
+
+    content = record["content_json"]
+    aufgaben = content.get("aufgaben", [])
+    if task_index < 0 or task_index >= len(aufgaben):
+        raise HTTPException(400, f"Aufgabe {task_index + 1} existiert nicht (max {len(aufgaben)})")
+
+    alte_aufgabe = aufgaben[task_index]
+
+    # 2. Generate only the replacement task
+    task_agent = Agent(
+        get_haiku(),
+        output_type=ExamTask,
+        instructions=f"""Du bist ein Experte für Klausuraufgaben. Erstelle eine EINZELNE neue Aufgabe.
+Fach: {content.get('fach','?')}, Klasse: {content.get('klasse','?')}, Thema: {content.get('thema','?')}.
+
+Die aktuelle Aufgabe:
+- Titel: {alte_aufgabe.get('aufgabe','')}
+- Beschreibung: {alte_aufgabe.get('beschreibung','')}
+- AFB: {alte_aufgabe.get('afb_level','')}
+- Punkte: {alte_aufgabe.get('punkte',0)}
+- Erwartungshorizont: {alte_aufgabe.get('erwartung',[])}
+
+Anweisung: {anweisung}
+
+Behalte AFB-Level und Punktzahl bei, es sei denn die Anweisung sagt explizit etwas anderes.
+Die Aufgabe MUSS konkrete Angaben enthalten (Zahlenwerte bei Berechnungen, klar definierte Teilaufgaben).""",
+    )
+
+    result = await task_agent.run(f"Erstelle eine neue Version der Aufgabe: {anweisung}")
+    neue_aufgabe = result.output.model_dump()
+
+    # 3. Patch only this task
+    aufgaben[task_index] = neue_aufgabe
+    content["aufgaben"] = aufgaben
+
+    # 4. Regenerate DOCX
+    exam = ExamStructure(**content)
+    docx_bytes = generate_exam_docx(exam)
+
+    # 5. Update DB + disk
+    MATERIALS_DIR.mkdir(exist_ok=True)
+    (MATERIALS_DIR / f"{material_id}.docx").write_bytes(docx_bytes)
+
+    await db.update(
+        "generated_materials",
+        {"content_json": content, "docx_base64": base64.b64encode(docx_bytes).decode("ascii")},
+        filters={"id": material_id},
+    )
+
+    return {
+        "patched_task": task_index,
+        "alte_aufgabe": alte_aufgabe,
+        "neue_aufgabe": neue_aufgabe,
+        "material_id": material_id,
+        "docx_url": f"/api/materials/{material_id}/docx",
+    }
