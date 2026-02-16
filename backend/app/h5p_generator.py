@@ -215,3 +215,45 @@ def exercise_set_to_h5p(exercise_set) -> list[tuple[dict, str, str]]:
             content = generate_question_set(mc_questions)
             return [(content, "H5P.QuestionSet", exercise_set.title)]
         raise ValueError(f"Cannot convert exercise_type '{etype}' with given data")
+
+
+def youtube_quiz_to_h5p(quiz_structure) -> list[dict]:
+    """Convert a YouTubeQuizStructure to a list of H5P content items.
+    
+    Returns list of (h5p_type, content_json) tuples ready for exercise creation.
+    """
+    h5p_items = []
+
+    for frage in quiz_structure.fragen:
+        if frage.typ == "multiple_choice" and frage.optionen:
+            answers = []
+            for opt in frage.optionen:
+                answers.append({
+                    "text": opt,
+                    "correct": opt.strip().lower() == frage.richtige_antwort.strip().lower(),
+                    "feedback": frage.erklaerung if opt.strip().lower() == frage.richtige_antwort.strip().lower() else "",
+                })
+            # Ensure at least one correct answer
+            if not any(a["correct"] for a in answers):
+                answers[0]["correct"] = True
+            content = generate_multichoice(frage.frage, answers)
+            h5p_items.append(("H5P.MultiChoice", content))
+
+        elif frage.typ == "true_false":
+            correct = frage.richtige_antwort.strip().lower() in ("wahr", "richtig", "true", "ja")
+            answers = [
+                {"text": "Wahr", "correct": correct, "feedback": frage.erklaerung if correct else ""},
+                {"text": "Falsch", "correct": not correct, "feedback": frage.erklaerung if not correct else ""},
+            ]
+            content = generate_multichoice(frage.frage, answers)
+            h5p_items.append(("H5P.MultiChoice", content))
+
+        elif frage.typ == "lueckentext":
+            # Convert to blanks format: "Das Ergebnis ist *Antwort*."
+            text = frage.frage.replace("___", f"*{frage.richtige_antwort}*")
+            if "*" not in text:
+                text += f" *{frage.richtige_antwort}*"
+            content = generate_blanks(text)
+            h5p_items.append(("H5P.Blanks", content))
+
+    return h5p_items
