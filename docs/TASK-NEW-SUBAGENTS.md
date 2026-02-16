@@ -38,7 +38,14 @@ Warte auf Steffens Prompts aus der alten Software bevor Generic Profiles geschri
 - Full Context Tool anbinden
 - Testen ob Qualität steigt
 
-### 0f: material_learning_agent.py umbauen
+### 0f: Knowledge Cleanup Job
+- Max Einträge pro teacher_id + agent_type: ~50
+- Archivierung: quality_score < 0.3 AND times_used = 0 AND älter 90 Tage
+- Zusammenführung: Doppelte Preferences mergen
+- Cron: 1x/Woche oder bei jedem Material-Generate prüfen
+- Analog zum Memory-Cleanup-Pattern
+
+### 0g: material_learning_agent.py umbauen
 - Aktuell: Zeigt auf nicht-existierende Tabellen (material_preferences, material_templates, good_practice_materials) → schlägt still fehl in try/except
 - Neu: Auf `agent_knowledge` umstellen (eine Tabelle statt drei)
 - Implizites Rating: Download/Iteration = positiv → quality_score erhöhen
