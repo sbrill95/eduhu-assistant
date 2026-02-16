@@ -85,6 +85,9 @@ async def extract_transcript(video_url: str) -> tuple[str, str, str]:
     import yt_dlp
 
     def _extract():
+        from app.config import get_settings
+        settings = get_settings()
+        
         ydl_opts = {
             'skip_download': True,
             'writesubtitles': True,
@@ -93,6 +96,9 @@ async def extract_transcript(video_url: str) -> tuple[str, str, str]:
             'quiet': True,
             'no_warnings': True,
         }
+        
+        if settings.webshare_proxy_url:
+            ydl_opts['proxy'] = settings.webshare_proxy_url
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
