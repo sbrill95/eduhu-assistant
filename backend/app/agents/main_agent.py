@@ -530,6 +530,44 @@ def create_agent() -> Agent[AgentDeps, str]:
             logger.error(f"TTS failed: {e}")
             return f"TTS-Fehler: {str(e)}"
 
+    # ── Tool: youtube_quiz ──
+    @agent.tool
+    async def youtube_quiz(
+        ctx: RunContext[AgentDeps],
+        video_url: str,
+        schwerpunkt: str = "",
+        num_questions: int = 7,
+    ) -> str:
+        """Erstelle ein Quiz aus einem YouTube-Video.
+        Nutze dieses Tool wenn die Lehrkraft eine YouTube-URL teilt und daraus
+        Quizfragen erstellt werden sollen. Extrahiert automatisch das Transkript.
+        schwerpunkt: optionaler thematischer Fokus für die Fragen."""
+        from app.agents.youtube_quiz_agent import generate_youtube_quiz
+
+        try:
+            quiz = await generate_youtube_quiz(
+                teacher_id=ctx.deps.teacher_id,
+                video_url=video_url,
+                schwerpunkt=schwerpunkt,
+                num_questions=num_questions,
+            )
+            lines = [f"**YouTube-Quiz: {quiz.titel}**\n"]
+            lines.append(f"Video: [{quiz.video_titel}]({quiz.video_url})\n")
+            lines.append(f"_{quiz.zusammenfassung}_\n")
+            for f in quiz.fragen:
+                lines.append(f"\n**Frage {f.nummer}** ({f.typ})")
+                lines.append(f.frage)
+                if f.optionen:
+                    for i, opt in enumerate(f.optionen):
+                        letter = chr(65 + i)  # A, B, C, D
+                        lines.append(f"  {letter}) {opt}")
+                lines.append(f"✅ {f.richtige_antwort}")
+                lines.append(f"💡 {f.erklaerung}")
+            return "\n".join(lines)
+        except Exception as e:
+            logger.error(f"YouTube quiz failed: {e}")
+            return f"YouTube-Quiz-Fehler: {str(e)}"
+
     # ── Tool: generate_audio_dialogue ──
     @agent.tool
     async def generate_audio_dialogue(
