@@ -73,6 +73,10 @@ async def generate_material(
 
     await _store_material(material_id, teacher_id, docx_bytes, structure, resolved_type)
 
+    # For audio-capable types, add audio generation hint to summary
+    if resolved_type in ("podcast", "gespraechssimulation"):
+        summary += "\n\n💡 Sag 'Als Audio generieren' um daraus eine Audiodatei zu erstellen."
+
     return MaterialResult(
         material_id=material_id,
         structure=structure,

@@ -110,6 +110,20 @@ def create_agent() -> Agent[AgentDeps, str]:
                 dauer_minuten=dauer_minuten,
                 zusatz_anweisungen=zusatz_anweisungen,
             )
+            # Save session for multi-turn iteration
+            try:
+                from app import db as _db
+                await _db.insert("agent_sessions", {
+                    "conversation_id": ctx.deps.conversation_id or "unknown",
+                    "teacher_id": ctx.deps.teacher_id,
+                    "agent_type": material_type,
+                    "material_structure": result.structure.model_dump() if hasattr(result.structure, 'model_dump') else {},
+                    "material_id": result.material_id,
+                    "status": "active",
+                })
+            except Exception as sess_err:
+                logger.debug(f"Session save failed (non-critical): {sess_err}")
+
             summary = result.summary
             if ctx.deps.base_url:
                 summary = summary.replace("Download: /api/", f"[📥 Download DOCX]({ctx.deps.base_url}/api/")
@@ -234,6 +248,73 @@ def create_agent() -> Agent[AgentDeps, str]:
             response += f"\n\n{text}"
         response += f"\n\nDu kannst das Bild anpassen — sag einfach was du ändern möchtest!"
         return response
+
+    # ── Tool: continue_material ──
+    @agent.tool
+    async def continue_material(
+        ctx: RunContext[AgentDeps],
+        anweisung: str,
+    ) -> str:
+        """Überarbeite das zuletzt erstellte Material basierend auf Feedback.
+        Nutze dieses Tool wenn die Lehrkraft sagt: 'Ändere das', 'Mach es anders',
+        'Zu schwer', 'Zu leicht', 'Ändere Aufgabe X', etc.
+        anweisung: Was genau geändert werden soll."""
+        from app import db as _db
+
+        try:
+            # Find latest active session for this conversation
+            sessions = await _db.select(
+                "agent_sessions",
+                filters={
+                    "conversation_id": ctx.deps.conversation_id,
+                    "status": "active",
+                },
+                order="created_at.desc",
+                limit=1,
+            )
+            if not sessions or not isinstance(sessions, list) or len(sessions) == 0:
+                return "Kein aktives Material gefunden. Bitte erstelle zuerst Material mit generate_material."
+
+            session = sessions[0]
+            material_id = session.get("material_id")
+            agent_type = session.get("agent_type", "klausur")
+            structure = session.get("material_structure", {})
+
+            if not structure:
+                return "Material-Struktur nicht gefunden. Bitte erstelle neues Material."
+
+            # Re-generate with modification instruction
+            from app.services.material_service import generate_material as gen_mat
+
+            result = await gen_mat(
+                teacher_id=ctx.deps.teacher_id,
+                fach=structure.get("fach", ""),
+                klasse=structure.get("klasse", structure.get("zielgruppe", "")),
+                thema=structure.get("thema", structure.get("fach_thema", "")),
+                material_type=agent_type,
+                zusatz_anweisungen=f"ÜBERARBEITUNG: {anweisung}\n\nOriginal-Struktur zur Referenz: {str(structure)[:2000]}",
+            )
+
+            # Update session
+            await _db.update(
+                "agent_sessions",
+                {
+                    "material_structure": result.structure.model_dump() if hasattr(result.structure, 'model_dump') else {},
+                    "material_id": result.material_id,
+                    "updated_at": "now()",
+                },
+                filters={"id": session["id"]},
+            )
+
+            summary = result.summary
+            if ctx.deps.base_url:
+                summary = summary.replace("Download: /api/", f"[📥 Download DOCX]({ctx.deps.base_url}/api/")
+                if summary != result.summary:
+                    summary = summary.replace("/docx", "/docx)")
+            return f"Material überarbeitet:\n\n{summary}"
+        except Exception as e:
+            logger.error(f"Continue material failed: {e}")
+            return f"Fehler bei der Überarbeitung: {str(e)}"
 
     # ── Tool: patch_material_task ──
     @agent.tool
