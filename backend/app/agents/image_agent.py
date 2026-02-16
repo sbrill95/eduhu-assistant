@@ -2,7 +2,6 @@
 import base64
 import logging
 import uuid
-from pathlib import Path
 
 import httpx
 from app.config import get_settings
@@ -11,17 +10,21 @@ logger = logging.getLogger(__name__)
 
 # Store active image sessions for iterative editing
 _image_sessions: dict[str, list[dict]] = {}
+# Store generated images for serving
+_image_store: dict[str, tuple[bytes, str]] = {}  # id -> (bytes, mime_type)
+
+
+def get_stored_image(image_id: str) -> tuple[bytes, str] | None:
+    """Retrieve a stored image by ID."""
+    return _image_store.get(image_id)
 
 
 async def generate_image(teacher_id: str, prompt: str, session_id: str | None = None) -> dict:
-    """Generate or edit an image using Gemini's image generation.
-
-    Returns: {"image_base64": str, "session_id": str, "mime_type": str}
-    """
+    """Generate or edit an image using Gemini's image generation."""
     settings = get_settings()
     api_key = settings.gemini_api_key
     if not api_key:
-        return {"error": "Gemini API Key nicht konfiguriert."}
+        return {"error": "Gemini API Key nicht konfiguriert. Bitte GEMINI_API_KEY in den Umgebungsvariablen setzen."}
 
     # Build message history for iterative editing
     if session_id and session_id in _image_sessions:
@@ -30,7 +33,6 @@ async def generate_image(teacher_id: str, prompt: str, session_id: str | None = 
         session_id = str(uuid.uuid4())[:8]
         messages = []
 
-    # Add new user message
     messages.append({"role": "user", "parts": [{"text": prompt}]})
 
     try:
@@ -47,7 +49,6 @@ async def generate_image(teacher_id: str, prompt: str, session_id: str | None = 
             resp.raise_for_status()
             data = resp.json()
 
-        # Extract image from response
         candidates = data.get("candidates", [])
         if not candidates:
             return {"error": "Keine Antwort von Gemini erhalten."}
@@ -55,6 +56,7 @@ async def generate_image(teacher_id: str, prompt: str, session_id: str | None = 
         parts = candidates[0].get("content", {}).get("parts", [])
         image_data = None
         text_response = ""
+        mime_type = "image/png"
 
         for part in parts:
             if "inlineData" in part:
@@ -66,6 +68,11 @@ async def generate_image(teacher_id: str, prompt: str, session_id: str | None = 
         if not image_data:
             return {"error": f"Kein Bild generiert. Antwort: {text_response[:200]}"}
 
+        # Store image in memory for serving via API
+        image_id = str(uuid.uuid4())[:12]
+        image_bytes = base64.b64decode(image_data)
+        _image_store[image_id] = (image_bytes, mime_type)
+
         # Save to session for future edits
         response_parts = []
         if text_response:
@@ -74,10 +81,16 @@ async def generate_image(teacher_id: str, prompt: str, session_id: str | None = 
         messages.append({"role": "model", "parts": response_parts})
         _image_sessions[session_id] = messages
 
+        # Clean up old images (keep last 50)
+        if len(_image_store) > 50:
+            oldest = list(_image_store.keys())[:-50]
+            for k in oldest:
+                del _image_store[k]
+
         return {
-            "image_base64": image_data,
-            "mime_type": mime_type,
+            "image_id": image_id,
             "session_id": session_id,
+            "mime_type": mime_type,
             "text": text_response,
         }
 

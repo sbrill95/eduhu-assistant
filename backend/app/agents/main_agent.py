@@ -198,16 +198,18 @@ def create_agent() -> Agent[AgentDeps, str]:
         if "error" in result:
             return f"❌ {result['error']}"
 
-        # Return image as markdown with base64 data URI
-        mime = result.get("mime_type", "image/png")
-        b64 = result["image_base64"]
+        image_id = result["image_id"]
         sid = result["session_id"]
         text = result.get("text", "")
 
-        response = f"🎨 Bild generiert!\n\n![Generiertes Bild](data:{mime};base64,{b64[:100]}...)\n\n"
-        response += f"```image-card\n{{\"image\": \"data:{mime};base64,{b64}\", \"session_id\": \"{sid}\"}}\n```"
+        # Build image URL (relative, frontend will resolve)
+        image_url = f"/api/images/{image_id}"
+
+        response = f"🎨 Bild generiert!\n\n"
+        response += f'```image-card\n{{"image_url": "{image_url}", "session_id": "{sid}"}}\n```'
         if text:
             response += f"\n\n{text}"
+        response += f"\n\nDu kannst das Bild anpassen — sag einfach was du ändern möchtest!"
         return response
 
     # ── Tool: patch_material_task ──
