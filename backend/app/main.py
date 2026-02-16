@@ -147,12 +147,25 @@ async def seed_knowledge():
     return {"status": "ok", "seeded": count}
 
 
+@app.get("/api/debug/env")
+async def debug_env():
+    """Debug: check which optional env vars are set (no values exposed)."""
+    import os
+    settings = get_settings()
+    return {
+        "webshare_proxy_url": bool(settings.webshare_proxy_url),
+        "elevenlabs_api_key": bool(settings.elevenlabs_api_key),
+        "gemini_api_key": bool(settings.gemini_api_key),
+        "pixabay_api_key": bool(settings.pixabay_api_key),
+        "brave_api_key": bool(settings.brave_api_key),
+        "openai_api_key": bool(settings.openai_api_key),
+        "logfire_token": bool(settings.logfire_token),
+        "RENDER": bool(os.environ.get("RENDER")),
+    }
+
+
 @app.get("/api/debug/imports")
 async def debug_imports():
-    import os
-    if os.environ.get("RENDER"):
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="Not found")
     """Debug: test if all material imports work."""
     errors = []
     try:
