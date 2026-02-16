@@ -226,13 +226,12 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
             "patch_material_task": "✏️ Aufgabe wird angepasst…",
             "manage_todos": "📋 To-Do-Liste wird aktualisiert…",
             "search_wikipedia": "📖 Wikipedia wird durchsucht…",
-            "search_images": "🖼️ Bilder werden gesucht…",
+            "search_images": "🔍 Bilder werden gesucht…",
             "classroom_tools": "🎲 Classroom-Tool wird gestartet…",
             "set_timer": "⏱️ Timer wird gestellt…",
             "create_poll": "📊 Abstimmung wird erstellt…",
             "poll_results": "📊 Ergebnisse werden geladen…",
             "generate_image": "🎨 Bild wird generiert…",
-            "search_images": "🔍 Bilder werden gesucht…",
         }
 
         full_text = ""
