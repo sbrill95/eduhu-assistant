@@ -71,10 +71,23 @@ def build_suggestions(profile: dict | None, memories: list[dict]) -> list[str]:
         suggestions.append(f"Plane eine Unterrichtsstunde {fach} für Klasse {jahrgang}")
         suggestions.append(f"Erstelle eine Klassenarbeit {fach} Klasse {jahrgang}")
 
+    # Priority 2b: New material type suggestions
+    if faecher:
+        fach = faecher[0]
+        new_types = [
+            f"Erstelle ein Mystery zu einem {fach}-Thema",
+            f"Erstelle einen Escape Room für {fach}",
+            f"Erstelle ein Lernspiel für {fach}",
+            f"Erstelle eine Hilfekarte für {fach}",
+            f"Erstelle einen Podcast zu {fach}",
+        ]
+        import random
+        suggestions.extend(random.sample(new_types, min(2, len(new_types))))
+
     # Priority 3: Defaults (fallback)
     defaults = [
         "Plane eine Unterrichtsstunde für meine Klasse",
-        "Erstelle Material zu einem Thema",
+        "Erstelle ein Quiz aus einem YouTube-Video",
         "Hilf mir bei der Unterrichtsvorbereitung",
     ]
 

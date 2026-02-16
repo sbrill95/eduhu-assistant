@@ -131,6 +131,22 @@ async def memory_cleanup(teacher_id: str | None = None):
     return {"status": "ok", "stats": stats}
 
 
+@app.post("/api/admin/knowledge-cleanup")
+async def knowledge_cleanup(teacher_id: str | None = None):
+    """Trigger knowledge cleanup — remove duplicates, archive low-quality, cap at 50."""
+    from app.agents.knowledge import cleanup_knowledge
+    stats = await cleanup_knowledge(teacher_id)
+    return {"status": "ok", "stats": stats}
+
+
+@app.post("/api/admin/seed-knowledge")
+async def seed_knowledge():
+    """Re-seed generic profiles into agent_knowledge."""
+    from app.seed_knowledge import seed_generic_profiles
+    count = await seed_generic_profiles()
+    return {"status": "ok", "seeded": count}
+
+
 @app.get("/api/debug/imports")
 async def debug_imports():
     import os
