@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     pixabay_api_key: str = ""
     gemini_api_key: str = ""
     elevenlabs_api_key: str = ""
-    webshare_proxy_url: str = ""
+    webshare_proxy_url: str = ""  # format: http://user-1:pass@p.webshare.io:80
     logfire_token: str = ""
     log_level: str = "INFO"
     # Chunking defaults
