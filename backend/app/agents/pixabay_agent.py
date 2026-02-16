@@ -1,6 +1,5 @@
 """Pixabay Agent — search free stock images."""
 import logging
-import urllib.parse
 
 import httpx
 from app.config import get_settings

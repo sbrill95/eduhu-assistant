@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pydantic_ai import Agent, RunContext
 
 from app.agents.llm import get_sonnet
-from app.agents.knowledge import build_wissenskarte, get_good_practices
+from app.agents.knowledge import get_good_practices
 from app.models import ExamStructure
 from app.agents.curriculum_agent import curriculum_search
 

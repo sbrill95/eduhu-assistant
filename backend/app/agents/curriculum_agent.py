@@ -4,7 +4,6 @@ Uses pgvector similarity search via Supabase RPC function.
 Falls back to keyword search if embedding fails.
 """
 
-import json
 import logging
 
 import httpx

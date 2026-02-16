@@ -2,13 +2,11 @@
 
 import logging
 import random
-import string
-from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from app.agents.tts_agent import text_to_speech, generate_dialogue, AUDIO_DIR
+from app.agents.tts_agent import text_to_speech, AUDIO_DIR
 from app import db
 
 logger = logging.getLogger(__name__)

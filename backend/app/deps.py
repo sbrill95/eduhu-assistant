@@ -1,8 +1,6 @@
 import os
-from fastapi import Request, HTTPException, Security, Depends, Header
+from fastapi import Request, HTTPException, Security, Header
 from fastapi.security import APIKeyHeader
-from app import db
-from app.config import get_settings
 
 # Simple auth scheme: expects "X-Teacher-ID" header for now 
 # (simulating session token validation)

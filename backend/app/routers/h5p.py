@@ -149,13 +149,6 @@ async def get_h5p_metadata(exercise_id: str):
         raise HTTPException(status_code=404, detail="Übung nicht gefunden")
     h5p_type = exercise["h5p_type"]
     # Map type to library version
-    lib_versions = {
-        "H5P.MultiChoice": "H5P.MultiChoice 1.16",
-        "H5P.Blanks": "H5P.Blanks 1.14",
-        "H5P.TrueFalse": "H5P.TrueFalse 1.8",
-        "H5P.DragText": "H5P.DragText 1.10",
-        "H5P.QuestionSet": "H5P.QuestionSet 1.20",
-    }
     # Dependencies required by h5p-standalone to load libraries
     base_deps = [
         {"machineName": "H5P.Question", "majorVersion": 1, "minorVersion": 5},

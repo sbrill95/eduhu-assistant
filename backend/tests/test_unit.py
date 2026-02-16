@@ -16,7 +16,7 @@ from app.models import (
     ProfileUpdate, LoginRequest, ChatRequest, MaterialRequest,
 )
 from app.docx_generator import generate_exam_docx, generate_diff_docx
-from app.ingestion import chunk_text, extract_text_from_pdf
+from app.ingestion import chunk_text
 from app.services.material_service import resolve_material_type
 from app.agents.system_prompt import BLOCK_IDENTITY, BLOCK_TOOLS
 from app.h5p_generator import generate_multichoice, generate_blanks, generate_truefalse, generate_drag_text
@@ -263,7 +263,7 @@ class TestChunking:
         chunks = chunk_text(text, chunk_size=200, chunk_overlap=50)
         if len(chunks) >= 2:
             # Last chars of chunk N should appear in chunk N+1
-            end_of_first = chunks[0]["text"][-50:]
+            chunks[0]["text"][-50:]
             # Some overlap should exist
             assert len(chunks) >= 2  # Just verify we got multiple chunks
 

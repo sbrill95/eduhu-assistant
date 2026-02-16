@@ -12,8 +12,7 @@ import os
 import uuid
 import pytest
 import pytest_asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone
+from unittest.mock import patch
 
 # ── Set test environment BEFORE any app imports ──
 os.environ.setdefault("SUPABASE_URL", "https://fake.supabase.co")
@@ -27,7 +26,6 @@ from app.main import app
 from app.models import (
     ExamStructure, ExamTask,
     DifferenzierungStructure, DiffNiveau, DiffTask,
-    ProfileUpdate,
 )
 
 

@@ -11,10 +11,9 @@ Testet:
 import pytest
 import json
 from unittest.mock import patch, AsyncMock, MagicMock
-from dataclasses import dataclass
 
 from tests.conftest import (
-    TEACHER_ID, make_teacher_profile, make_memory,
+    TEACHER_ID, make_memory,
     make_exam_structure, make_diff_structure,
     FakeDB,
 )
@@ -84,7 +83,7 @@ class TestSystemPrompt:
 
     @pytest.mark.asyncio
     async def test_prompt_contains_curriculum_wissenskarte(self, fake_db):
-        from app.agents.system_prompt import build_system_prompt, build_block3_context
+        from app.agents.system_prompt import build_block3_context
 
         with patch("app.agents.system_prompt.db.select", side_effect=fake_db.select):
             block3 = await build_block3_context(TEACHER_ID)
@@ -244,7 +243,7 @@ class TestMaterialService:
         with patch("app.services.material_service.run_material_agent", new_callable=AsyncMock, return_value=exam), \
              patch("app.services.material_service.db.upsert", new_callable=AsyncMock) as mock_upsert:
 
-            result = await generate_material(
+            await generate_material(
                 teacher_id=TEACHER_ID,
                 fach="Physik",
                 klasse="9",

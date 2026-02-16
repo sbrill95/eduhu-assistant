@@ -1,10 +1,9 @@
 """DOCX generation for material structures."""
 
 import io
-from typing import Any
 from pydantic import BaseModel
 from docx import Document
-from docx.shared import Pt, Cm, RGBColor
+from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 
@@ -278,7 +277,7 @@ def _render_model(doc: Document, model: BaseModel, level: int):
                     # Check if it's a nested model with nummer
                     nr = item.get("nummer", i)
                     item_title = item.get("titel", item.get("aufgabe", item.get("phase", f"#{nr}")))
-                    sub_heading = doc.add_heading(f"{nr}. {item_title}", level=min(level + 1, 5))
+                    doc.add_heading(f"{nr}. {item_title}", level=min(level + 1, 5))
                     # Render each field of the nested item
                     for k, v in item.items():
                         if k in ("nummer", "titel") or v is None:

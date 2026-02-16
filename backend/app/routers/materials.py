@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
-from app import db
-from app.models import MaterialRequest, MaterialResponse, ExamTask, ExamStructure
+from app.models import MaterialRequest, MaterialResponse
 from app.services.material_service import (
     generate_material as gen_mat,
     resolve_material_type,
@@ -10,7 +9,6 @@ from app.services.material_service import (
     patch_task,
 )
 from datetime import datetime, timezone
-import base64
 import logging
 
 logger = logging.getLogger(__name__)
@@ -34,7 +32,7 @@ async def generate_material(req: MaterialRequest):
         raise HTTPException(400, str(e))
     except Exception as e:
         logger.error(f"Material generation failed: {type(e).__name__}: {e}", exc_info=True)
-        raise HTTPException(500, f"Materialerstellung fehlgeschlagen. Bitte versuche es erneut.")
+        raise HTTPException(500, "Materialerstellung fehlgeschlagen. Bitte versuche es erneut.")
 
     now = datetime.now(timezone.utc).isoformat()
     return MaterialResponse(

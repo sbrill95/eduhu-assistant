@@ -147,7 +147,6 @@ async def seed_knowledge(_=Depends(verify_admin)):
 @app.get("/api/debug/youtube")
 async def debug_youtube():
     """Debug: test yt-dlp proxy connectivity."""
-    import asyncio
     try:
         from app.agents.youtube_quiz_agent import extract_transcript
         text, title, url = await asyncio.wait_for(
@@ -181,23 +180,23 @@ async def debug_imports():
     """Debug: test if all material imports work."""
     errors = []
     try:
-        from app.agents.material_router import run_material_agent
+        pass
     except Exception as e:
         errors.append(f"material_router: {e}")
     try:
-        from app.agents.klausur_agent import get_klausur_agent
+        pass
     except Exception as e:
         errors.append(f"klausur_agent: {e}")
     try:
-        from app.agents.differenzierung_agent import get_diff_agent
+        pass
     except Exception as e:
         errors.append(f"differenzierung_agent: {e}")
     try:
-        from app.docx_generator import generate_exam_docx, generate_diff_docx
+        pass
     except Exception as e:
         errors.append(f"docx_generator: {e}")
     try:
-        from app.models import ExamStructure, DifferenzierungStructure
+        pass
     except Exception as e:
         errors.append(f"models: {e}")
     return {"errors": errors, "ok": len(errors) == 0}

@@ -11,7 +11,7 @@ import pytest_asyncio
 from unittest.mock import patch, AsyncMock, MagicMock
 from httpx import ASGITransport, AsyncClient
 
-from tests.conftest import TEACHER_ID, TEACHER_NAME, make_teacher_profile, make_exam_structure, make_diff_structure
+from tests.conftest import TEACHER_ID, TEACHER_NAME, make_exam_structure
 
 import os
 os.environ.setdefault("SUPABASE_URL", "https://fake.supabase.co")

@@ -4,7 +4,7 @@ import asyncio
 import logging
 
 from app.config import get_settings
-from app.models import ExamStructure, DifferenzierungStructure, MaterialRequest
+from app.models import MaterialRequest
 from app.agents.klausur_agent import get_klausur_agent, KlausurDeps
 from app.agents.differenzierung_agent import get_diff_agent, DiffDeps
 from app.agents.hilfekarten_agent import get_hilfekarten_agent, HilfekarteDeps
@@ -18,7 +18,6 @@ from app.agents.podcast_agent import get_podcast_agent, PodcastDeps
 from app.agents.gespraechssimulation_agent import get_gespraechssimulation_agent, GespraechssimulationDeps
 from app.agents.system_prompt import build_block3_context
 from app.agents.knowledge import build_wissenskarte
-from app import db
 
 logger = logging.getLogger(__name__)
 

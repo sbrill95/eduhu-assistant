@@ -15,7 +15,6 @@ Usage:
 
 import asyncio
 import httpx
-import json
 import time
 from dataclasses import dataclass
 from typing import Optional

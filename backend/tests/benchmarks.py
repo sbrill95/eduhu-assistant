@@ -189,7 +189,7 @@ class EduHuBenchmark:
                 data = response.json()
                 return data.get("messages", []), latency
             return None, latency
-        except Exception as e:
+        except Exception:
             latency = (time.time() - start) * 1000
             return None, latency
     
@@ -206,7 +206,7 @@ class EduHuBenchmark:
             if response.status_code == 200:
                 return response.json(), latency
             return None, latency
-        except Exception as e:
+        except Exception:
             latency = (time.time() - start) * 1000
             return None, latency
     
@@ -535,7 +535,7 @@ class EduHuBenchmark:
         if profile:
             bundesland = profile.get("bundesland", "unknown")
             faecher = profile.get("subjects", [])
-            klassenniveaus = profile.get("grades", [])
+            profile.get("grades", [])
             
             self.conversation_id = None
             msg = "Was weißt du über mein Profil und meine Fächer?"
@@ -553,7 +553,7 @@ class EduHuBenchmark:
             else:
                 p_subject = True # Skip if no subjects set
                 
-            actual_log = f"Found Bundesland: {bool(p_bundesland)}, Found Subject: {p_subject}\nResponse: {response[:100]}..."
+            f"Found Bundesland: {bool(p_bundesland)}, Found Subject: {p_subject}\nResponse: {response[:100]}..."
 
             self.add_result(
                 category="Smart Preloading",
@@ -589,11 +589,11 @@ class EduHuBenchmark:
                 json={"password": self.password}
             )
             latency = (time.time() - start) * 1000
-            passed = response.status_code == 200 and response.headers.get("content-type", "").startswith("application/json")
+            response.status_code == 200 and response.headers.get("content-type", "").startswith("application/json")
             self.add_result(
                 category="API Reliability",
                 name="Login Endpoint",
-                input_data=f"POST /api/auth/login",
+                input_data="POST /api/auth/login",
                 expected_pattern="200",
                 actual=f"Status {response.status_code}",
                 latency=latency
@@ -602,7 +602,7 @@ class EduHuBenchmark:
             self.add_result(
                 category="API Reliability",
                 name="Login Endpoint",
-                input_data=f"POST /api/auth/login",
+                input_data="POST /api/auth/login",
                 expected_pattern="200",
                 actual=f"Error: {e}",
                 latency=0,
@@ -617,16 +617,15 @@ class EduHuBenchmark:
                 json={"password": "wrong_password_123"}
             )
             latency = (time.time() - start) * 1000
-            passed = response.status_code in [401, 403]
             self.add_result(
                 category="API Reliability",
                 name="Invalid Credentials Handling",
-                input_data=f"POST /api/auth/login (invalid creds)",
+                input_data="POST /api/auth/login (invalid creds)",
                 expected_pattern="401|403",
                 actual=f"Status {response.status_code}",
                 latency=latency
             )
-        except Exception as e:
+        except Exception:
             pass
         
         # Test 3: Empty message handling
@@ -639,7 +638,6 @@ class EduHuBenchmark:
             )
             latency = (time.time() - start) * 1000
             # Should either reject (400) or handle gracefully (200) or validation error 422
-            passed = response.status_code in [200, 400, 422]
             self.add_result(
                 category="API Reliability",
                 name="Empty Message Handling",
@@ -648,7 +646,7 @@ class EduHuBenchmark:
                 actual=f"Status {response.status_code}",
                 latency=latency
             )
-        except Exception as e:
+        except Exception:
             pass
         
         # Test 4: Missing teacher_id
@@ -660,7 +658,6 @@ class EduHuBenchmark:
                 headers=self.headers()
             )
             latency = (time.time() - start) * 1000
-            passed = response.status_code in [400, 422]
             self.add_result(
                 category="API Reliability",
                 name="Missing teacher_id Handling",
@@ -669,7 +666,7 @@ class EduHuBenchmark:
                 actual=f"Status {response.status_code}",
                 latency=latency
             )
-        except Exception as e:
+        except Exception:
             pass
         
         # Test 5: Conversation history endpoint
@@ -678,7 +675,7 @@ class EduHuBenchmark:
             self.add_result(
                 category="API Reliability",
                 name="Conversation History Endpoint",
-                input_data=f"GET /api/chat/history",
+                input_data="GET /api/chat/history",
                 expected_pattern="200",
                 actual=f"Returned {len(history) if history else 0} messages",
                 latency=hist_latency,

@@ -150,7 +150,9 @@ def create_agent() -> Agent[AgentDeps, str]:
         from app.agents.h5p_agent import run_h5p_agent
         from app.h5p_generator import exercise_set_to_h5p
         from app import db
-        import json, uuid, random
+        import json
+        import uuid
+        import random
         _NOUNS = [
             "tiger", "wolke", "stern", "apfel", "vogel", "blume", "stein", "welle", "fuchs", "regen",
             "sonne", "mond", "baum", "fisch", "adler", "birne",
@@ -187,7 +189,6 @@ def create_agent() -> Agent[AgentDeps, str]:
                     "h5p_content": h5p_content,
                 })
 
-            base = ctx.deps.base_url or ""
             page_url = f"https://eduhu-assistant.pages.dev/s/{access_code}"
             qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={page_url}"
             qr_card = json.dumps({"title": exercise_set.title, "code": access_code, "url": page_url, "qr_url": qr_url, "count": len(h5p_exercises)}, ensure_ascii=False)
@@ -242,11 +243,11 @@ def create_agent() -> Agent[AgentDeps, str]:
         # Build image URL (relative, frontend will resolve)
         image_url = f"/api/images/{image_id}"
 
-        response = f"🎨 Bild generiert!\n\n"
+        response = "🎨 Bild generiert!\n\n"
         response += f'```image-card\n{{"image_url": "{image_url}", "session_id": "{sid}"}}\n```'
         if text:
             response += f"\n\n{text}"
-        response += f"\n\nDu kannst das Bild anpassen — sag einfach was du ändern möchtest!"
+        response += "\n\nDu kannst das Bild anpassen — sag einfach was du ändern möchtest!"
         return response
 
     # ── Tool: continue_material ──
@@ -276,7 +277,7 @@ def create_agent() -> Agent[AgentDeps, str]:
                 return "Kein aktives Material gefunden. Bitte erstelle zuerst Material mit generate_material."
 
             session = sessions[0]
-            material_id = session.get("material_id")
+            session.get("material_id")
             agent_type = session.get("agent_type", "klausur")
             structure = session.get("material_structure", {})
 
@@ -475,7 +476,7 @@ def create_agent() -> Agent[AgentDeps, str]:
                    "fuchs", "regen", "sonne", "mond", "baum", "fisch", "adler", "palme"]
         access_code = f"{random.choice(_NOUNS)}{random.randint(10, 99)}"
 
-        poll = await db.insert("polls", {
+        await db.insert("polls", {
             "teacher_id": ctx.deps.teacher_id,
             "question": question,
             "options": option_list,
