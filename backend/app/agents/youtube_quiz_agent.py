@@ -93,8 +93,8 @@ async def extract_transcript(video_url: str) -> tuple[str, str, str]:
             'writesubtitles': True,
             'writeautomaticsub': True,
             'subtitleslangs': ['de', 'de-DE', 'en'],
-            'quiet': True,
-            'no_warnings': True,
+            'quiet': False,
+            'no_warnings': False,
         }
         
         if settings.webshare_proxy_url:

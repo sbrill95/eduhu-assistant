@@ -144,6 +144,21 @@ async def seed_knowledge(_=Depends(verify_admin)):
     return {"status": "ok", "seeded": count}
 
 
+@app.get("/api/debug/youtube")
+async def debug_youtube():
+    """Debug: test yt-dlp proxy connectivity."""
+    import asyncio
+    try:
+        from app.agents.youtube_quiz_agent import extract_transcript
+        text, title, url = await asyncio.wait_for(
+            extract_transcript("https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
+            timeout=30,
+        )
+        return {"ok": True, "title": title, "transcript_length": len(text)}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "type": type(e).__name__}
+
+
 @app.get("/api/debug/env")
 async def debug_env():
     """Debug: check which optional env vars are set (no values exposed)."""
