@@ -156,9 +156,45 @@ async def get_h5p_metadata(exercise_id: str):
         "H5P.DragText": "H5P.DragText 1.10",
         "H5P.QuestionSet": "H5P.QuestionSet 1.20",
     }
+    # Dependencies required by h5p-standalone to load libraries
+    base_deps = [
+        {"machineName": "H5P.Question", "majorVersion": 1, "minorVersion": 5},
+        {"machineName": "H5P.JoubelUI", "majorVersion": 1, "minorVersion": 3},
+        {"machineName": "H5P.Transition", "majorVersion": 1, "minorVersion": 0},
+        {"machineName": "H5P.FontIcons", "majorVersion": 1, "minorVersion": 0},
+        {"machineName": "H5P.Components", "majorVersion": 1, "minorVersion": 0},
+        {"machineName": "FontAwesome", "majorVersion": 4, "minorVersion": 5},
+        {"machineName": "jQuery.ui", "majorVersion": 1, "minorVersion": 10},
+    ]
+    
+    type_deps = {
+        "H5P.MultiChoice": [
+            {"machineName": "H5P.MultiChoice", "majorVersion": 1, "minorVersion": 16},
+        ],
+        "H5P.Blanks": [
+            {"machineName": "H5P.Blanks", "majorVersion": 1, "minorVersion": 14},
+            {"machineName": "H5P.TextUtilities", "majorVersion": 1, "minorVersion": 3},
+        ],
+        "H5P.TrueFalse": [
+            {"machineName": "H5P.TrueFalse", "majorVersion": 1, "minorVersion": 8},
+        ],
+        "H5P.DragText": [
+            {"machineName": "H5P.DragText", "majorVersion": 1, "minorVersion": 10},
+            {"machineName": "H5P.TextUtilities", "majorVersion": 1, "minorVersion": 3},
+        ],
+        "H5P.QuestionSet": [
+            {"machineName": "H5P.QuestionSet", "majorVersion": 1, "minorVersion": 20},
+            {"machineName": "H5P.MultiChoice", "majorVersion": 1, "minorVersion": 16},
+            {"machineName": "H5P.Video", "majorVersion": 1, "minorVersion": 6},
+        ],
+    }
+    
+    preloaded = base_deps + type_deps.get(h5p_type, [])
+    
     return {
         "mainLibrary": lib_versions.get(h5p_type, h5p_type),
         "title": exercise.get("title", "Übung"),
+        "preloadedDependencies": preloaded,
     }
 
 
