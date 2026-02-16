@@ -11,27 +11,32 @@ Ein KI-gestützter Assistent, der deutsche Lehrkräfte bei Unterrichtsplanung, M
 - Konversationshistorie mit Seitenleiste
 
 ### Materialerstellung
-- **Klausuren** — Automatische Aufgaben mit AFB-Verteilung (I/II/III), DOCX-Export
+- **Klausuren** — Automatische Aufgaben mit AFB-Verteilung (I/II/III), DOCX-Export, Einzelaufgaben nachträglich anpassbar
 - **Differenzierung** — Drei Niveaustufen (Basis/Mittel/Erweitert) zum gleichen Thema
 - **Interaktive Übungen (H5P)** — Multiple Choice, Lückentext, Wahr/Falsch, Drag & Drop
-  - Teilbar via Zugangscodes (z.B. `tiger42`) — Schüler brauchen keinen Account
+  - Teilbar via Zugangscodes (z.B. `tiger42`) + QR-Codes — Schüler brauchen keinen Account
 
-### Lehrplan-RAG
-- PDF-Upload von Lehrplänen (Bundesland-spezifisch)
-- Automatisches Chunking + Embedding (OpenAI text-embedding-3-small)
-- Semantische Suche via pgvector — Agent ruft relevante Abschnitte bei Bedarf ab
+### Bilder
+- **Bildgenerierung** — KI-Bilder via Gemini Imagen (iterativ bearbeitbar)
+- **Bildersuche** — Lizenzfreie Fotos via Pixabay für Arbeitsblätter und Präsentationen
 
-### Memory-System
-- Automatische Extraktion von Lehrer-Präferenzen (Fächer, Klassen, Probleme)
-- Scope-Modell: self | class | school | student
-- Preferences werden im System-Prompt beim nächsten Request geladen
+### Classroom-Tools
+- **Countdown-Timer** — Visuelle Timer für Arbeitsphasen
+- **Quick Polls** — Abstimmungen mit QR-Code, öffentliche Schüler-Seite (`/poll/:code`)
+- **Zufalls-Tools** — Schüler auswählen, Gruppen einteilen, Würfeln
+- **Todos** — Aufgabenliste im Chat, interaktive Todo-Cards mit Fälligkeitsdaten
 
-### Web-Recherche
-- Brave Search API für aktuelle Informationen
-- Aktuelle Lehr-Methoden, Materialquellen, Kontext
+### Spracheingabe
+- **Whisper-Transkription** — Sprachnachrichten werden per OpenAI Whisper in Text umgewandelt
 
-### Profil & Zusammenfassungen
-- Bundesland, Schulform, Fächer, Jahrgangsstufen
+### Wissensquellen
+- **Lehrplan-RAG** — PDF-Upload, Chunking + Embedding (OpenAI), pgvector-Suche
+- **Web-Recherche** — Brave Search API für aktuelle Informationen
+- **Wikipedia** — Fachinhalte, Definitionen, historische Fakten direkt abrufbar
+
+### Memory & Profil
+- Automatische Extraktion von Lehrer-Präferenzen (Scope: self | class | school | student)
+- Profil: Bundesland, Schulform, Fächer, Jahrgangsstufen
 - Automatische Chat-Komprimierung bei langen Gesprächen
 
 ---
@@ -43,9 +48,11 @@ Ein KI-gestützter Assistent, der deutsche Lehrkräfte bei Unterrichtsplanung, M
 | **Frontend** | React 19 · TypeScript · Vite 7 · Tailwind CSS 4 |
 | **Backend** | Python 3.12 · FastAPI · Pydantic AI |
 | **LLM** | Claude Sonnet 4 (Chat + Materialien) · Haiku (Sub-Agents) |
+| **Bildgenerierung** | Gemini Imagen (Google) · Pixabay (Stockfotos) |
 | **Embeddings** | OpenAI text-embedding-3-small |
+| **Sprache** | OpenAI Whisper (Transkription) |
 | **Datenbank** | Supabase (PostgreSQL + pgvector) |
-| **Web-Suche** | Brave Search API |
+| **Web-Suche** | Brave Search API · Wikipedia |
 | **Deployment** | Cloudflare Pages (FE) · Render (BE) · Supabase Cloud (DB) |
 
 ---
@@ -58,7 +65,7 @@ Ein KI-gestützter Assistent, der deutsche Lehrkräfte bei Unterrichtsplanung, M
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/) (Python-Paketmanager)
 - Supabase-Projekt mit pgvector Extension
-- API-Keys: Anthropic, OpenAI, Brave (optional)
+- API-Keys: Anthropic, OpenAI, Gemini (optional), Brave (optional), Pixabay (optional)
 
 ### Backend
 
@@ -91,8 +98,10 @@ ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-proj-...
 
 # Optional
-BRAVE_API_KEY=...
-LOGFIRE_TOKEN=...
+GEMINI_API_KEY=...           # Bildgenerierung (Gemini Imagen)
+PIXABAY_API_KEY=...          # Bildersuche (Stockfotos)
+BRAVE_API_KEY=...            # Web-Recherche
+LOGFIRE_TOKEN=...            # Observability
 
 # Konfiguration
 CHUNK_SIZE=1500
@@ -121,7 +130,15 @@ FastAPI (Render)
     ├── Main Agent (Sonnet) ── Chat + Tool-Dispatch
     │   ├── search_curriculum → pgvector-Suche
     │   ├── search_web → Brave API
+    │   ├── search_wikipedia → Wikipedia API
+    │   ├── search_images → Pixabay (Stockfotos)
+    │   ├── generate_image → Gemini Imagen
     │   ├── remember → user_memories
+    │   ├── manage_todos → Todo-CRUD
+    │   ├── create_poll / poll_results → Abstimmungen
+    │   ├── classroom_tools → Zufall, Gruppen, Würfel
+    │   ├── set_timer → Countdown-Timer
+    │   ├── patch_material_task → Einzelaufgabe ändern
     │   └── generate_material → Material Router
     │       ├── Klausur Agent (Sonnet) → DOCX
     │       ├── Diff Agent (Sonnet) → DOCX
@@ -197,6 +214,7 @@ eduhu-assistant/
 | [`docs/MATERIAL-AGENT-RESEARCH.md`](./docs/MATERIAL-AGENT-RESEARCH.md) | Material-Generierung, AFB-Taxonomie |
 | [`docs/WISSENSKARTE-KONZEPT.md`](./docs/WISSENSKARTE-KONZEPT.md) | Knowledge-Map-Struktur |
 | [`docs/QA-CHECKLIST.md`](./docs/QA-CHECKLIST.md) | Testszenarien, Akzeptanzkriterien |
+| [`docs/OVERNIGHT-PLAN.md`](./docs/OVERNIGHT-PLAN.md) | Overnight-Entwicklungsplan |
 
 ---
 

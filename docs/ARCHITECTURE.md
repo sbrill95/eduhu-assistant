@@ -38,7 +38,10 @@ eduhu ist ein KI-gestützter Unterrichtsassistent für deutsche Lehrkräfte. Das
 | LLM | Claude Sonnet 4 (Haupt-Agent), Haiku (Sub-Agents) | KI-Konversation + Materialgenerierung |
 | Embeddings | OpenAI text-embedding-3-small (1536d) | Lehrplan-Vektorsuche |
 | Datenbank | Supabase PostgreSQL + pgvector | Daten + Vektorspeicher |
-| Web-Suche | Brave Search API | Aktuelle Recherche |
+| Web-Suche | Brave Search API, Wikipedia API | Aktuelle Recherche + Fachinhalte |
+| Bildgenerierung | Gemini Imagen (Google) | KI-Bilder für Materialien |
+| Bildersuche | Pixabay API | Lizenzfreie Stockfotos |
+| Sprache→Text | OpenAI Whisper | Sprachnachrichten-Transkription |
 | Dokument-Export | python-docx | DOCX-Generierung |
 | Interaktive Übungen | H5P (h5p-standalone) | Lückentexte, Multiple Choice, etc. |
 | Deployment | Cloudflare Pages (FE), Render (BE), Supabase Cloud (DB) | Hosting |
@@ -52,7 +55,7 @@ eduhu ist ein KI-gestützter Unterrichtsassistent für deutsche Lehrkräfte. Das
 │                   BROWSER (React 19)                    │
 │                                                         │
 │  ChatPage · CurriculumPage · ProfilePage · MaterialPage │
-│  ExercisePage (/s/:code — öffentlich für Schüler)       │
+│  ExercisePage (/s/:code) · PollPage (/poll/:code)       │
 └─────────────────┬───────────────────────────────────────┘
                   │ /api/* (fetch)
                   ▼
@@ -62,7 +65,7 @@ eduhu ist ein KI-gestützter Unterrichtsassistent für deutsche Lehrkräfte. Das
 │  ┌───────────────────────────────────────────────────┐  │
 │  │            Routers (REST-Endpunkte)                │  │
 │  │  auth · chat · curriculum · profile · materials    │  │
-│  │  h5p (Teacher-Zone + Public-Zone)                  │  │
+│  │  h5p · todos · transcribe · images                 │  │
 │  └───────────────────┬───────────────────────────────┘  │
 │                      │                                   │
 │  ┌───────────────────▼───────────────────────────────┐  │
@@ -71,7 +74,15 @@ eduhu ist ein KI-gestützter Unterrichtsassistent für deutsche Lehrkräfte. Das
 │  │  Main Agent (Sonnet) ─── Chat + Tool-Dispatch      │  │
 │  │    ├─ search_curriculum ──→ Curriculum Agent        │  │
 │  │    ├─ search_web ─────────→ Research Agent (Brave)  │  │
+│  │    ├─ search_wikipedia ───→ Wikipedia API           │  │
+│  │    ├─ search_images ──────→ Pixabay API             │  │
+│  │    ├─ generate_image ─────→ Gemini Imagen           │  │
 │  │    ├─ remember ───────────→ Memory-Tabelle          │  │
+│  │    ├─ manage_todos ───────→ Todo-CRUD               │  │
+│  │    ├─ create_poll ────────→ Abstimmungen            │  │
+│  │    ├─ classroom_tools ────→ Zufall/Gruppen/Würfel   │  │
+│  │    ├─ set_timer ──────────→ Countdown               │  │
+│  │    ├─ patch_material_task → Aufgabe editieren       │  │
 │  │    └─ generate_material ──→ Material Router         │  │
 │  │                               ├─ Klausur Agent (S)  │  │
 │  │                               ├─ Diff Agent (S)     │  │
@@ -85,16 +96,17 @@ eduhu ist ein KI-gestützter Unterrichtsassistent für deutsche Lehrkräfte. Das
 └─────────────────┬───────────────┬───────────────┬───────┘
                   │               │               │
                   ▼               ▼               ▼
-         ┌──────────────┐ ┌────────────┐  ┌─────────────┐
-         │   Supabase   │ │ Anthropic  │  │ Brave Search│
-         │  PostgreSQL  │ │  Claude    │  │    API      │
-         │  + pgvector  │ │  Sonnet/H  │  │             │
-         └──────────────┘ └────────────┘  └─────────────┘
-                                │
-                         ┌──────┴──────┐
-                         │ OpenAI API  │
-                         │ Embeddings  │
-                         └─────────────┘
+    ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌─────────┐ ┌─────────┐
+    │ Supabase │ │Anthropic │ │  Brave   │ │ Gemini  │ │ Pixabay │
+    │PostgreSQL│ │ Claude   │ │ Search   │ │ Imagen  │ │  API    │
+    │+pgvector │ │Sonnet/H  │ │  API     │ │  API    │ │         │
+    └──────────┘ └──────────┘ └──────────┘ └─────────┘ └─────────┘
+                      │
+               ┌──────┴──────┐
+               │ OpenAI API  │
+               │Embeddings + │
+               │  Whisper    │
+               └─────────────┘
 ```
 
 ---
@@ -119,6 +131,7 @@ eduhu ist ein KI-gestützter Unterrichtsassistent für deutsche Lehrkräfte. Das
 | `/material` | `MaterialPage` | Authentifiziert |
 | `/s` | `ExerciseAccessPage` | Öffentlich (Schüler) |
 | `/s/:code` | `ExercisePage` | Öffentlich (Schüler) |
+| `/poll/:code` | `PollPage` | Öffentlich (Schüler) |
 
 ### Komponenten-Übersicht
 
@@ -127,9 +140,13 @@ src/
 ├── components/
 │   ├── chat/
 │   │   ├── ChatMessage.tsx      # Nachricht (AI/User), Markdown-Rendering
-│   │   ├── ChatInput.tsx        # Textarea + Datei-Upload + Senden
+│   │   ├── ChatInput.tsx        # Textarea + Datei-Upload + Spracheingabe + Senden
 │   │   ├── ChipSelector.tsx     # Vorschlags-Chips (Schnellaktionen)
-│   │   └── TypingIndicator.tsx  # Drei pulsierende Punkte
+│   │   ├── TypingIndicator.tsx  # Animierter Lade-Indikator
+│   │   ├── TodoCard.tsx         # Interaktive Todo-Liste im Chat
+│   │   ├── ImageCard.tsx        # KI-generierte Bilder (Vollbild, Download, Teilen)
+│   │   ├── QRCard.tsx           # QR-Code-Karte für Übungen/Polls
+│   │   └── CountdownTimer.tsx   # Visueller Countdown für Arbeitsphasen
 │   ├── layout/
 │   │   ├── Header.tsx           # App-Header mit Navigation
 │   │   └── ConversationSidebar.tsx  # Gesprächsliste + Neu/Löschen
@@ -142,7 +159,8 @@ src/
 │   ├── ProfilePage.tsx          # Profil bearbeiten
 │   ├── MaterialPage.tsx         # Generierte Materialien
 │   ├── ExerciseAccessPage.tsx   # Code-Eingabe für Schüler
-│   └── ExercisePage.tsx         # H5P-Player für Schüler
+│   ├── ExercisePage.tsx         # H5P-Player für Schüler
+│   └── PollPage.tsx             # Abstimmungs-Seite für Schüler
 ├── hooks/
 │   └── useChat.ts               # Zentraler Chat-State (Messages, API-Calls)
 └── lib/
@@ -189,17 +207,22 @@ backend/
 │   │   ├── research_agent.py      # Web-Recherche (Brave)
 │   │   ├── memory_agent.py        # Präferenz-Extraktion (Haiku)
 │   │   ├── summary_agent.py       # Chat-Komprimierung (Haiku)
+│   │   ├── image_agent.py         # Bildgenerierung (Gemini Imagen)
+│   │   ├── pixabay_agent.py       # Bildersuche (Pixabay)
 │   │   ├── material_router.py     # Agent-Orchestrierung
 │   │   ├── system_prompt.py       # Dynamischer System-Prompt-Builder
 │   │   └── llm.py                 # Modell-Instanziierung
 │   │
 │   ├── routers/           # FastAPI Endpoints
 │   │   ├── auth.py        # Login
-│   │   ├── chat.py        # Chat-Send, History, Conversations
+│   │   ├── chat.py        # Chat-Send, History, Conversations, Streaming
 │   │   ├── curriculum.py  # Upload, List, Delete
 │   │   ├── profile.py     # Get, Update, Suggestions
-│   │   ├── materials.py   # Download generierter Materialien
-│   │   └── h5p.py         # Übungs-Generierung + Public Access
+│   │   ├── materials.py   # Download + Einzelaufgaben-Patch
+│   │   ├── h5p.py         # Übungs-Generierung + Public Access
+│   │   ├── todos.py       # Todo-CRUD
+│   │   ├── transcribe.py  # Whisper Sprache→Text
+│   │   └── images.py      # Generierte Bilder ausliefern
 │   │
 │   └── services/
 │       └── material_service.py  # Material-Generierung + DOCX-Export
@@ -224,12 +247,20 @@ POST /api/chat/send { message, conversation_id? }
   │     ├─ Tool Calls (optional):
   │     │   ├─ search_curriculum(query) → pgvector-Suche
   │     │   ├─ search_web(query) → Brave API
+  │     │   ├─ search_wikipedia(query) → Wikipedia API
+  │     │   ├─ search_images(query) → Pixabay
+  │     │   ├─ generate_image(prompt) → Gemini Imagen
   │     │   ├─ remember(key, value) → user_memories
+  │     │   ├─ manage_todos(action, text) → Todo-CRUD
+  │     │   ├─ create_poll(question, options) → Abstimmung
+  │     │   ├─ classroom_tools(action) → Zufall/Gruppen/Würfel
+  │     │   ├─ set_timer(minutes) → Countdown
+  │     │   ├─ patch_material_task(id, index) → Aufgabe editieren
   │     │   └─ generate_material(...) → Material Router
   │     │       ├─ klausur_agent → ExamStructure → DOCX
   │     │       ├─ diff_agent → DiffStructure → DOCX
   │     │       └─ h5p_agent → H5PContent → JSON
-  │     └─ Antwort (Markdown-String)
+  │     └─ Antwort (Markdown-String mit Rich Cards)
   │
   ├─ 7. Assistant-Nachricht in DB speichern
   ├─ 8. Async Fire-and-Forget:
@@ -248,10 +279,12 @@ POST /api/chat/send { message, conversation_id? }
 
 | Agent | Modell | Aufgabe | Trigger |
 |-------|--------|---------|---------|
-| **Main Agent** | Sonnet 4 | Chat, Tool-Dispatch | Jede Nachricht |
+| **Main Agent** | Sonnet 4 | Chat, Tool-Dispatch (15 Tools) | Jede Nachricht |
 | **Klausur Agent** | Sonnet 4 | Klausuren generieren (AFB I-III) | `generate_material(type="klausur")` |
 | **Differenzierung Agent** | Sonnet 4 | 3-stufige Differenzierung | `generate_material(type="differenzierung")` |
-| **H5P Agent** | Haiku | Interaktive Übungen | `generate_material(type="h5p")` |
+| **H5P Agent** | Haiku | Interaktive Übungen | `generate_exercise(...)` |
+| **Image Agent** | — (Gemini API) | KI-Bildgenerierung | `generate_image(prompt)` |
+| **Pixabay Agent** | — (API-Call) | Lizenzfreie Bildersuche | `search_images(query)` |
 | **Curriculum Agent** | — (DB-Query) | pgvector-Lehrplansuche | `search_curriculum(query)` |
 | **Research Agent** | — (API-Call) | Brave Web-Recherche | `search_web(query)` |
 | **Memory Agent** | Haiku | Lehrer-Präferenzen extrahieren | Async nach jeder Antwort |
@@ -373,6 +406,20 @@ exercise_pages   (id UUID PK, teacher_id UUID FK→teachers,
 exercises        (id UUID PK, page_id UUID FK→exercise_pages,
                   h5p_content JSONB, h5p_type TEXT,
                   title TEXT, created_at TIMESTAMPTZ)
+
+-- Todos
+todos            (id UUID PK, teacher_id UUID FK→teachers,
+                  text TEXT, done BOOLEAN DEFAULT false,
+                  due_date DATE, priority TEXT DEFAULT 'normal',
+                  completed_at TIMESTAMPTZ,
+                  created_at TIMESTAMPTZ)
+
+-- Abstimmungen
+polls            (id UUID PK, teacher_id UUID FK→teachers,
+                  question TEXT, options JSONB,   -- TEXT[]
+                  votes JSONB,                    -- {option: count}
+                  access_code TEXT UNIQUE, active BOOLEAN DEFAULT true,
+                  created_at TIMESTAMPTZ)
 ```
 
 ### Indizes
@@ -445,12 +492,35 @@ CREATE UNIQUE INDEX idx_exercise_pages_code
 | `GET` | `/api/exercises/pages` | Übungsseiten des Lehrers |
 | `POST` | `/api/exercises/pages` | Neue Übungsseite erstellen |
 
+### Todos
+
+| Methode | Pfad | Beschreibung |
+|---------|------|-------------|
+| `GET` | `/api/todos` | Alle Todos auflisten (Filter: `?done=false`) |
+| `POST` | `/api/todos` | Neues Todo erstellen |
+| `PATCH` | `/api/todos/:id` | Todo aktualisieren (Text, Status, Datum) |
+| `DELETE` | `/api/todos/:id` | Todo löschen |
+
+### Bilder
+
+| Methode | Pfad | Beschreibung |
+|---------|------|-------------|
+| `GET` | `/api/images/:id` | Generiertes Bild ausliefern |
+
+### Sprache
+
+| Methode | Pfad | Beschreibung |
+|---------|------|-------------|
+| `POST` | `/api/transcribe` | Audio-Datei transkribieren (Whisper) |
+
 ### Öffentlich (Schüler-Zugang)
 
 | Methode | Pfad | Beschreibung |
 |---------|------|-------------|
 | `GET` | `/api/public/pages/:code` | Übungen per Zugangscode laden |
 | `GET` | `/api/public/exercises/:id` | H5P-Content für Player |
+| `GET` | `/api/public/poll/:code` | Abstimmung laden |
+| `POST` | `/api/public/poll/:code/vote` | Stimme abgeben |
 
 ### System
 
@@ -482,18 +552,19 @@ CREATE UNIQUE INDEX idx_exercise_pages_code
                               │
               ┌───────────────┼───────────────┐
               ▼               ▼               ▼
-     ┌──────────────┐ ┌────────────┐  ┌─────────────┐
-     │  Supabase    │ │ Anthropic  │  │ Brave API   │
-     │  Cloud       │ │ API        │  │             │
-     │  PostgreSQL  │ │            │  │             │
-     │  + pgvector  │ │            │  │             │
-     │  + Storage   │ └────────────┘  └─────────────┘
-     └──────────────┘
-                              │
-                       ┌──────┴──────┐
-                       │ OpenAI API  │
-                       │ (Embeddings)│
-                       └─────────────┘
+  ┌──────────┐ ┌──────────┐ ┌────────┐ ┌────────┐ ┌────────┐
+  │ Supabase │ │Anthropic │ │ Brave  │ │ Gemini │ │Pixabay │
+  │ Cloud    │ │ API      │ │ Search │ │ Imagen │ │  API   │
+  │PostgreSQL│ │          │ │  API   │ │  API   │ │        │
+  │+pgvector │ │          │ │        │ │        │ │        │
+  │+Storage  │ └──────────┘ └────────┘ └────────┘ └────────┘
+  └──────────┘
+                    │
+             ┌──────┴──────┐
+             │ OpenAI API  │
+             │Embeddings + │
+             │  Whisper    │
+             └─────────────┘
 ```
 
 ### Lokale Entwicklung
@@ -581,3 +652,4 @@ eduhu-assistant/
 | [MATERIAL-AGENT-RESEARCH.md](./MATERIAL-AGENT-RESEARCH.md) | Material-Generierung, AFB-Taxonomie |
 | [WISSENSKARTE-KONZEPT.md](./WISSENSKARTE-KONZEPT.md) | Knowledge-Map-Struktur, Aggregation |
 | [QA-CHECKLIST.md](./QA-CHECKLIST.md) | Testszenarien, Akzeptanzkriterien |
+| [OVERNIGHT-PLAN.md](./OVERNIGHT-PLAN.md) | Overnight-Entwicklungsplan |
