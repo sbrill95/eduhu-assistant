@@ -47,12 +47,13 @@ class BenchmarkV2:
         """Send chat message and return (response, latency_ms)."""
         start = time.time()
         r = await client.post(
-            f"{self.base}/api/send",
+            f"{self.base}/api/chat/send",
             json={
                 "message": message,
                 "teacher_id": self.teacher_id,
                 "conversation_id": self.conversation_id,
             },
+            headers={"X-Teacher-ID": self.teacher_id},
             timeout=TIMEOUT,
         )
         latency = (time.time() - start) * 1000
@@ -177,6 +178,7 @@ class BenchmarkV2:
             r = await client.post(
                 f"{self.base}/api/audio/tts",
                 json={"text": "Dies ist ein Test.", "voice": "educator"},
+                headers={"X-Teacher-ID": self.teacher_id},
                 timeout=30,
             )
             latency = (time.time() - start) * 1000
@@ -223,6 +225,7 @@ class BenchmarkV2:
                     "audio_type": "tts",
                     "audio_ids": ["test-id-123"],
                 },
+                headers={"X-Teacher-ID": self.teacher_id},
                 timeout=10,
             )
             passed = r.status_code == 200
