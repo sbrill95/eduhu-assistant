@@ -192,7 +192,7 @@ async def get_h5p_metadata(exercise_id: str):
     preloaded = base_deps + type_deps.get(h5p_type, [])
     
     return {
-        "mainLibrary": lib_versions.get(h5p_type, h5p_type),
+        "mainLibrary": h5p_type,
         "title": exercise.get("title", "Übung"),
         "preloadedDependencies": preloaded,
     }
