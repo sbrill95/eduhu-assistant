@@ -42,7 +42,10 @@ export function OnboardingModal({ teacherId, onComplete }: Props) {
     try {
       await fetch(`${API}/api/profile/${teacherId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Teacher-ID': teacherId,
+        },
         body: JSON.stringify({
           bundesland,
           schulform,
