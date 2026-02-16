@@ -7,6 +7,7 @@ import MaterialPage from '@/pages/MaterialPage';
 import ExerciseAccessPage from '@/pages/ExerciseAccessPage';
 import ExercisePage from '@/pages/ExercisePage';
 import PollPage from '@/pages/PollPage';
+import AudioPage from '@/pages/AudioPage';
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="/s" element={<ExerciseAccessPage />} />
         <Route path="/s/:code" element={<ExercisePage />} />
         <Route path="/poll/:code" element={<PollPage />} />
+        <Route path="/audio/:code" element={<AudioPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

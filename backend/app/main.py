@@ -100,6 +100,7 @@ app.include_router(images.router)
 
 from app.routers import audio
 app.include_router(audio.router)
+app.include_router(audio.public_router)
 
 
 @app.get("/api/suggestions")

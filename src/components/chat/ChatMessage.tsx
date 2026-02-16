@@ -9,6 +9,7 @@ import { CountdownTimer } from './CountdownTimer';
 import { ImageCard } from './ImageCard';
 import { QRCard } from './QRCard';
 import { TodoCard } from './TodoCard';
+import { AudioCard } from './AudioCard';
 
 interface Props {
   message: ChatMessageType;
@@ -91,6 +92,13 @@ export function ChatMessage({ message, onChipSelect }: Props) {
                       return <>{children}</>;
                     }
                     return <pre className="overflow-auto rounded-lg bg-[#F5F0EB] p-3">{children}</pre>;
+                  },
+                  a({ href, children, ...props }: any) {
+                    // Detect audio links and render AudioCard
+                    if (href && href.includes('/api/audio/')) {
+                      return <AudioCard url={href} title={String(children)} />;
+                    }
+                    return <a href={href} target="_blank" rel="noopener noreferrer" {...props}>{children}</a>;
                   },
                   code({ node, inline, className, children, ...props }: any) {
                     const match = /language-([\w-]+)/.exec(className || '');
