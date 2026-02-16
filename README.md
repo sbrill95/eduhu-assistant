@@ -10,11 +10,21 @@ Ein KI-gestützter Assistent, der deutsche Lehrkräfte bei Unterrichtsplanung, M
 - Vorschlags-Chips für Schnellaktionen
 - Konversationshistorie mit Seitenleiste
 
-### Materialerstellung
-- **Klausuren** — Automatische Aufgaben mit AFB-Verteilung (I/II/III), DOCX-Export, Einzelaufgaben nachträglich anpassbar
-- **Differenzierung** — Drei Niveaustufen (Basis/Mittel/Erweitert) zum gleichen Thema
-- **Interaktive Übungen (H5P)** — Multiple Choice, Lückentext, Wahr/Falsch, Drag & Drop
+### Materialerstellung (12 Typen)
+- **Klausuren** — AFB-Verteilung (I/II/III), DOCX-Export, Einzelaufgaben nachträglich anpassbar
+- **Differenzierung** — Drei Niveaustufen (Basis/Mittel/Erweitert)
+- **Hilfekarten** — Schritt-für-Schritt-Hilfen für schwächere Schüler
+- **Mystery** — Informationskarten-Methode mit Leitfrage, Card-Layout DOCX
+- **Escape Room** — Narrative + verkettete Rätsel + Lehrkraft-Lösungsseite
+- **Lernsituation** — Handlungsorientierte Szenarien (Berufsschule)
+- **Lernspiel** — Kreative Spiele mit Regeln + Material
+- **Versuchsanleitung** — Experiment-Arbeitsblätter mit Sicherheitshinweisen
+- **Stundenplanung** — Verlaufsplan-Tabelle (Phase/Zeit/Inhalt/Methode/Material)
+- **Podcast** — Multi-Voice-Skript mit Regieanweisungen → ElevenLabs Audio
+- **Gesprächssimulation** — Patienten-/Kundendialog mit Verzweigungen → Audio
+- **Interaktive Übungen (H5P)** — Multiple Choice, Lückentext, Wahr/Falsch, Drag & Drop, QuestionSet
   - Teilbar via Zugangscodes (z.B. `tiger42`) + QR-Codes — Schüler brauchen keinen Account
+- **Multi-Turn Iteration** — "Ändere Aufgabe 2" funktioniert auf jedes generierte Material
 
 ### Bilder
 - **Bildgenerierung** — KI-Bilder via Gemini Imagen (iterativ bearbeitbar)
@@ -26,8 +36,12 @@ Ein KI-gestützter Assistent, der deutsche Lehrkräfte bei Unterrichtsplanung, M
 - **Zufalls-Tools** — Schüler auswählen, Gruppen einteilen, Würfeln
 - **Todos** — Aufgabenliste im Chat, interaktive Todo-Cards mit Fälligkeitsdaten
 
-### Spracheingabe
-- **Whisper-Transkription** — Sprachnachrichten werden per OpenAI Whisper in Text umgewandelt
+### Audio & Sprache
+- **Spracheingabe** — Mikrofon-Button, Whisper-Transkription
+- **Vorlesen** — Web Speech TTS auf jeder Assistenten-Nachricht
+- **ElevenLabs TTS** — Hochwertige Sprachsynthese für Podcasts + Dialoge
+- **Audio-Sharing** — Generierte Audios teilbar via Zugangscode (`/audio/:code`)
+- **YouTube-Quiz** — YouTube-URL → Transkript → Quiz (MC, Wahr/Falsch, Lückentext)
 
 ### Wissensquellen
 - **Lehrplan-RAG** — PDF-Upload, Chunking + Embedding (OpenAI), pgvector-Suche
@@ -38,6 +52,10 @@ Ein KI-gestützter Assistent, der deutsche Lehrkräfte bei Unterrichtsplanung, M
 - Automatische Extraktion von Lehrer-Präferenzen (Scope: self | class | school | student)
 - Profil: Bundesland, Schulform, Fächer, Jahrgangsstufen
 - Automatische Chat-Komprimierung bei langen Gesprächen
+- Onboarding-Modal beim ersten Login
+- **Wissenskarte** — Agent-spezifisches Wissen (Generic Profiles, Good Practices, Teacher Preferences)
+- SSE Streaming mit Live Tool-Call-Indikatoren
+- Datei-Upload (Bilder via Claude Vision, PDFs via PyMuPDF)
 
 ---
 
@@ -47,7 +65,8 @@ Ein KI-gestützter Assistent, der deutsche Lehrkräfte bei Unterrichtsplanung, M
 |---------|-------------|
 | **Frontend** | React 19 · TypeScript · Vite 7 · Tailwind CSS 4 |
 | **Backend** | Python 3.12 · FastAPI · Pydantic AI |
-| **LLM** | Claude Sonnet 4 (Chat + Materialien) · Haiku (Sub-Agents) |
+| **LLM** | Claude Sonnet 4 (Chat + 6 Agents) · Haiku 3.5 (Memory + 6 Agents) |
+| **TTS** | ElevenLabs (Multilingual v2) · Web Speech API (Frontend) |
 | **Bildgenerierung** | Gemini Imagen (Google) · Pixabay (Stockfotos) |
 | **Embeddings** | OpenAI text-embedding-3-small |
 | **Sprache** | OpenAI Whisper (Transkription) |
@@ -215,6 +234,10 @@ eduhu-assistant/
 | [`docs/WISSENSKARTE-KONZEPT.md`](./docs/WISSENSKARTE-KONZEPT.md) | Knowledge-Map-Struktur |
 | [`docs/QA-CHECKLIST.md`](./docs/QA-CHECKLIST.md) | Testszenarien, Akzeptanzkriterien |
 | [`docs/OVERNIGHT-PLAN.md`](./docs/OVERNIGHT-PLAN.md) | Overnight-Entwicklungsplan |
+| [`docs/CODE-QUALITY-PLAN.md`](./docs/CODE-QUALITY-PLAN.md) | 10-Stufen Code Quality Checklist |
+| [`docs/WORKFLOW-ANALYSIS.md`](./docs/WORKFLOW-ANALYSIS.md) | Analyse langer Workflows + Risiken |
+| [`docs/GEMINI-REVIEW.md`](./docs/GEMINI-REVIEW.md) | Gemini 2.5 Pro Code Review |
+| [`docs/MINIMAX-REVIEW.md`](./docs/MINIMAX-REVIEW.md) | MiniMax 2.5 Code Review |
 
 ---
 
