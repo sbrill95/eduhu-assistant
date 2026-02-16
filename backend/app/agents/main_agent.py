@@ -305,46 +305,6 @@ def create_agent() -> Agent[AgentDeps, str]:
             return f"Wikipedia-Suche fehlgeschlagen: {str(e)}"
 
     @agent.tool
-    async def search_images(
-        ctx: RunContext[AgentDeps],
-        query: str,
-        count: int = 3,
-    ) -> str:
-        """Suche lizenzfreie Bilder auf Pixabay für Unterrichtsmaterialien.
-        Nutze dieses Tool wenn die Lehrkraft Bilder für Arbeitsblätter,
-        Präsentationen oder Materialien braucht.
-        """
-        from app.config import get_settings
-        import httpx
-        s = get_settings()
-        if not s.pixabay_api_key:
-            return "Pixabay API-Key nicht konfiguriert."
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                r = await client.get(
-                    "https://pixabay.com/api/",
-                    params={
-                        "key": s.pixabay_api_key,
-                        "q": query,
-                        "per_page": min(count, 10),
-                        "lang": "de",
-                        "image_type": "photo",
-                        "safesearch": "true",
-                    },
-                )
-                data = r.json()
-                hits = data.get("hits", [])
-                if not hits:
-                    return f"Keine Bilder für '{query}' gefunden."
-                lines = []
-                for h in hits:
-                    lines.append(f"![{h.get('tags', query)}]({h['webformatURL']})")
-                    lines.append(f"  *{h.get('tags', '')}* — [Pixabay]({h['pageURL']})")
-                return f"**{len(hits)} Bilder** für '{query}':\n\n" + "\n".join(lines)
-        except Exception as e:
-            return f"Bildersuche fehlgeschlagen: {str(e)}"
-
-    @agent.tool
     async def classroom_tools(
         ctx: RunContext[AgentDeps],
         action: str,
