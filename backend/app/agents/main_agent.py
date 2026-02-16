@@ -176,6 +176,20 @@ def create_agent() -> Agent[AgentDeps, str]:
             logger.error(f"Exercise generation failed: {e}")
             return f"Fehler bei der Übungserstellung: {str(e)}"
 
+    # ── Tool: search_images (Pixabay) ──
+    @agent.tool
+    async def search_images(ctx: RunContext[AgentDeps], query: str) -> str:
+        """Suche kostenlose Bilder auf Pixabay.
+
+        Nutze dieses Tool wenn die Lehrkraft ein Foto oder Bild SUCHT
+        (z.B. für Arbeitsblätter, Präsentationen). Die Bilder sind lizenzfrei.
+        - query: Suchbegriff (deutsch oder englisch)
+
+        Beispiel: "Suche ein Bild vom Wasserkreislauf" → search_images("Wasserkreislauf")
+        """
+        from app.agents.pixabay_agent import search_images as _search
+        return await _search(query)
+
     # ── Tool: generate_image ──
     @agent.tool
     async def generate_image(

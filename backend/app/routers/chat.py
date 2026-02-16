@@ -232,6 +232,7 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
             "create_poll": "📊 Abstimmung wird erstellt…",
             "poll_results": "📊 Ergebnisse werden geladen…",
             "generate_image": "🎨 Bild wird generiert…",
+            "search_images": "🔍 Bilder werden gesucht…",
         }
 
         full_text = ""
