@@ -167,16 +167,24 @@ async def load_docx_from_db(material_id: str) -> bytes | None:
 
 
 def _format_exam_summary(exam: ExamStructure, material_id: str) -> str:
+    from app.agents.klausur_agent import validate_afb_distribution
+    
     tasks_summary = "\n".join(
         f"  {i}. {t.aufgabe} (AFB {t.afb_level}, {t.punkte}P)"
         for i, t in enumerate(exam.aufgaben, 1)
     )
+    
+    # AFB distribution check
+    afb_warning = validate_afb_distribution(exam)
+    afb_line = f"\n\n{afb_warning}" if afb_warning else ""
+    
     return (
         f"Klassenarbeit erstellt!\n\n"
         f"**{exam.fach} -- {exam.thema}** (Klasse {exam.klasse})\n"
         f"Dauer: {exam.dauer_minuten} Min. | Gesamtpunkte: {exam.gesamtpunkte}\n\n"
         f"**Aufgaben:**\n{tasks_summary}\n\n"
         f"Download: /api/materials/{material_id}/docx"
+        f"{afb_line}"
     )
 
 

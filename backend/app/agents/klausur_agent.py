@@ -125,6 +125,33 @@ def _format_content(content: dict) -> str:
     return "\n".join(parts[:10])
 
 
+def validate_afb_distribution(exam: ExamStructure) -> str | None:
+    """Check AFB distribution. Returns warning string if off, None if OK."""
+    total = sum(t.punkte for t in exam.aufgaben)
+    if total == 0:
+        return None
+    
+    afb_points = {"I": 0, "II": 0, "III": 0}
+    for t in exam.aufgaben:
+        level = t.afb_level.strip().upper()
+        if level in afb_points:
+            afb_points[level] += t.punkte
+    
+    pcts = {k: round(v / total * 100) for k, v in afb_points.items()}
+    
+    warnings = []
+    if pcts["I"] < 20 or pcts["I"] > 40:
+        warnings.append(f"AFB I: {pcts['I']}% (soll 25-35%)")
+    if pcts["II"] < 30 or pcts["II"] > 50:
+        warnings.append(f"AFB II: {pcts['II']}% (soll 35-45%)")
+    if pcts["III"] < 20 or pcts["III"] > 40:
+        warnings.append(f"AFB III: {pcts['III']}% (soll 25-35%)")
+    
+    if warnings:
+        return f"⚠️ AFB-Verteilung: {', '.join(warnings)} | Ist: I={pcts['I']}% II={pcts['II']}% III={pcts['III']}%"
+    return None
+
+
 _klausur_agent: Agent[KlausurDeps, ExamStructure] | None = None
 
 
