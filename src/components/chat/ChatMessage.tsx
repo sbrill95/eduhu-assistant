@@ -14,9 +14,10 @@ import { AudioCard } from './AudioCard';
 interface Props {
   message: ChatMessageType;
   onChipSelect?: (label: string) => void;
+  isStreaming?: boolean;
 }
 
-export function ChatMessage({ message, onChipSelect }: Props) {
+export function ChatMessage({ message, onChipSelect, isStreaming }: Props) {
   const isUser = message.role === 'user';
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -173,7 +174,7 @@ export function ChatMessage({ message, onChipSelect }: Props) {
           {message.attachments?.map((att, i) => (
             <FilePreview key={i} attachment={att} />
           ))}
-          {!isUser && (
+          {!isUser && !isStreaming && (
             <div className="mt-2 text-right">
               {isSpeaking ? (
                 <button

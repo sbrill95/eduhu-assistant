@@ -110,11 +110,12 @@ export default function ChatPage() {
           {/* Messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
             <div className="mx-auto max-w-3xl space-y-4">
-              {messages.map((msg) => (
+              {messages.map((msg, idx) => (
                 <ChatMessage
                   key={msg.id}
                   message={msg}
                   onChipSelect={handleChipSelect}
+                  isStreaming={isTyping && idx === messages.length - 1 && msg.id.startsWith('stream-')}
                 />
               ))}
 

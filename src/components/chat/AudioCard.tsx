@@ -16,7 +16,6 @@ export function AudioCard({ url, title }: Props) {
     } else {
       audioRef.current.play();
     }
-    setIsPlaying(!isPlaying);
   };
 
   const handleEnded = () => setIsPlaying(false);

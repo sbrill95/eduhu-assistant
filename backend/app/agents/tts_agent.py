@@ -14,11 +14,11 @@ AUDIO_DIR = Path("/tmp/audio")
 
 # Default German voices
 VOICES = {
-    "default": "EXAVITQu4vr4xnSDxMaL",  # Sarah - mature, reassuring
-    "male": "CwhRBWXzGAHq8TQ4Fs17",      # Roger - laid-back
-    "female": "EXAVITQu4vr4xnSDxMaL",     # Sarah
-    "educator": "Xb7hH8MSUJpSbSDYk0k2",   # Alice - engaging educator
-    "storyteller": "JBFqnCBsd6RMkjVDRZzb", # George - warm storyteller
+    "default": "JH302OKVzGGJc47f08ex",      # Manuel — German male narrator
+    "male": "kkJxCnlRCckmfFvzDW5Q",         # Alexander — German male
+    "female": "iTisibUrmoYf5lx0UXC3",       # Simone K. — German female  
+    "educator": "JH302OKVzGGJc47f08ex",     # Manuel — narrator style
+    "storyteller": "eJHgBguIWw9PtA4GHbSP",  # Clemens Hartmann — dramatic
 }
 
 
