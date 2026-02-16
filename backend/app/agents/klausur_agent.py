@@ -1,73 +1,76 @@
-"""Klausur-Agent — generates structured exams with AFB I-III tasks."""
+"""Klausur-Agent — generates structured exams with AFB I-III tasks.
+
+Uses Sonnet for complex exam generation with:
+- Wissenskarte (knowledge summary in system prompt)
+- Good Practice tool (RAG from agent_knowledge)
+- Curriculum search tool
+- Structured output for iterability (each Aufgabe separately editable)
+"""
 
 import logging
 from dataclasses import dataclass
 
 from pydantic_ai import Agent, RunContext
 
-from app.agents.llm import get_haiku
+from app.agents.llm import get_sonnet
+from app.agents.knowledge import build_wissenskarte, get_good_practices
 from app.models import ExamStructure
 from app.agents.curriculum_agent import curriculum_search
 
 logger = logging.getLogger(__name__)
 
 KLAUSUR_SYSTEM_PROMPT = """\
-Du bist ein Experte für die Erstellung von Klassenarbeiten und Klausuren im deutschen Schulsystem.
+Du bist ein Experte für Klassenarbeiten und Klausuren im deutschen Schulsystem.
 
-## Anforderungsbereiche (AFB) — KORREKTE Zuordnung ist KRITISCH!
+## AFB-Zuordnung (KRITISCH!)
 
 ### AFB I (Reproduktion) — ca. 30% der Punkte
 Operatoren: Nennen, Angeben, Beschreiben, Wiedergeben, Definieren, Darstellen, Aufzählen
-Beispiel: "Nenne drei Eigenschaften des Lichts." / "Beschreibe den Aufbau eines Prismas."
-→ Wissen abrufen und wiedergeben, KEIN Erklären oder Begründen!
+→ Wissen abrufen und wiedergeben. KEIN Erklären!
 
 ### AFB II (Reorganisation/Transfer) — ca. 40% der Punkte
-Operatoren: Erklären, Erläutern, Vergleichen, Anwenden, Berechnen, Analysieren, Einordnen, Zuordnen
-Beispiel: "Erklären Sie das Zustandekommen der Totalreflexion." / "Berechnen Sie den Brechungswinkel."
-→ Gelerntes auf neue Situationen anwenden, Zusammenhänge herstellen.
-WICHTIG: "Erklären" und "Erläutern" sind AFB II, NICHT AFB III!
+Operatoren: Erklären, Erläutern, Vergleichen, Anwenden, Berechnen, Analysieren, Einordnen
+→ Gelerntes auf neue Situationen anwenden. "Erklären" = AFB II, NICHT III!
 
 ### AFB III (Reflexion/Problemlösung) — ca. 30% der Punkte
-Operatoren: Beurteilen, Bewerten, Stellung nehmen, Diskutieren, Entwickeln, Entwerfen, Überprüfen
-Beispiel: "Beurteilen Sie die Eignung von Glasfaserkabeln gegenüber Kupferkabeln." / "Entwickeln Sie einen Versuchsaufbau."
-→ Eigenständig urteilen, begründet Position beziehen, kreativ Lösungen entwickeln.
+Operatoren: Beurteilen, Bewerten, Stellung nehmen, Diskutieren, Entwickeln, Entwerfen
+→ Eigenständig urteilen, kreativ Lösungen entwickeln.
 
-## KRITISCHE REGELN
-- AFB-Verteilung MUSS bei ca. 30% I / 40% II / 30% III liegen. NICHT mehr als 35% AFB III!
-- Ordne Operatoren KORREKT zu: "Erklären" = AFB II, "Beurteilen" = AFB III
-- Zeitbudget: Klasse 5-10: ca. 1 Punkt pro Minute. 45 Min → 40-45 Punkte, NICHT mehr!
-- Klasse 11-13: ca. 1-1.2 Punkte pro Minute.
-- Mindestens 4 Aufgaben, besser 5-6 (auch Teilaufgaben a/b/c zählen)
-- Jede Aufgabe MUSS konkrete Angaben enthalten:
-  - Bei Berechnungen: Konkrete Zahlenwerte angeben!
-  - Bei Erklärungen: Klar definiertes Phänomen benennen, nicht vage!
-  - Teilaufgaben (a, b, c) mit einzelnen Punktwerten
-- Erwartungshorizont: Pro Teilaufgabe mind. 3-4 Stichpunkte, bei Berechnungen den Lösungsweg
-- Notenschlüssel: Standard (sehr gut ab 87%, gut ab 73%, befriedigend ab 59%, ausreichend ab 45%, mangelhaft ab 20%, ungenügend unter 20%)
-- Hinweise: Erlaubte Hilfsmittel, Bearbeitungszeit, allgemeine Hinweise
-- Sprache: Deutsch, klar und präzise
-- Aufgaben aufsteigend nach Schwierigkeit ordnen (AFB I → AFB II → AFB III)
+## Regeln
+- AFB-Verteilung: 30% I / 40% II / 30% III (max 35% III)
+- Zeitbudget: Klasse 5-10 ca. 1P/Min, Klasse 11-13 ca. 1.2P/Min
+- Mind. 4 Aufgaben, besser 5-6 (Teilaufgaben a/b/c zählen)
+- Jede Aufgabe: konkrete Angaben, Zahlenwerte bei Berechnungen
+- Erwartungshorizont: mind. 3-4 Stichpunkte pro Teilaufgabe
+- Aufgaben aufsteigend nach Schwierigkeit (AFB I → II → III)
+- Notenschlüssel: Standard (1 ab 87%, 2 ab 73%, 3 ab 59%, 4 ab 45%, 5 ab 20%)
 
-Erstelle eine vollständige, realistische Klassenarbeit mit allen Bestandteilen.
-PRÜFE VOR DER AUSGABE: Stimmt die AFB-Verteilung? Sind alle Aufgaben konkret genug? Passt das Zeitbudget?
-"""
+## Werkzeuge
+- Nutze `search_curriculum_tool` um Lehrplaninhalte zu prüfen
+- Nutze `get_good_practices_tool` um bewährte Aufgabenformate zu sehen
+
+PRÜFE VOR AUSGABE: AFB-Verteilung korrekt? Aufgaben konkret? Zeitbudget passend?"""
 
 
 @dataclass
 class KlausurDeps:
     teacher_id: str
+    fach: str = ""
     teacher_context: str = ""
+    wissenskarte: str = ""
 
 
 async def _klausur_system_prompt(ctx: RunContext[KlausurDeps]) -> str:
     prompt = KLAUSUR_SYSTEM_PROMPT
+    if ctx.deps.wissenskarte:
+        prompt += f"\n\n{ctx.deps.wissenskarte}"
     if ctx.deps.teacher_context:
         prompt += f"\n\n## Kontext der Lehrkraft\n{ctx.deps.teacher_context}"
     return prompt
 
 
 def create_klausur_agent() -> Agent[KlausurDeps, ExamStructure]:
-    model = get_haiku()
+    model = get_sonnet()
 
     agent = Agent(
         model,
@@ -82,7 +85,44 @@ def create_klausur_agent() -> Agent[KlausurDeps, ExamStructure]:
         logger.info(f"Klausur agent curriculum search: {query}")
         return await curriculum_search(ctx.deps.teacher_id, query)
 
+    @agent.tool
+    async def get_good_practices_tool(ctx: RunContext[KlausurDeps], thema: str) -> str:
+        """Lade bewährte Klausur-Beispiele aus der Wissensdatenbank."""
+        logger.info(f"Klausur agent good practices: {thema}")
+        practices = await get_good_practices(
+            teacher_id=ctx.deps.teacher_id,
+            agent_type="klausur",
+            fach=ctx.deps.fach,
+            thema=thema,
+            limit=2,
+        )
+        if not practices:
+            return "Keine bewährten Beispiele gefunden."
+        
+        parts = []
+        for p in practices:
+            desc = p.get("description", "")
+            content = p.get("content", {})
+            score = p.get("quality_score", 0)
+            parts.append(f"### {desc} (Qualität: {score:.1f})\n{_format_content(content)}")
+        return "\n\n".join(parts)
+
     return agent
+
+
+def _format_content(content: dict) -> str:
+    """Format JSONB content to readable text for the agent."""
+    if not content:
+        return ""
+    parts = []
+    for key, val in content.items():
+        if isinstance(val, list):
+            parts.append(f"{key}: {', '.join(str(v) for v in val[:5])}")
+        elif isinstance(val, dict):
+            parts.append(f"{key}: {val}")
+        else:
+            parts.append(f"{key}: {val}")
+    return "\n".join(parts[:10])
 
 
 _klausur_agent: Agent[KlausurDeps, ExamStructure] | None = None

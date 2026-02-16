@@ -8,6 +8,7 @@ from app.models import ExamStructure, DifferenzierungStructure, MaterialRequest
 from app.agents.klausur_agent import get_klausur_agent, KlausurDeps
 from app.agents.differenzierung_agent import get_diff_agent, DiffDeps
 from app.agents.system_prompt import build_block3_context
+from app.agents.knowledge import build_wissenskarte
 from app import db
 import json
 
@@ -100,9 +101,15 @@ async def _generate_klausur(request: MaterialRequest) -> ExamStructure:
 
     agent = get_klausur_agent()
     teacher_context = await build_block3_context(request.teacher_id)
-    deps = KlausurDeps(teacher_id=request.teacher_id, teacher_context=teacher_context)
+    wissenskarte = await build_wissenskarte(request.teacher_id, "klausur", request.fach)
+    deps = KlausurDeps(
+        teacher_id=request.teacher_id,
+        fach=request.fach,
+        teacher_context=teacher_context,
+        wissenskarte=wissenskarte,
+    )
 
-    # Load preferences and templates for context
+    # Legacy context loading (will be fully replaced by Wissenskarte)
     preferences_context = await _load_material_context(request.teacher_id, "klausur", request.fach)
 
     prompt_parts = [
