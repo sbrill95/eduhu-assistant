@@ -352,3 +352,121 @@ def generate_stundenplanung_docx(structure) -> bytes:
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()
+
+
+def generate_mystery_docx(structure) -> bytes:
+    """Special DOCX for Mystery — prints cards as individual boxed items."""
+    doc = Document()
+    style = doc.styles["Normal"]
+    style.font.name = "Arial"
+    style.font.size = Pt(11)
+
+    heading = doc.add_heading(f"Mystery: {structure.titel}", level=0)
+    heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    doc.add_heading("Leitfrage", level=1)
+    p = doc.add_paragraph()
+    run = p.add_run(structure.leitfrage)
+    run.bold = True
+    run.font.size = Pt(14)
+
+    doc.add_heading("Hintergrund", level=2)
+    doc.add_paragraph(structure.hintergrund)
+
+    # Cards as table (one card per row, easy to cut out)
+    doc.add_page_break()
+    doc.add_heading("Informationskarten", level=1)
+    doc.add_paragraph("(Zum Ausschneiden — jede Zeile ist eine Karte)")
+
+    kategorie_colors = {
+        "Fakt": RGBColor(46, 125, 50),
+        "Hinweis": RGBColor(245, 124, 0),
+        "Irreführung": RGBColor(198, 40, 40),
+    }
+
+    table = doc.add_table(rows=1, cols=3)
+    table.style = "Table Grid"
+    hdr = table.rows[0].cells
+    for cell, text in zip(hdr, ["Nr.", "Kategorie", "Inhalt"]):
+        cell.text = text
+        for run in cell.paragraphs[0].runs:
+            run.bold = True
+
+    for karte in structure.karten:
+        row = table.add_row().cells
+        row[0].text = str(karte.nummer)
+        row[1].text = karte.kategorie
+        color = kategorie_colors.get(karte.kategorie, RGBColor(0, 0, 0))
+        for run in row[1].paragraphs[0].runs:
+            run.font.color.rgb = color
+            run.bold = True
+        row[2].text = karte.inhalt
+
+    # Teacher page
+    doc.add_page_break()
+    doc.add_heading("Lösung (nur für Lehrkraft)", level=1)
+    doc.add_paragraph(structure.loesung)
+
+    doc.add_heading("Differenzierung", level=2)
+    doc.add_paragraph(structure.differenzierung)
+
+    doc.add_heading("Hinweise für die Lehrkraft", level=2)
+    doc.add_paragraph(structure.lehrkraft_hinweise)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def generate_escape_room_docx(structure) -> bytes:
+    """Special DOCX for Escape Room — narrative + sequential puzzles."""
+    doc = Document()
+    style = doc.styles["Normal"]
+    style.font.name = "Arial"
+    style.font.size = Pt(11)
+
+    heading = doc.add_heading(f"Escape Room: {structure.titel}", level=0)
+    heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    meta = doc.add_paragraph()
+    meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    meta.add_run(f"Thema: {structure.thema} | Zeitrahmen: {structure.zeitrahmen_minuten} Min. | Schwierigkeit: {structure.schwierigkeitsgrad}")
+
+    doc.add_heading("Einführung / Story", level=1)
+    doc.add_paragraph(structure.einfuehrung)
+
+    for raetsel in structure.raetsel:
+        doc.add_heading(f"Rätsel {raetsel.nummer}: {raetsel.titel}", level=2)
+        doc.add_paragraph(raetsel.beschreibung)
+
+        if raetsel.material:
+            hint = doc.add_paragraph()
+            hint.add_run("Material: ").bold = True
+            hint.add_run(raetsel.material)
+
+    # Teacher page
+    doc.add_page_break()
+    doc.add_heading("Lösungen (nur für Lehrkraft)", level=1)
+
+    for raetsel in structure.raetsel:
+        doc.add_heading(f"Rätsel {raetsel.nummer}: {raetsel.titel}", level=2)
+        p = doc.add_paragraph()
+        p.add_run("Lösung: ").bold = True
+        p.add_run(raetsel.loesung)
+        p2 = doc.add_paragraph()
+        p2.add_run("Hinweis (bei Bedarf): ").italic = True
+        p2.add_run(raetsel.hinweis)
+        if raetsel.uebergang:
+            p3 = doc.add_paragraph()
+            p3.add_run("Übergang: ").bold = True
+            p3.add_run(raetsel.uebergang)
+
+    doc.add_heading("Abschluss", level=1)
+    doc.add_paragraph(structure.abschluss)
+
+    doc.add_heading("Hinweise für die Lehrkraft", level=2)
+    doc.add_paragraph(structure.lehrkraft_hinweise)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()

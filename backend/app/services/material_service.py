@@ -9,7 +9,10 @@ from pathlib import Path
 from app import db
 from app.models import MaterialRequest, ExamStructure, DifferenzierungStructure
 from app.agents.material_router import run_material_agent, _normalize_type
-from app.docx_generator import generate_exam_docx, generate_diff_docx, generate_generic_docx, generate_stundenplanung_docx
+from app.docx_generator import (
+    generate_exam_docx, generate_diff_docx, generate_generic_docx,
+    generate_stundenplanung_docx, generate_mystery_docx, generate_escape_room_docx,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +67,14 @@ async def generate_material(
     else:
         # All new agent types use generic or specialized DOCX
         from app.agents.stundenplanung_agent import StundenplanungStructure
+        from app.agents.mystery_agent import MysteryStructure
+        from app.agents.escape_room_agent import EscapeRoomStructure
         if isinstance(structure, StundenplanungStructure):
             docx_bytes = generate_stundenplanung_docx(structure)
+        elif isinstance(structure, MysteryStructure):
+            docx_bytes = generate_mystery_docx(structure)
+        elif isinstance(structure, EscapeRoomStructure):
+            docx_bytes = generate_escape_room_docx(structure)
         else:
             title = getattr(structure, "titel", "Material")
             docx_bytes = generate_generic_docx(structure, title)
