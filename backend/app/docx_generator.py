@@ -1,6 +1,8 @@
-"""DOCX generation for exam structures."""
+"""DOCX generation for material structures."""
 
 import io
+from typing import Any
+from pydantic import BaseModel
 from docx import Document
 from docx.shared import Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -177,6 +179,175 @@ def generate_diff_docx(diff: DifferenzierungStructure) -> bytes:
                 hint_run.font.color.rgb = RGBColor(100, 100, 100)
 
             doc.add_paragraph()
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def generate_generic_docx(structure: BaseModel, title: str = "Material") -> bytes:
+    """Generate a DOCX from any Pydantic BaseModel structure.
+    Renders fields as headings + content, lists as bullet points, nested models as sub-sections."""
+    doc = Document()
+    style = doc.styles["Normal"]
+    style.font.name = "Arial"
+    style.font.size = Pt(11)
+
+    heading = doc.add_heading(title, level=0)
+    heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    _render_model(doc, structure, level=1)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+# Field labels for German display
+_LABELS = {
+    "titel": "Titel", "thema": "Thema", "fach_thema": "Fach/Thema",
+    "leitfrage": "Leitfrage", "hintergrund": "Hintergrund",
+    "einfuehrung": "Einführung", "abschluss": "Abschluss",
+    "lehrkraft_hinweise": "Hinweise für die Lehrkraft",
+    "didaktische_hinweise": "Didaktische Hinweise",
+    "lernziel": "Lernziel", "kerninhalt": "Kerninhalt",
+    "theoretischer_hintergrund": "Theoretischer Hintergrund",
+    "beobachtung": "Beobachtung", "auswertung": "Auswertung",
+    "reflexion": "Reflexion", "handlungssituation": "Handlungssituation",
+    "einstieg": "Einstieg", "loesung": "Lösung",
+    "differenzierung": "Differenzierung", "weiterfuehrend": "Weiterführend",
+    "spielname": "Spielname", "regeln": "Regeln", "inhalt": "Inhalt",
+    "beschreibung": "Beschreibung", "hinweis": "Hinweis",
+    "uebergang": "Übergang zum nächsten Rätsel",
+    "hypothese": "Hypothese", "schwierigkeitsgrad": "Schwierigkeitsgrad",
+    "offenheitsgrad": "Offenheitsgrad", "niveau": "Niveau",
+    "beruf": "Beruf", "lernfeld": "Lernfeld", "zielgruppe": "Zielgruppe",
+    "aufgabe": "Aufgabe", "kompetenzbereich": "Kompetenzbereich",
+    "anforderungsniveau": "Anforderungsniveau", "sozialform": "Sozialform",
+    "phase": "Phase", "medien": "Medien",
+    "lehreraktivitaet": "Lehreraktivität", "schueleraktivitaet": "Schüleraktivität",
+}
+
+# Fields to skip (rendered as part of title or metadata)
+_SKIP = {"titel", "nummer"}
+
+# Fields that are simple metadata (rendered inline, not as heading)
+_INLINE = {
+    "thema", "fach_thema", "niveau", "schwierigkeitsgrad", "offenheitsgrad",
+    "beruf", "lernfeld", "zielgruppe", "phase", "sozialform", "medien",
+    "kompetenzbereich", "anforderungsniveau", "kategorie", "schwierigkeit",
+}
+
+
+def _render_model(doc: Document, model: BaseModel, level: int):
+    """Recursively render a Pydantic model into a DOCX document."""
+    data = model.model_dump()
+
+    # Render inline fields as metadata paragraph
+    inline_parts = []
+    for key in _INLINE:
+        if key in data and data[key]:
+            label = _LABELS.get(key, key.replace("_", " ").title())
+            inline_parts.append(f"{label}: {data[key]}")
+    if inline_parts:
+        meta = doc.add_paragraph(" | ".join(inline_parts))
+        meta.runs[0].font.size = Pt(10) if meta.runs else None
+
+    # Render remaining fields
+    for key, val in data.items():
+        if key in _SKIP or key in _INLINE or val is None:
+            continue
+
+        label = _LABELS.get(key, key.replace("_", " ").title())
+
+        if isinstance(val, str):
+            doc.add_heading(label, level=min(level, 4))
+            doc.add_paragraph(val)
+        elif isinstance(val, int):
+            doc.add_paragraph(f"{label}: {val}")
+        elif isinstance(val, list):
+            if not val:
+                continue
+            if isinstance(val[0], str):
+                doc.add_heading(label, level=min(level, 4))
+                for item in val:
+                    doc.add_paragraph(item, style="List Bullet")
+            elif isinstance(val[0], dict):
+                doc.add_heading(label, level=min(level, 4))
+                for i, item in enumerate(val, 1):
+                    # Check if it's a nested model with nummer
+                    nr = item.get("nummer", i)
+                    item_title = item.get("titel", item.get("aufgabe", item.get("phase", f"#{nr}")))
+                    sub_heading = doc.add_heading(f"{nr}. {item_title}", level=min(level + 1, 5))
+                    # Render each field of the nested item
+                    for k, v in item.items():
+                        if k in ("nummer", "titel") or v is None:
+                            continue
+                        sub_label = _LABELS.get(k, k.replace("_", " ").title())
+                        if isinstance(v, str):
+                            p = doc.add_paragraph()
+                            p.add_run(f"{sub_label}: ").bold = True
+                            p.add_run(v)
+                        elif isinstance(v, int):
+                            doc.add_paragraph(f"{sub_label}: {v}")
+                        elif isinstance(v, list):
+                            doc.add_paragraph(f"{sub_label}:")
+                            for li in v:
+                                doc.add_paragraph(str(li), style="List Bullet")
+        elif isinstance(val, dict):
+            doc.add_heading(label, level=min(level, 4))
+            for k, v in val.items():
+                doc.add_paragraph(f"{k}: {v}", style="List Bullet")
+
+
+def generate_stundenplanung_docx(structure) -> bytes:
+    """Special DOCX for Stundenplanung with Verlaufsplan table."""
+    doc = Document()
+    style = doc.styles["Normal"]
+    style.font.name = "Arial"
+    style.font.size = Pt(11)
+
+    heading = doc.add_heading(f"Stundenverlaufsplan: {structure.titel}", level=0)
+    heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    meta = doc.add_paragraph()
+    meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    meta.add_run(f"Thema: {structure.fach_thema} | Zeitrahmen: {structure.zeitrahmen_minuten} Min.")
+
+    doc.add_heading("Lernziel", level=2)
+    doc.add_paragraph(structure.lernziel)
+
+    # Verlaufsplan table
+    doc.add_heading("Verlaufsplan", level=1)
+    cols = ["Phase", "Zeit (Min)", "Lehreraktivität", "Schüleraktivität", "Sozialform", "Medien"]
+    table = doc.add_table(rows=1, cols=len(cols))
+    table.style = "Table Grid"
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+    for i, col_name in enumerate(cols):
+        cell = table.rows[0].cells[i]
+        cell.text = col_name
+        for run in cell.paragraphs[0].runs:
+            run.bold = True
+            run.font.size = Pt(10)
+
+    for phase in structure.phasen:
+        row = table.add_row().cells
+        row[0].text = phase.phase
+        row[1].text = str(phase.zeit_minuten)
+        row[2].text = phase.lehreraktivitaet
+        row[3].text = phase.schueleraktivitaet
+        row[4].text = phase.sozialform
+        row[5].text = phase.medien
+
+    if structure.didaktische_hinweise:
+        doc.add_heading("Didaktische Hinweise", level=2)
+        doc.add_paragraph(structure.didaktische_hinweise)
+
+    if structure.materialien:
+        doc.add_heading("Materialien", level=2)
+        for m in structure.materialien:
+            doc.add_paragraph(m, style="List Bullet")
 
     buf = io.BytesIO()
     doc.save(buf)

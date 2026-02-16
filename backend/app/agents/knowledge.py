@@ -9,6 +9,7 @@ Every sub-agent uses these functions to access:
 """
 
 import logging
+from datetime import datetime, timedelta
 from typing import Any
 
 from app import db
@@ -298,3 +299,117 @@ async def update_quality_score(knowledge_id: str, delta: float) -> None:
             )
     except Exception as e:
         logger.error(f"update_quality_score failed: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Knowledge Maintenance — periodic cleanup tasks
+# ---------------------------------------------------------------------------
+
+async def cleanup_knowledge(teacher_id: str | None = None) -> dict[str, int]:
+    """Clean up agent_knowledge table.
+
+    - Removes duplicate preferences.
+    - Archives old, low-quality, unused entries.
+    - Caps total entries per teacher/agent_type to prevent bloat.
+    
+    Returns a dictionary with counts of actions taken.
+    """
+    results = {"duplicates_removed": 0, "archived": 0, "capped": 0}
+    logger.info(f"Starting knowledge cleanup for teacher: {teacher_id or 'all'}")
+
+    # 1. Remove duplicate preferences (same teacher, agent, fach, description)
+    try:
+        pref_filters: dict[str, Any] = {"knowledge_type": "preference"}
+        if teacher_id:
+            pref_filters["teacher_id"] = teacher_id
+        
+        all_prefs = await db.select("agent_knowledge", filters=pref_filters, order="created_at.desc")
+        
+        if all_prefs and isinstance(all_prefs, list):
+            seen: set[tuple] = set()
+            ids_to_delete = []
+            for pref in all_prefs:
+                # Key for uniqueness: teacher, agent, fach, and a normalized description
+                key = (
+                    pref.get("teacher_id"),
+                    pref.get("agent_type"),
+                    pref.get("fach"),
+                    str(pref.get("description", "")).strip().lower(),
+                )
+                if key in seen:
+                    ids_to_delete.append(pref["id"])
+                else:
+                    seen.add(key)
+            
+            if ids_to_delete:
+                # Assuming no bulk delete, iterate
+                for pref_id in ids_to_delete:
+                    await db.delete("agent_knowledge", filters={"id": pref_id})
+                results["duplicates_removed"] = len(ids_to_delete)
+                logger.info(f"Removed {len(ids_to_delete)} duplicate preferences.")
+
+    except Exception as e:
+        logger.error(f"Error removing duplicate preferences: {e}")
+
+    # 2. Archive old, low-quality, unused entries
+    try:
+        ninety_days_ago = (datetime.utcnow() - timedelta(days=90)).isoformat()
+        archive_filters: dict[str, Any] = {
+            "quality_score.lt": 0.3,
+            "times_used.eq": 0,
+            "created_at.lt": ninety_days_ago,
+        }
+        if teacher_id:
+            archive_filters["teacher_id"] = teacher_id
+        
+        to_archive = await db.select("agent_knowledge", columns="id", filters=archive_filters)
+        
+        if to_archive and isinstance(to_archive, list):
+            ids_to_archive = [item['id'] for item in to_archive]
+            if ids_to_archive:
+                for entry_id in ids_to_archive:
+                    await db.delete("agent_knowledge", filters={"id": entry_id})
+                results["archived"] = len(ids_to_archive)
+                logger.info(f"Archived {len(ids_to_archive)} low-quality entries.")
+
+    except Exception as e:
+        logger.error(f"Error archiving low-quality entries: {e}")
+
+    # 3. Cap entries per teacher/agent_type to 50
+    try:
+        cap_filters = {}
+        if teacher_id:
+            cap_filters["teacher_id"] = teacher_id
+
+        all_knowledge = await db.select(
+            "agent_knowledge",
+            columns="id,teacher_id,agent_type,quality_score,created_at",
+            filters=cap_filters,
+        )
+
+        if all_knowledge and isinstance(all_knowledge, list):
+            groups: dict[tuple, list] = {}
+            for k in all_knowledge:
+                key = (k.get("teacher_id"), k.get("agent_type"))
+                groups.setdefault(key, []).append(k)
+
+            ids_to_delete = []
+            limit = 50
+            for items in groups.values():
+                if len(items) > limit:
+                    excess = len(items) - limit
+                    # Sort by quality (asc), then date (asc) to find worst/oldest
+                    items.sort(key=lambda x: (x.get("quality_score", 0.5), str(x.get("created_at", ""))))
+                    ids_to_delete.extend([item["id"] for item in items[:excess]])
+            
+            if ids_to_delete:
+                for entry_id in ids_to_delete:
+                    await db.delete("agent_knowledge", filters={"id": entry_id})
+                results["capped"] = len(ids_to_delete)
+                logger.info(f"Capped {len(ids_to_delete)} entries to meet limits.")
+
+    except Exception as e:
+        logger.error(f"Error capping knowledge entries: {e}")
+
+    logger.info(f"Knowledge cleanup finished: {results}")
+    return results

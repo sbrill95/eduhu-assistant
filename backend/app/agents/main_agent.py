@@ -88,6 +88,13 @@ def create_agent() -> Agent[AgentDeps, str]:
         material_type MUSS einer dieser Werte sein:
         - "klausur" für Klassenarbeiten, Klausuren, Tests, Prüfungen
         - "differenzierung" für differenziertes Material (Basis/Mittel/Erweitert)
+        - "hilfekarte" für Schüler-Hilfekarten (schrittweise Hilfen, Tipps)
+        - "escape_room" für Escape-Room-Rätsel (verkettete Rätsel mit Story)
+        - "mystery" für Mystery-Material (Informationskarten, Leitfrage)
+        - "lernsituation" für Lernsituationen (berufliche Bildung, Handlungsorientierung)
+        - "lernspiel" für Lernspiele (Regeln, Material, Varianten)
+        - "versuchsanleitung" für Versuchsanleitungen/Arbeitsblätter (Experimente)
+        - "stundenplanung" für Stundenverlaufspläne (Verlaufsplan-Tabelle)
         Gibt eine Zusammenfassung mit Download-Link zurück."""
         from app.services.material_service import generate_material as gen_mat
 

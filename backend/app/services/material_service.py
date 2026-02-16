@@ -8,33 +8,22 @@ from pathlib import Path
 
 from app import db
 from app.models import MaterialRequest, ExamStructure, DifferenzierungStructure
-from app.agents.material_router import run_material_agent
-from app.docx_generator import generate_exam_docx, generate_diff_docx
+from app.agents.material_router import run_material_agent, _normalize_type
+from app.docx_generator import generate_exam_docx, generate_diff_docx, generate_generic_docx, generate_stundenplanung_docx
 
 logger = logging.getLogger(__name__)
 
 MATERIALS_DIR = Path("/tmp/materials")
 
-_TYPE_MAP = {
-    "klassenarbeit": "klausur",
-    "test": "klausur",
-    "prüfung": "klausur",
-    "pruefung": "klausur",
-    "klausur": "klausur",
-    "differenzierung": "differenzierung",
-    "differenziert": "differenzierung",
-}
-
-
 def resolve_material_type(raw_type: str) -> str:
     """Normalize user-provided type to a canonical value."""
-    return _TYPE_MAP.get(raw_type.lower(), "klausur")
+    return _normalize_type(raw_type)
 
 
 @dataclass
 class MaterialResult:
     material_id: str
-    structure: ExamStructure | DifferenzierungStructure
+    structure: any  # ExamStructure, DifferenzierungStructure, or new agent types
     docx_bytes: bytes
     summary: str
 
@@ -73,7 +62,14 @@ async def generate_material(
         docx_bytes = generate_diff_docx(structure)
         summary = _format_diff_summary(structure, material_id)
     else:
-        raise ValueError("Unbekannter Material-Typ")
+        # All new agent types use generic or specialized DOCX
+        from app.agents.stundenplanung_agent import StundenplanungStructure
+        if isinstance(structure, StundenplanungStructure):
+            docx_bytes = generate_stundenplanung_docx(structure)
+        else:
+            title = getattr(structure, "titel", "Material")
+            docx_bytes = generate_generic_docx(structure, title)
+        summary = _format_generic_summary(structure, material_id, resolved_type)
 
     await _store_material(material_id, teacher_id, docx_bytes, structure, resolved_type)
 
@@ -85,11 +81,34 @@ async def generate_material(
     )
 
 
+def _format_generic_summary(structure, material_id: str, material_type: str) -> str:
+    """Format a summary for any new material type."""
+    type_labels = {
+        "hilfekarte": "Hilfekarte",
+        "escape_room": "Escape Room",
+        "mystery": "Mystery-Material",
+        "lernsituation": "Lernsituation",
+        "lernspiel": "Lernspiel",
+        "versuchsanleitung": "Versuchsanleitung",
+        "stundenplanung": "Stundenverlaufsplan",
+    }
+    label = type_labels.get(material_type, material_type.title())
+    titel = getattr(structure, "titel", "Material")
+    thema = getattr(structure, "thema", getattr(structure, "fach_thema", ""))
+
+    return (
+        f"{label} erstellt!\n\n"
+        f"**{titel}**\n"
+        f"Thema: {thema}\n\n"
+        f"Download: /api/materials/{material_id}/docx"
+    )
+
+
 async def _store_material(
     material_id: str,
     teacher_id: str,
     docx_bytes: bytes,
-    structure: ExamStructure | DifferenzierungStructure,
+    structure,
     material_type: str,
 ) -> None:
     """Store DOCX to disk cache and persist in DB."""
