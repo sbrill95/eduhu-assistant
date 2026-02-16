@@ -1,5 +1,6 @@
 """Build the 4-block system prompt dynamically."""
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -98,10 +99,34 @@ async def build_block3_context(teacher_id: str) -> str:
     """Block 3: Dynamic context — Zone 1 (always-on)."""
     parts: list[str] = []
 
-    # ── Profil ──
-    profile = await db.select(
-        "user_profiles", filters={"id": teacher_id}, single=True
+    # Concurrently fetch all data
+    profile_task = db.select("user_profiles", filters={"id": teacher_id}, single=True)
+    memories_task = db.select(
+        "user_memories",
+        columns="scope, category, key, value",
+        filters={"user_id": teacher_id},
+        order="importance.desc,updated_at.desc",
+        limit=50,
     )
+    sessions_task = db.select(
+        "session_logs",
+        columns="summary, created_at",
+        filters={"user_id": teacher_id},
+        order="created_at.desc",
+        limit=5,
+    )
+    curricula_task = db.select(
+        "user_curricula",
+        columns="fach, jahrgang, status, wissenskarte",
+        filters={"user_id": teacher_id},
+        limit=10,
+    )
+
+    profile, memories, sessions, curricula = await asyncio.gather(
+        profile_task, memories_task, sessions_task, curricula_task
+    )
+
+    # ── Profil ──
     if profile and isinstance(profile, dict):
         parts.append("## Lehrkraft-Profil")
         parts.append(f"Name: {profile.get('name', 'Unbekannt')}")
@@ -121,38 +146,18 @@ async def build_block3_context(teacher_id: str) -> str:
             parts.append(f"\nKlassen-Summary:\n{json.dumps(class_summary, ensure_ascii=False, indent=2)}")
 
     # ── Memories ──
-    memories = await db.select(
-        "user_memories",
-        columns="scope, category, key, value",
-        filters={"user_id": teacher_id},
-        order="importance.desc,updated_at.desc",
-        limit=50,
-    )
     if memories and isinstance(memories, list) and len(memories) > 0:
         parts.append("\n## Was du über diese Lehrkraft weißt")
         for m in memories:
             parts.append(f"- [{m['scope']}/{m['category']}] {m['key']}: {m['value']}")
 
     # ── Session Summaries ──
-    sessions = await db.select(
-        "session_logs",
-        columns="summary, created_at",
-        filters={"user_id": teacher_id},
-        order="created_at.desc",
-        limit=5,
-    )
     if sessions and isinstance(sessions, list) and len(sessions) > 0:
         parts.append("\n## Letzte Gespräche")
         for s in sessions:
             parts.append(f"- {s['created_at'][:10]}: {s['summary']}")
 
     # ── Wissenskarte (Curriculum overview) ──
-    curricula = await db.select(
-        "user_curricula",
-        columns="fach, jahrgang, status, wissenskarte",
-        filters={"user_id": teacher_id},
-        limit=10,
-    )
     if curricula and isinstance(curricula, list) and len(curricula) > 0:
         parts.append("\n## Deine Curricula (Wissenskarte)")
         for c in curricula:

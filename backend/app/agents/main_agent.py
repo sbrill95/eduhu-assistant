@@ -122,7 +122,7 @@ def create_agent() -> Agent[AgentDeps, str]:
                     "status": "active",
                 })
             except Exception as sess_err:
-                logger.debug(f"Session save failed (non-critical): {sess_err}")
+                logger.error(f"Session save failed (non-critical): {sess_err}")
 
             summary = result.summary
             if ctx.deps.base_url:

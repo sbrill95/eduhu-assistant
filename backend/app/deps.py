@@ -1,4 +1,5 @@
-from fastapi import Request, HTTPException, Security, Depends
+import os
+from fastapi import Request, HTTPException, Security, Depends, Header
 from fastapi.security import APIKeyHeader
 from app import db
 from app.config import get_settings
@@ -32,3 +33,9 @@ async def get_current_teacher_id(
     #     raise HTTPException(401, "Ungültige Teacher-ID")
         
     return x_teacher_id
+
+
+async def verify_admin(x_admin_secret: str = Header()):
+    expected = os.environ.get("ADMIN_SECRET", "cleanup-2026")
+    if x_admin_secret != expected:
+        raise HTTPException(status_code=403, detail="Invalid admin secret")

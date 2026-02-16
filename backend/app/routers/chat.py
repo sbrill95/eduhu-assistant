@@ -8,13 +8,11 @@ from app.agents.main_agent import get_agent, AgentDeps
 from app.agents.memory_agent import run_memory_agent
 from app.agents.material_learning_agent import run_material_learning
 from app.agents.summary_agent import maybe_summarize
-from app.config import get_settings
 from app.deps import get_current_teacher_id
 from datetime import datetime, timezone
 import asyncio
 import json
 import logging
-import httpx
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -369,29 +367,9 @@ async def delete_conversation(
     if not conv or conv.get("user_id") != teacher_id:
         raise HTTPException(403, "Zugriff verweigert")
 
-    settings = get_settings()
-    headers = {
-        "apikey": settings.supabase_service_role_key,
-        "Authorization": f"Bearer {settings.supabase_service_role_key}",
-    }
-    base = settings.supabase_url
-    
-    async with httpx.AsyncClient() as client:
-        # Delete messages first
-        await client.delete(
-            f"{base}/rest/v1/messages?conversation_id=eq.{conversation_id}",
-            headers=headers,
-        )
-        # Delete session logs
-        await client.delete(
-            f"{base}/rest/v1/session_logs?conversation_id=eq.{conversation_id}",
-            headers=headers,
-        )
-        # Delete conversation
-        await client.delete(
-            f"{base}/rest/v1/conversations?id=eq.{conversation_id}",
-            headers=headers,
-        )
+    await db.delete("messages", {"conversation_id": conversation_id})
+    await db.delete("session_logs", {"conversation_id": conversation_id})
+    await db.delete("conversations", {"id": conversation_id})
     return {"deleted": True}
 
 @router.patch("/conversations/{conversation_id}")

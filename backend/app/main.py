@@ -4,10 +4,11 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
+from app.deps import verify_admin
 from app.agents.main_agent import get_agent
 
 # Import routers
@@ -120,19 +121,15 @@ async def health():
 
 
 @app.post("/api/admin/memory-cleanup")
-async def memory_cleanup(teacher_id: str | None = None):
+async def memory_cleanup(teacher_id: str | None = None, _=Depends(verify_admin)):
     """Trigger memory cleanup. 2x/Tag via Cron oder manuell."""
-    import os
-    # Only allow in dev or with secret header
-    secret = os.environ.get("ADMIN_SECRET", "cleanup-2026")
-    # For now, no auth check — will add later
     from app.memory_cleanup import run_cleanup
     stats = await run_cleanup(teacher_id)
     return {"status": "ok", "stats": stats}
 
 
 @app.post("/api/admin/knowledge-cleanup")
-async def knowledge_cleanup(teacher_id: str | None = None):
+async def knowledge_cleanup(teacher_id: str | None = None, _=Depends(verify_admin)):
     """Trigger knowledge cleanup — remove duplicates, archive low-quality, cap at 50."""
     from app.agents.knowledge import cleanup_knowledge
     stats = await cleanup_knowledge(teacher_id)
@@ -140,7 +137,7 @@ async def knowledge_cleanup(teacher_id: str | None = None):
 
 
 @app.post("/api/admin/seed-knowledge")
-async def seed_knowledge():
+async def seed_knowledge(_=Depends(verify_admin)):
     """Re-seed generic profiles into agent_knowledge."""
     from app.seed_knowledge import seed_generic_profiles
     count = await seed_generic_profiles()
