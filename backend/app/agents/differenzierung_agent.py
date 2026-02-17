@@ -4,7 +4,7 @@ import logging
 
 from pydantic_ai import Agent, RunContext
 
-from app.agents.base import BaseMaterialDeps
+from app.agents.base import BaseMaterialDeps, register_ask_teacher_tool, register_ask_teacher_tool
 from app.agents.knowledge import (
     get_good_practices,
     get_conversation_context,
@@ -123,6 +123,8 @@ def create_diff_agent() -> Agent[DiffDeps, DifferenzierungStructure]:
             return "Keine gespeicherten Präferenzen."
         parts = [f"- {p.get('description', '')}" for p in prefs if p.get("description")]
         return "Lehrkraft-Präferenzen:\n" + "\n".join(parts) if parts else "Keine Präferenzen."
+
+    register_ask_teacher_tool(agent)
 
     return agent
 

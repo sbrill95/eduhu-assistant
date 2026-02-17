@@ -4,7 +4,7 @@ import logging
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
 
-from app.agents.base import BaseMaterialDeps
+from app.agents.base import BaseMaterialDeps, register_ask_teacher_tool, register_ask_teacher_tool
 
 from app.agents.llm import get_haiku
 from app.agents.knowledge import (
@@ -107,6 +107,8 @@ def create_versuchsanleitung_agent() -> Agent[VersuchsanleitungDeps, Versuchsanl
             return "Keine gespeicherten Präferenzen."
         parts = [f"- {p.get('description', '')}" for p in prefs if p.get("description")]
         return "Lehrkraft-Präferenzen:\n" + "\n".join(parts) if parts else "Keine Präferenzen."
+
+    register_ask_teacher_tool(agent)
 
     return agent
 

@@ -1,6 +1,11 @@
 """Base classes for material sub-agents."""
 
+import logging
 from dataclasses import dataclass
+
+from pydantic_ai import Agent, RunContext
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -32,3 +37,41 @@ class ClarificationNeededError(Exception):
         self.options = options
         self.message_history = message_history or []
         super().__init__(question)
+
+
+def register_ask_teacher_tool(agent: Agent) -> None:
+    """Register the ask_teacher tool on any material sub-agent.
+    
+    This tool allows the agent to ask clarifying questions when:
+    - There's a CONTRADICTION in the request
+    - A CRITICAL decision can't be derived from available context
+    
+    It raises ClarificationNeededError which the router catches.
+    """
+
+    @agent.tool
+    async def ask_teacher(ctx: RunContext[BaseMaterialDeps], question: str) -> str:
+        """Stelle eine Rückfrage an die Lehrkraft.
+        
+        NUR nutzen wenn:
+        - Ein WIDERSPRUCH vorliegt (z.B. "45 Min aber 10 komplexe Aufgaben")
+        - Eine KRITISCHE Entscheidung ansteht die du NICHT aus Tools/Kontext ableiten kannst
+        
+        NICHT nutzen für:
+        - Stil-Fragen, Format-Fragen → entscheide selbst
+        - Infos die du per Tool finden könntest → nutze erst search_curriculum / get_teacher_preferences
+        
+        question: Die konkrete Frage an die Lehrkraft (1-2 Sätze, deutsch)
+        """
+        logger.info(f"Sub-agent asks teacher: {question}")
+        # Get current message history from the run context if available
+        msg_history = []
+        try:
+            if hasattr(ctx, '_result') and hasattr(ctx._result, 'all_messages'):
+                msg_history = ctx._result.all_messages()
+        except Exception:
+            pass
+        raise ClarificationNeededError(
+            question=question,
+            message_history=msg_history,
+        )

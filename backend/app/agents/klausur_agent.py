@@ -15,7 +15,7 @@ import logging
 from pydantic_ai import Agent, RunContext
 
 from app.agents.llm import get_sonnet
-from app.agents.base import BaseMaterialDeps
+from app.agents.base import BaseMaterialDeps, register_ask_teacher_tool
 from app.agents.knowledge import (
     get_good_practices,
     get_conversation_context,
@@ -185,6 +185,9 @@ def create_klausur_agent() -> Agent[KlausurDeps, ExamStructure]:
             if desc:
                 parts.append(f"- {desc}")
         return "Lehrkraft-Präferenzen:\n" + "\n".join(parts) if parts else "Keine Präferenzen."
+
+    # Register ask_teacher tool for clarification
+    register_ask_teacher_tool(agent)
 
     return agent
 
