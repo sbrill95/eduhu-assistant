@@ -311,18 +311,29 @@ async def _save_session(
 ) -> None:
     """Save a new agent session."""
     try:
-        await db.insert("agent_sessions", {
-            "id": session_id,
-            "conversation_id": conversation_id,
+        data = {
             "teacher_id": teacher_id,
             "agent_type": agent_type,
             "material_structure": material_structure,
             "message_history": message_history,
             "status": status,
             "state": {},
-        })
+        }
+        if session_id:
+            data["id"] = session_id
+        if conversation_id:
+            data["conversation_id"] = conversation_id
+        result = await db.insert("agent_sessions", data)
+        logger.info(f"Session saved: {session_id}")
     except Exception as e:
-        logger.error(f"Failed to save session {session_id}: {e}")
+        # Get response body for debugging
+        response_text = ""
+        if hasattr(e, 'response'):
+            try:
+                response_text = e.response.text[:500]
+            except Exception:
+                pass
+        logger.error(f"Failed to save session {session_id}: {e} | Response: {response_text}")
 
 
 def _build_prompt(request: MaterialRequest, material_type: str) -> str:

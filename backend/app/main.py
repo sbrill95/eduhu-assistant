@@ -117,7 +117,7 @@ async def get_suggestions_wrapper(teacher_id: str):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "0.4.0", "material_types": 12, "routes": 45}
+    return {"status": "ok", "version": "0.5.0", "material_types": 12, "routes": len(app.routes)}
 
 
 @app.post("/api/admin/memory-cleanup")
