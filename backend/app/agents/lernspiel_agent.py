@@ -4,7 +4,7 @@ import logging
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
 
-from app.agents.base import BaseMaterialDeps, register_ask_teacher_tool
+from app.agents.base import BaseMaterialDeps, register_ask_teacher_tool, DIRECT_GENERATION_DIRECTIVE
 
 from app.agents.llm import get_haiku
 from app.agents.knowledge import (
@@ -50,7 +50,7 @@ LernspielDeps = BaseMaterialDeps
 
 
 async def _system_prompt(ctx: RunContext[LernspielDeps]) -> str:
-    prompt = SYSTEM_PROMPT
+    prompt = SYSTEM_PROMPT + DIRECT_GENERATION_DIRECTIVE
     if ctx.deps.wissenskarte:
         prompt += f"\n\n{ctx.deps.wissenskarte}"
     if ctx.deps.teacher_context:

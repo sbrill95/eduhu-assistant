@@ -4,7 +4,7 @@ import logging
 
 from pydantic_ai import Agent, RunContext
 
-from app.agents.base import BaseMaterialDeps, register_ask_teacher_tool
+from app.agents.base import BaseMaterialDeps, register_ask_teacher_tool, DIRECT_GENERATION_DIRECTIVE
 from app.agents.knowledge import (
     get_good_practices,
     get_conversation_context,
@@ -56,7 +56,7 @@ DiffDeps = BaseMaterialDeps
 
 
 async def _diff_system_prompt(ctx: RunContext[DiffDeps]) -> str:
-    prompt = DIFF_SYSTEM_PROMPT
+    prompt = DIFF_SYSTEM_PROMPT + DIRECT_GENERATION_DIRECTIVE
     if ctx.deps.wissenskarte:
         prompt += f"\n\n{{ctx.deps.wissenskarte}}"
     if ctx.deps.teacher_context:

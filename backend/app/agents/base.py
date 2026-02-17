@@ -26,6 +26,16 @@ class BaseMaterialDeps:
     teacher_context: str = ""
 
 
+DIRECT_GENERATION_DIRECTIVE = """
+## WICHTIG: Direkt generieren!
+Du hast Fach, Klasse und Thema — das reicht. GENERIERE SOFORT.
+Nutze sinnvolle Defaults für alles was nicht angegeben ist.
+Stelle Rückfragen (ask_teacher) NUR bei echten Widersprüchen.
+KEINE Rückfragen bei fehlenden Details — entscheide selbst.
+Wenn du fragst, biete Multiple-Choice-Optionen an (options Parameter).
+"""
+
+
 class ClarificationNeededError(Exception):
     """Raised by sub-agents when they need clarification from the teacher.
     
