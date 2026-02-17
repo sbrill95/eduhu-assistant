@@ -315,7 +315,6 @@ async def _save_session(
             "teacher_id": teacher_id,
             "agent_type": agent_type,
             "material_structure": material_structure,
-            "message_history": message_history,
             "status": status,
             "state": {},
         }
@@ -323,17 +322,22 @@ async def _save_session(
             data["id"] = session_id
         if conversation_id:
             data["conversation_id"] = conversation_id
+        # message_history: try with it first, fall back without
+        if message_history:
+            data["message_history"] = message_history
         result = await db.insert("agent_sessions", data)
         logger.info(f"Session saved: {session_id}")
     except Exception as e:
-        # Get response body for debugging
-        response_text = ""
-        if hasattr(e, 'response'):
+        # Retry without message_history (PostgREST schema cache may be stale)
+        if "message_history" in data:
             try:
-                response_text = e.response.text[:500]
+                data.pop("message_history")
+                await db.insert("agent_sessions", data)
+                logger.info(f"Session saved (without message_history): {session_id}")
+                return
             except Exception:
                 pass
-        logger.error(f"Failed to save session {session_id}: {e} | Response: {response_text}")
+        logger.error(f"Failed to save session {session_id}: {e}")
 
 
 def _build_prompt(request: MaterialRequest, material_type: str) -> str:
