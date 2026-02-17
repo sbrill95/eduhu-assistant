@@ -255,8 +255,63 @@
 
 ---
 
+---
+
+## Phase 0: Lernloop aktivieren (HÖCHSTE PRIO)
+
+> Die Sub-Agents arbeiten aktuell ohne Fachwissen und ohne Lernfähigkeit.
+> Die Architektur (Wissenskarte, agent_knowledge) ist designed und die DB existiert,
+> aber der Loop läuft nicht. Das ist der wichtigste architektonische Hebel.
+
+### Ist-Zustand
+- ✅ `agent_knowledge` Tabelle (4 Typen: generic, good_practice, preference, feedback)
+- ✅ 11 Generic Profiles geseeded
+- ✅ `build_wissenskarte()` — kompakte Summary für Sub-Agent Prompt
+- ✅ Tools gebaut: `get_good_practices`, `get_teacher_preferences`, `save_preference`, `save_good_practice`
+- ✅ `material_learning_agent.py` existiert
+- ❌ Nur Klausur-Agent nutzt Wissenskarte — 10 andere Sub-Agents arbeiten statisch
+- ❌ Learning-Agent hat kein Feedback-Signal (weiß nicht ob Material gut/schlecht war)
+- ❌ Good Practices werden nie gespeichert (Mechanismus da, nie getriggert)
+- ❌ DOCX-Download wird nicht als positives Signal erfasst
+- ❌ `user_memories` und `agent_knowledge` sind getrennte Silos
+
+### Soll-Loop
+```
+Lehrer fragt Material an
+  → Sub-Agent lädt Wissenskarte (Generic + Good Practices + Teacher Preferences)
+  → Generiert Material MIT diesem Wissen
+  → Lehrer reagiert:
+      - Download = positives Signal
+      - Iteration ("ändere das") = negatives Signal
+      - Explizites Feedback = direktes Signal
+  → Learning-Agent extrahiert: Was war gut/schlecht? Was will der Lehrer?
+  → Speichert in agent_knowledge (good_practice / preference / feedback)
+  → Nächstes Mal: Sub-Agent hat besseres Wissen
+```
+
+### Implementierungsschritte
+
+| # | Was | Wie | Aufwand |
+|---|-----|-----|---------|
+| 0a | **Wissenskarte in alle Sub-Agents** | `build_wissenskarte(teacher_id, agent_type)` in die 10 fehlenden Agents einbauen (als Teil des System-Prompts) | 1-2h |
+| 0b | **Feedback-Signale erfassen** | DOCX-Download → `agent_knowledge` type=feedback, score=1.0; `continue_material` → type=feedback, score=0.3 + Änderungswunsch als content | 1h |
+| 0c | **Learning-Agent mit echtem Input** | Nach Material-Generierung: Feedback-Signale + Chat-Kontext + Material-Struktur übergeben | 1h |
+| 0d | **Good Practices automatisch speichern** | Bei positivem Feedback (Download ohne Iteration): Material-Struktur als good_practice in agent_knowledge | 30 Min |
+| 0e | **Memories → Knowledge Bridge** | `build_wissenskarte()` liest AUCH aus `user_memories` (Fach-Präferenzen, Klasseninfos) — oder Memory-Agent schreibt parallel in agent_knowledge | 1h |
+| 0f | **Quality Score Update** | Bei Iteration: Score des gespeicherten Materials senken; bei Download: Score erhöhen. Wissenskarte priorisiert hoch-bewertete Practices. | 30 Min |
+
+**Gesamtaufwand: ~5-6h**
+
+### Erwartetes Ergebnis
+- Lehrer erstellt 3 Klausuren → Sub-Agent kennt seine Vorlieben beim 4. Mal
+- "Bevorzugt praxisnahe Aufgaben" → wird in allen Material-Typen berücksichtigt
+- Good Practices sammeln sich an → neue Lehrer profitieren von generischen Best Practices
+
+---
+
 ## Empfehlung
 
-**Heute:** Phase 1 (7 Quick Fixes, ~2-3h) — sofort spürbare Verbesserung
-**Diese Woche:** Phase 2 anfangen (Benchmark-Runner) — automatisierte Qualitätsmessung
+**SOFORT:** Phase 0 (Lernloop) — der architektonische Kern, ohne den alles statisch bleibt
+**Parallel:** Phase 1 Quick Fixes (Prompt-Tweaks, 2-3h)
+**Diese Woche:** Phase 2 (Benchmark-Runner) — automatisierte Qualitätsmessung
 **Nächste Woche:** Phase 3 (Cross-Generation) — das "Wow"-Feature für Demos
