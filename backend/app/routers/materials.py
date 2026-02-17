@@ -1,6 +1,9 @@
+import asyncio
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from app.models import MaterialRequest, MaterialResponse
+from app.agents.material_learning_agent import run_download_learning
 from app.services.material_service import (
     generate_material as gen_mat,
     resolve_material_type,
@@ -53,6 +56,9 @@ async def download_material_docx(material_id: str):
         docx_bytes = await load_docx_from_db(material_id)
         if not docx_bytes:
             raise HTTPException(404, "Material nicht gefunden")
+    # Fire-and-forget: Learning signal
+    asyncio.create_task(run_download_learning(material_id))
+
     return FileResponse(
         path=str(docx_path),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

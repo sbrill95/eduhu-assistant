@@ -1,119 +1,201 @@
-"""Material-Learning-Agent — learns from user interactions with materials.
+"""Material-Learning-Agent — learns from download + iteration signals.
 
-Analyzes chat messages for implicit feedback signals and stores them
-in agent_knowledge (preferences + good practices).
+Two main functions:
+1. run_download_learning(material_id) — called when teacher downloads DOCX
+2. run_iteration_learning(...) — called after material iteration
 """
 
 import logging
-from pydantic_ai import Agent
+from typing import Any
+
 from pydantic import BaseModel
-from typing import Optional
+from pydantic_ai import Agent
+
 from app.agents.llm import get_haiku
-from app.agents.knowledge import save_preference, save_good_practice, update_quality_score
+from app.agents.knowledge import save_good_practice, save_preference
+from app import db
 
 logger = logging.getLogger(__name__)
 
 
-class MaterialLearning(BaseModel):
-    """What the agent extracted from the conversation."""
-    has_material_interaction: bool = False
-    material_id: Optional[str] = None
-    signal_type: Optional[str] = None  # "positive", "negative", "iteration", "download", "continued"
-    preferences_update: Optional[dict] = None
-    preference_description: Optional[str] = None  # Human-readable summary
-    should_save_template: bool = False
-    rating: Optional[int] = None  # 1-5
-    fach: Optional[str] = None
-    material_type: Optional[str] = None  # "klausur", "differenzierung", etc.
-
-
-LEARNING_PROMPT = """\
-Du analysierst Chat-Nachrichten zwischen einer Lehrkraft und einem KI-Assistenten.
-Deine Aufgabe: Erkenne Signale über Material-Qualität und Lehrer-Präferenzen.
-
-## Signale erkennen:
-- Positives Feedback: "gut", "perfekt", "genau so", "passt", "super" → signal_type="positive", rating=4-5
-- Negatives Feedback: "zu schwer", "zu leicht", "zu vage", "nicht gut" → signal_type="negative", rating=1-2
-- Iteration: Lehrer hat Aufgabe ändern lassen → signal_type="iteration", rating=3
-- Weiterarbeit: Lehrer stellt Folgefragen zum Material → signal_type="continued", rating=3
-- Download: Lehrer hat Material heruntergeladen → signal_type="download", rating=4
-- Keine Material-Interaktion: has_material_interaction=false
-
-## Präferenzen extrahieren (wenn erkennbar):
-Extrahiere als preferences_update dict UND als preference_description (kurzer deutscher Satz).
-Beispiele:
-- "Ich hätte gerne 5 Aufgaben" → {"aufgaben_anzahl": 5}, "Bevorzugt 5 Aufgaben pro Klausur"
-- "Weniger AFB III" → {"afb_max_iii_prozent": 25}, "Weniger AFB III gewünscht"
-- "Immer mit Bonusaufgabe" → {"bonusaufgabe": true}, "Wünscht immer eine Bonusaufgabe"
-- "Kürzere Aufgaben" → {"aufgaben_laenge": "kurz"}, "Bevorzugt kürzere Aufgabenstellungen"
-
-## Fach und Material-Typ erkennen:
-Extrahiere wenn möglich das Fach (z.B. "physik", "deutsch") und den Material-Typ (z.B. "klausur", "differenzierung").
-
-## should_save_template:
-Setze auf true wenn Rating >= 4 oder Lehrer explizit positiv reagiert."""
-
-
-async def run_material_learning(
-    teacher_id: str,
-    conversation_id: str,
-    messages: list[dict],
-) -> None:
-    """Fire-and-forget: Analyze conversation for material learning signals."""
+async def run_download_learning(material_id: str) -> None:
+    """Fire-and-forget: Teacher downloaded material → save as good practice."""
     try:
-        recent = messages[-6:] if len(messages) > 6 else messages
-        conversation_text = "\n".join(
-            f"{m.get('role', '?')}: {m.get('content', '')[:500]}"
-            for m in recent
+        record = await db.select(
+            "generated_materials",
+            columns="teacher_id,type,content_json",
+            filters={"id": material_id},
+            single=True,
         )
-
-        agent = Agent(
-            get_haiku(),
-            output_type=MaterialLearning,
-            instructions=LEARNING_PROMPT,
-        )
-
-        result = await agent.run(
-            f"Analysiere diese Konversation:\n\n{conversation_text}"
-        )
-        learning = result.output
-
-        if not learning.has_material_interaction:
+        if not record:
+            logger.warning(f"Download learning: material {material_id} not found")
             return
 
-        logger.info(
-            f"Material learning: signal={learning.signal_type}, "
-            f"rating={learning.rating}, fach={learning.fach}, "
-            f"type={learning.material_type}, prefs={learning.preferences_update}"
+        teacher_id = record.get("teacher_id", "")
+        material_type = record.get("type", "unknown")
+        content = record.get("content_json", {})
+
+        if not teacher_id or not content:
+            return
+
+        fach = content.get("fach", "allgemein")
+        thema = content.get("thema", content.get("fach_thema", ""))
+        titel = content.get("titel", content.get("fach", ""))
+
+        description = f"Heruntergeladenes Material: {titel} — {thema}"
+
+        practice_content: dict[str, Any] = {
+            "signal": "download",
+            "material_type": material_type,
+            "thema": thema,
+        }
+
+        if material_type == "klausur":
+            aufgaben = content.get("aufgaben", [])
+            afb_counts: dict[str, int] = {}
+            for a in aufgaben:
+                level = str(a.get("afb_level", "?"))
+                afb_counts[level] = afb_counts.get(level, 0) + 1
+            practice_content["afb_verteilung"] = afb_counts
+            practice_content["anzahl_aufgaben"] = len(aufgaben)
+            practice_content["gesamtpunkte"] = content.get("gesamtpunkte", 0)
+
+        await save_good_practice(
+            teacher_id=teacher_id,
+            agent_type=material_type,
+            fach=fach,
+            description=description,
+            content=practice_content,
+            quality_score=0.7,
         )
-
-        agent_type = learning.material_type or "klausur"
-        fach = learning.fach or "allgemein"
-
-        # Save preferences if detected
-        if learning.preferences_update and learning.preference_description:
-            await save_preference(
-                teacher_id=teacher_id,
-                agent_type=agent_type,
-                fach=fach,
-                description=learning.preference_description,
-                content=learning.preferences_update,
-            )
-
-        # Save as good practice if positively rated
-        if learning.should_save_template and learning.rating and learning.rating >= 4:
-            await save_good_practice(
-                teacher_id=teacher_id,
-                agent_type=agent_type,
-                fach=fach,
-                description=f"Positiv bewertetes Material (Rating {learning.rating}/5)",
-                content={"signal": learning.signal_type, "rating": learning.rating},
-                quality_score=learning.rating / 5.0,
-            )
-
-        # Update quality score for negative feedback
-        if learning.signal_type == "negative" and learning.material_id:
-            await update_quality_score(learning.material_id, -0.2)
+        logger.info(f"Download learning saved for {material_id} ({material_type})")
 
     except Exception as e:
-        logger.error(f"Material learning agent failed: {e}")
+        logger.error(f"run_download_learning failed: {e}")
+
+
+class DiffLearning(BaseModel):
+    """Output of the diff-learning analysis."""
+    changes: list[str] = []
+    preferences: list[str] = []
+    preference_keys: dict[str, Any] = {}
+
+
+DIFF_PROMPT = """\
+Du vergleichst zwei Versionen eines generierten Lehrmaterials.
+Die Lehrkraft hat Version 1 erhalten und dann eine Änderung angefordert (Anweisung unten).
+Version 2 ist das Ergebnis.
+
+Deine Aufgabe:
+1. Identifiziere die KONKRETEN Änderungen zwischen V1 und V2
+2. Leite daraus PRÄFERENZEN der Lehrkraft ab
+
+Beispiel:
+- Anweisung: "leichter machen"
+- Änderung: AFB III Aufgaben entfernt, mehr AFB I
+- Präferenz: "Bevorzugt einfachere Aufgaben (AFB I-II Fokus)"
+- preference_keys: {"afb_fokus": "I-II", "schwierigkeit": "leicht"}
+
+Sei konkret und spezifisch. Keine allgemeinen Aussagen."""
+
+
+async def run_iteration_learning(
+    material_id: str,
+    teacher_id: str,
+    material_type: str,
+    fach: str,
+    old_structure: dict,
+    new_structure: dict,
+    anweisung: str,
+) -> None:
+    """Fire-and-forget: Teacher iterated on material → diff-learning."""
+    try:
+        agent = Agent(
+            get_haiku(),
+            output_type=DiffLearning,
+            instructions=DIFF_PROMPT,
+        )
+
+        old_summary = _summarize_structure(old_structure, material_type)
+        new_summary = _summarize_structure(new_structure, material_type)
+
+        prompt = (
+            f"Material-Typ: {material_type}\n"
+            f"Fach: {fach}\n"
+            f"Anweisung der Lehrkraft: {anweisung}\n\n"
+            f"## Version 1 (vorher)\n{old_summary}\n\n"
+            f"## Version 2 (nachher)\n{new_summary}"
+        )
+
+        result = await agent.run(prompt)
+        learning = result.output
+
+        logger.info(
+            f"Diff learning: {len(learning.changes)} changes, "
+            f"{len(learning.preferences)} preferences"
+        )
+
+        for i, pref_desc in enumerate(learning.preferences):
+            await save_preference(
+                teacher_id=teacher_id,
+                agent_type=material_type,
+                fach=fach,
+                description=pref_desc,
+                content=learning.preference_keys if i == 0 else {},
+            )
+
+        thema = new_structure.get("thema", new_structure.get("fach_thema", ""))
+        await save_good_practice(
+            teacher_id=teacher_id,
+            agent_type=material_type,
+            fach=fach,
+            description=f"Iteriertes Material: {thema} (Anweisung: {anweisung[:80]})",
+            content={
+                "signal": "iteration",
+                "anweisung": anweisung,
+                "changes": learning.changes[:5],
+            },
+            quality_score=0.8,
+        )
+
+    except Exception as e:
+        logger.error(f"run_iteration_learning failed: {e}")
+
+
+def _summarize_structure(structure: dict, material_type: str) -> str:
+    """Create a token-efficient summary for diff comparison."""
+    if material_type == "klausur":
+        aufgaben = structure.get("aufgaben", [])
+        parts = [
+            f"Titel: {structure.get('titel', '?')}, "
+            f"Punkte: {structure.get('gesamtpunkte', '?')}"
+        ]
+        for i, a in enumerate(aufgaben, 1):
+            parts.append(
+                f"  {i}. {a.get('aufgabe', '?')} "
+                f"(AFB {a.get('afb_level', '?')}, {a.get('punkte', '?')}P)"
+            )
+        return "\n".join(parts)
+
+    elif material_type == "differenzierung":
+        niveaus = structure.get("niveaus", [])
+        parts = [f"Titel: {structure.get('titel', '?')}"]
+        for n in niveaus:
+            parts.append(
+                f"  {n.get('niveau', '?')}: "
+                f"{len(n.get('aufgaben', []))} Aufgaben, "
+                f"{n.get('zeitaufwand_minuten', '?')} Min"
+            )
+        return "\n".join(parts)
+
+    else:
+        keys = ["titel", "thema", "fach_thema", "leitfrage", "kompetenzen"]
+        parts = []
+        for k in keys:
+            if k in structure:
+                val = structure[k]
+                if isinstance(val, str):
+                    parts.append(f"{k}: {val[:200]}")
+                elif isinstance(val, list):
+                    parts.append(f"{k}: {len(val)} items")
+        return "\n".join(parts) if parts else str(structure)[:500]

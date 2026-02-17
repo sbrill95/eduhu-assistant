@@ -303,15 +303,32 @@ def create_agent() -> Agent[AgentDeps, str]:
             )
 
             # Update session
+            new_structure_dict = result.structure.model_dump() if hasattr(result.structure, 'model_dump') else {}
             await _db.update(
                 "agent_sessions",
                 {
-                    "material_structure": result.structure.model_dump() if hasattr(result.structure, 'model_dump') else {},
+                    "material_structure": new_structure_dict,
                     "material_id": result.material_id,
                     "updated_at": "now()",
                 },
                 filters={"id": session["id"]},
             )
+
+            # Fire-and-forget: Diff-Learning
+            import asyncio
+            from app.agents.material_learning_agent import run_iteration_learning
+            if structure and new_structure_dict:
+                asyncio.create_task(
+                    run_iteration_learning(
+                        material_id=result.material_id,
+                        teacher_id=ctx.deps.teacher_id,
+                        material_type=agent_type,
+                        fach=structure.get("fach", "allgemein"),
+                        old_structure=structure,
+                        new_structure=new_structure_dict,
+                        anweisung=anweisung,
+                    )
+                )
 
             summary = result.summary
             if ctx.deps.base_url:

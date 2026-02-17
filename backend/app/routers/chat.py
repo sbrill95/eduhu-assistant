@@ -6,7 +6,7 @@ from app.models import (
 )
 from app.agents.main_agent import get_agent, AgentDeps
 from app.agents.memory_agent import run_memory_agent
-from app.agents.material_learning_agent import run_material_learning
+# Material learning now triggered by download/iteration signals, not chat analysis
 from app.agents.summary_agent import maybe_summarize
 from app.deps import get_current_teacher_id
 from datetime import datetime, timezone
@@ -204,16 +204,6 @@ async def chat_send(
         )
         mem_task.add_done_callback(_on_memory_done)
 
-    # Fire-and-forget: material learning agent
-    def _on_learning_done(task: asyncio.Task):
-        if task.exception():
-            logger.error(f"Material learning agent failed: {task.exception()}")
-
-    learn_task = asyncio.create_task(
-        run_material_learning(teacher_id, conversation_id, full_messages)
-    )
-    learn_task.add_done_callback(_on_learning_done)
-
     return ChatResponse(
         conversation_id=conversation_id,
         message=ChatMessageOut(
@@ -326,16 +316,6 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
             )
             mem_task.add_done_callback(_on_memory_done)
 
-        # Fire-and-forget: material learning agent
-        def _on_learning_done(task: asyncio.Task):
-            if task.exception():
-                logger.error(f"Material learning agent failed: {task.exception()}")
-
-        learn_task = asyncio.create_task(
-            run_material_learning(teacher_id, conversation_id, full_messages)
-        )
-        learn_task.add_done_callback(_on_learning_done)
-    
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @router.get("/history")
