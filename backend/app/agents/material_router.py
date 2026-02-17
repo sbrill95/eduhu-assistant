@@ -1,10 +1,20 @@
-"""Material Router — routes material generation requests to sub-agents."""
+"""Material Router — routes material generation requests to sub-agents.
+
+Returns dict with type: "material" | "clarification"
+Supports session continuation with message_history.
+"""
 
 import asyncio
 import logging
+import uuid
+from typing import Any
 
+from pydantic_ai.messages import ModelMessage
+
+from app import db
 from app.config import get_settings
 from app.models import MaterialRequest
+from app.agents.base import BaseMaterialDeps, ClarificationNeededError
 from app.agents.klausur_agent import get_klausur_agent, KlausurDeps
 from app.agents.differenzierung_agent import get_diff_agent, DiffDeps
 from app.agents.hilfekarten_agent import get_hilfekarten_agent, HilfekarteDeps
@@ -21,7 +31,6 @@ from app.agents.knowledge import build_wissenskarte
 
 logger = logging.getLogger(__name__)
 
-# Map of supported material types to their agent_type keys
 SUPPORTED_TYPES = {
     "klausur", "klassenarbeit", "differenzierung",
     "hilfekarte", "escape_room", "mystery",
@@ -29,7 +38,6 @@ SUPPORTED_TYPES = {
     "stundenplanung", "podcast", "gespraechssimulation",
 }
 
-# Normalize aliases
 TYPE_ALIASES = {
     "klassenarbeit": "klausur",
     "arbeitsblatt": "versuchsanleitung",
@@ -46,11 +54,78 @@ def _normalize_type(material_type: str) -> str:
 
 def _is_retryable(exc: Exception) -> bool:
     name = type(exc).__name__
-    return any(keyword in name.lower() or keyword in str(exc).lower() for keyword in ("timeout", "connection", "server", "502", "503", "529", "429", "rate", "overloaded"))
+    return any(
+        keyword in name.lower() or keyword in str(exc).lower()
+        for keyword in ("timeout", "connection", "server", "502", "503", "529", "429", "rate", "overloaded")
+    )
 
 
-async def run_material_agent(request: MaterialRequest):
-    """Route to the correct sub-agent based on request type."""
+def _get_agent_and_deps(material_type: str, common_deps: dict):
+    """Return (agent, deps) for a given material type."""
+    dispatch = {
+        "klausur": (get_klausur_agent, KlausurDeps),
+        "differenzierung": (get_diff_agent, DiffDeps),
+        "hilfekarte": (get_hilfekarten_agent, HilfekarteDeps),
+        "escape_room": (get_escape_room_agent, EscapeRoomDeps),
+        "mystery": (get_mystery_agent, MysteryDeps),
+        "lernsituation": (get_lernsituation_agent, LernsituationDeps),
+        "lernspiel": (get_lernspiel_agent, LernspielDeps),
+        "versuchsanleitung": (get_versuchsanleitung_agent, VersuchsanleitungDeps),
+        "stundenplanung": (get_stundenplanung_agent, StundenplanungDeps),
+        "podcast": (get_podcast_agent, PodcastDeps),
+        "gespraechssimulation": (get_gespraechssimulation_agent, GespraechssimulationDeps),
+    }
+    if material_type not in dispatch:
+        raise ValueError(f"Kein Agent für Typ '{material_type}'")
+    get_agent, deps_cls = dispatch[material_type]
+    return get_agent(), deps_cls(**common_deps)
+
+
+def _serialize_messages(messages: list[ModelMessage]) -> list[dict]:
+    """Serialize pydantic-ai messages to JSON-safe dicts."""
+    result = []
+    for msg in messages:
+        try:
+            if hasattr(msg, "model_dump"):
+                result.append(msg.model_dump(mode="json"))
+            else:
+                result.append({"kind": "unknown", "content": str(msg)})
+        except Exception as e:
+            logger.debug(f"Could not serialize message: {e}")
+    return result
+
+
+def _deserialize_messages(data: list[dict]) -> list[ModelMessage] | None:
+    """Deserialize messages back. Returns None on failure (session expired)."""
+    if not data:
+        return None
+    try:
+        from pydantic_ai.messages import ModelMessage
+        results = []
+        for d in data:
+            kind = d.get("kind", "")
+            # Use pydantic-ai's model_validate for each message type
+            if kind == "request":
+                from pydantic_ai.messages import ModelRequest
+                results.append(ModelRequest.model_validate(d))
+            elif kind == "response":
+                from pydantic_ai.messages import ModelResponse
+                results.append(ModelResponse.model_validate(d))
+            else:
+                logger.warning(f"Unknown message kind: {kind}")
+        return results if results else None
+    except Exception as e:
+        logger.warning(f"Message deserialization failed (session expired): {e}")
+        return None
+
+
+async def run_material_agent(request: MaterialRequest) -> dict[str, Any]:
+    """Route to the correct sub-agent. Returns dict with type and payload.
+    
+    Returns:
+        {"type": "material", "output": <structure>, "session_id": str, "message_history": [...]}
+        {"type": "clarification", "question": str, "session_id": str, "message_history": [...]}
+    """
     material_type = _normalize_type(request.type)
 
     if material_type not in SUPPORTED_TYPES:
@@ -68,7 +143,6 @@ async def run_material_agent(request: MaterialRequest):
 
     prompt = _build_prompt(request, material_type)
 
-    # Common deps kwargs for all agents
     common_deps = dict(
         teacher_id=request.teacher_id,
         conversation_id=request.conversation_id,
@@ -77,43 +151,11 @@ async def run_material_agent(request: MaterialRequest):
         wissenskarte=wissenskarte,
     )
 
-    if material_type == "klausur":
-        agent = get_klausur_agent()
-        deps = KlausurDeps(**common_deps)
-    elif material_type == "differenzierung":
-        agent = get_diff_agent()
-        deps = DiffDeps(**common_deps)
-    elif material_type == "hilfekarte":
-        agent = get_hilfekarten_agent()
-        deps = HilfekarteDeps(**common_deps)
-    elif material_type == "escape_room":
-        agent = get_escape_room_agent()
-        deps = EscapeRoomDeps(**common_deps)
-    elif material_type == "mystery":
-        agent = get_mystery_agent()
-        deps = MysteryDeps(**common_deps)
-    elif material_type == "lernsituation":
-        agent = get_lernsituation_agent()
-        deps = LernsituationDeps(**common_deps)
-    elif material_type == "lernspiel":
-        agent = get_lernspiel_agent()
-        deps = LernspielDeps(**common_deps)
-    elif material_type == "versuchsanleitung":
-        agent = get_versuchsanleitung_agent()
-        deps = VersuchsanleitungDeps(**common_deps)
-    elif material_type == "stundenplanung":
-        agent = get_stundenplanung_agent()
-        deps = StundenplanungDeps(**common_deps)
-    elif material_type == "podcast":
-        agent = get_podcast_agent()
-        deps = PodcastDeps(**common_deps)
-    elif material_type == "gespraechssimulation":
-        agent = get_gespraechssimulation_agent()
-        deps = GespraechssimulationDeps(**common_deps)
-    else:
-        raise ValueError(f"Kein Agent für Typ '{material_type}'")
+    agent, deps = _get_agent_and_deps(material_type, common_deps)
 
     logger.info(f"Running {material_type} agent: {request.fach} {request.klasse} {request.thema}")
+
+    session_id = str(uuid.uuid4())
 
     last_error: Exception | None = None
     for attempt in range(1 + max_retries):
@@ -122,7 +164,42 @@ async def run_material_agent(request: MaterialRequest):
                 agent.run(prompt, deps=deps),
                 timeout=timeout,
             )
-            return result.output
+            messages = _serialize_messages(result.all_messages())
+
+            # Save session
+            await _save_session(
+                session_id=session_id,
+                conversation_id=request.conversation_id,
+                teacher_id=request.teacher_id,
+                agent_type=material_type,
+                material_structure=result.output.model_dump() if hasattr(result.output, "model_dump") else {},
+                message_history=messages,
+            )
+
+            return {
+                "type": "material",
+                "output": result.output,
+                "session_id": session_id,
+                "message_history": messages,
+            }
+        except ClarificationNeededError as e:
+            # Agent needs more info — save partial state and return question
+            messages = _serialize_messages(e.message_history) if e.message_history else []
+            await _save_session(
+                session_id=session_id,
+                conversation_id=request.conversation_id,
+                teacher_id=request.teacher_id,
+                agent_type=material_type,
+                material_structure={},
+                message_history=messages,
+                status="clarification",
+            )
+            return {
+                "type": "clarification",
+                "question": e.question,
+                "session_id": session_id,
+                "message_history": messages,
+            }
         except asyncio.TimeoutError:
             logger.warning(f"{material_type} agent timeout, Versuch {attempt + 1}")
             last_error = TimeoutError(f"{material_type}-Agent hat nach {timeout}s nicht geantwortet")
@@ -133,7 +210,119 @@ async def run_material_agent(request: MaterialRequest):
                 last_error = e
             else:
                 raise
+
     raise last_error  # type: ignore[misc]
+
+
+async def continue_agent_session(session_id: str, user_input: str) -> dict[str, Any]:
+    """Continue an existing agent session (after clarification or for iteration).
+    
+    Returns same dict format as run_material_agent.
+    """
+    # Load session
+    session = await db.select(
+        "agent_sessions",
+        filters={"id": session_id},
+        single=True,
+    )
+    if not session:
+        raise ValueError("Session nicht gefunden. Bitte starte eine neue Materialerstellung.")
+
+    agent_type = session.get("agent_type", "klausur")
+    conversation_id = session.get("conversation_id", "")
+    teacher_id = session.get("teacher_id", "")
+
+    # Restore message history
+    raw_history = session.get("message_history", [])
+    message_history = _deserialize_messages(raw_history)
+    if message_history is None:
+        raise ValueError("Session abgelaufen. Bitte starte eine neue Materialerstellung.")
+
+    # Build deps
+    settings = get_settings()
+    teacher_context = await build_block3_context(teacher_id)
+    wissenskarte = await build_wissenskarte(teacher_id, agent_type, session.get("fach", ""))
+
+    common_deps = dict(
+        teacher_id=teacher_id,
+        conversation_id=conversation_id,
+        fach=session.get("material_structure", {}).get("fach", ""),
+        teacher_context=teacher_context,
+        wissenskarte=wissenskarte,
+    )
+
+    agent, deps = _get_agent_and_deps(agent_type, common_deps)
+
+    logger.info(f"Continuing {agent_type} session {session_id}: {user_input[:100]}")
+
+    try:
+        result = await asyncio.wait_for(
+            agent.run(user_input, deps=deps, message_history=message_history),
+            timeout=settings.sub_agent_timeout_seconds,
+        )
+        messages = _serialize_messages(result.all_messages())
+
+        # Update session
+        structure = result.output.model_dump() if hasattr(result.output, "model_dump") else {}
+        await db.update(
+            "agent_sessions",
+            {
+                "material_structure": structure,
+                "message_history": messages,
+                "status": "active",
+                "updated_at": "now()",
+            },
+            filters={"id": session_id},
+        )
+
+        return {
+            "type": "material",
+            "output": result.output,
+            "session_id": session_id,
+            "message_history": messages,
+        }
+    except ClarificationNeededError as e:
+        messages = _serialize_messages(e.message_history) if e.message_history else []
+        await db.update(
+            "agent_sessions",
+            {
+                "message_history": messages,
+                "status": "clarification",
+                "updated_at": "now()",
+            },
+            filters={"id": session_id},
+        )
+        return {
+            "type": "clarification",
+            "question": e.question,
+            "session_id": session_id,
+            "message_history": messages,
+        }
+
+
+async def _save_session(
+    session_id: str,
+    conversation_id: str,
+    teacher_id: str,
+    agent_type: str,
+    material_structure: dict,
+    message_history: list,
+    status: str = "active",
+) -> None:
+    """Save a new agent session."""
+    try:
+        await db.insert("agent_sessions", {
+            "id": session_id,
+            "conversation_id": conversation_id,
+            "teacher_id": teacher_id,
+            "agent_type": agent_type,
+            "material_structure": material_structure,
+            "message_history": message_history,
+            "status": status,
+            "state": {},
+        })
+    except Exception as e:
+        logger.error(f"Failed to save session {session_id}: {e}")
 
 
 def _build_prompt(request: MaterialRequest, material_type: str) -> str:

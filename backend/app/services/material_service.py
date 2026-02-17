@@ -11,7 +11,7 @@ from pydantic_ai import Agent
 
 from app import db
 from app.models import MaterialRequest, ExamStructure, DifferenzierungStructure, ExamTask
-from app.agents.material_router import run_material_agent, _normalize_type
+from app.agents.material_router import run_material_agent, continue_agent_session, _normalize_type
 from app.agents.llm import get_haiku
 from app.docx_generator import (
     generate_exam_docx, generate_diff_docx, generate_generic_docx,
@@ -21,6 +21,27 @@ from app.docx_generator import (
 logger = logging.getLogger(__name__)
 
 MATERIALS_DIR = Path("/tmp/materials")
+
+def _generate_docx_for_structure(structure, material_type: str) -> bytes:
+    """Generate DOCX bytes from a material structure."""
+    if isinstance(structure, ExamStructure):
+        return generate_exam_docx(structure)
+    elif isinstance(structure, DifferenzierungStructure):
+        return generate_diff_docx(structure)
+    else:
+        from app.agents.stundenplanung_agent import StundenplanungStructure
+        from app.agents.mystery_agent import MysteryStructure
+        from app.agents.escape_room_agent import EscapeRoomStructure
+        if isinstance(structure, StundenplanungStructure):
+            return generate_stundenplanung_docx(structure)
+        elif isinstance(structure, MysteryStructure):
+            return generate_mystery_docx(structure)
+        elif isinstance(structure, EscapeRoomStructure):
+            return generate_escape_room_docx(structure)
+        else:
+            title = getattr(structure, "titel", "Material")
+            return generate_generic_docx(structure, title)
+
 
 def resolve_material_type(raw_type: str) -> str:
     """Normalize user-provided type to a canonical value."""
@@ -33,6 +54,8 @@ class MaterialResult:
     structure: any  # ExamStructure, DifferenzierungStructure, or new agent types
     docx_bytes: bytes
     summary: str
+    result_type: str = "material"  # "material" | "clarification"
+    session_id: str = ""
 
 
 async def generate_material(
@@ -60,30 +83,32 @@ async def generate_material(
         zusatz_anweisungen=zusatz_anweisungen or None,
     )
 
-    structure = await run_material_agent(request)
+    router_result = await run_material_agent(request)
+
+    # Handle clarification (sub-agent needs more info)
+    if router_result["type"] == "clarification":
+        # Return a MaterialResult with no DOCX — caller handles the question
+        return MaterialResult(
+            material_id="",
+            structure=None,
+            docx_bytes=b"",
+            summary=router_result["question"],
+            result_type="clarification",
+            session_id=router_result.get("session_id", ""),
+        )
+
+    structure = router_result["output"]
+    session_id = router_result.get("session_id", "")
 
     material_id = str(uuid.uuid4())
 
+    docx_bytes = _generate_docx_for_structure(structure, resolved_type)
+
     if isinstance(structure, ExamStructure):
-        docx_bytes = generate_exam_docx(structure)
         summary = _format_exam_summary(structure, material_id)
     elif isinstance(structure, DifferenzierungStructure):
-        docx_bytes = generate_diff_docx(structure)
         summary = _format_diff_summary(structure, material_id)
     else:
-        # All new agent types use generic or specialized DOCX
-        from app.agents.stundenplanung_agent import StundenplanungStructure
-        from app.agents.mystery_agent import MysteryStructure
-        from app.agents.escape_room_agent import EscapeRoomStructure
-        if isinstance(structure, StundenplanungStructure):
-            docx_bytes = generate_stundenplanung_docx(structure)
-        elif isinstance(structure, MysteryStructure):
-            docx_bytes = generate_mystery_docx(structure)
-        elif isinstance(structure, EscapeRoomStructure):
-            docx_bytes = generate_escape_room_docx(structure)
-        else:
-            title = getattr(structure, "titel", "Material")
-            docx_bytes = generate_generic_docx(structure, title)
         summary = _format_generic_summary(structure, material_id, resolved_type)
 
     await _store_material(material_id, teacher_id, docx_bytes, structure, resolved_type)

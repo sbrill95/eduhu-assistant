@@ -111,20 +111,12 @@ def create_agent() -> Agent[AgentDeps, str]:
                 zusatz_anweisungen=zusatz_anweisungen,
                 conversation_id=ctx.deps.conversation_id,
             )
-            # Save session for multi-turn iteration
-            try:
-                from app import db as _db
-                await _db.insert("agent_sessions", {
-                    "conversation_id": ctx.deps.conversation_id or "unknown",
-                    "teacher_id": ctx.deps.teacher_id,
-                    "agent_type": material_type,
-                    "material_structure": result.structure.model_dump() if hasattr(result.structure, 'model_dump') else {},
-                    "material_id": result.material_id,
-                    "status": "active",
-                })
-            except Exception as sess_err:
-                logger.error(f"Session save failed (non-critical): {sess_err}")
 
+            # Handle clarification from sub-agent
+            if result.result_type == "clarification":
+                return f"🤔 Der Sub-Agent hat eine Rückfrage:\n\n{result.summary}\n\nBitte antworte, dann generiere ich das Material."
+
+            # Session is saved by the router now
             summary = result.summary
             if ctx.deps.base_url:
                 summary = summary.replace("Download: /api/", f"[📥 Download DOCX]({ctx.deps.base_url}/api/")
@@ -266,14 +258,14 @@ def create_agent() -> Agent[AgentDeps, str]:
         'Zu schwer', 'Zu leicht', 'Ändere Aufgabe X', etc.
         anweisung: Was genau geändert werden soll."""
         from app import db as _db
+        from app.agents.material_router import continue_agent_session
 
         try:
-            # Find latest active session for this conversation
+            # Find latest active or clarification session for this conversation
             sessions = await _db.select(
                 "agent_sessions",
                 filters={
                     "conversation_id": ctx.deps.conversation_id,
-                    "status": "active",
                 },
                 order="created_at.desc",
                 limit=1,
@@ -282,60 +274,55 @@ def create_agent() -> Agent[AgentDeps, str]:
                 return "Kein aktives Material gefunden. Bitte erstelle zuerst Material mit generate_material."
 
             session = sessions[0]
-            session.get("material_id")
-            agent_type = session.get("agent_type", "klausur")
-            structure = session.get("material_structure", {})
+            session_id = session["id"]
+            old_structure = session.get("material_structure", {})
 
-            if not structure:
-                return "Material-Struktur nicht gefunden. Bitte erstelle neues Material."
+            # Use continue_agent_session with message_history
+            router_result = await continue_agent_session(session_id, anweisung)
 
-            # Re-generate with modification instruction
-            from app.services.material_service import generate_material as gen_mat
+            if router_result["type"] == "clarification":
+                return f"🤔 Rückfrage zur Überarbeitung:\n\n{router_result['question']}"
 
-            result = await gen_mat(
-                teacher_id=ctx.deps.teacher_id,
-                fach=structure.get("fach", ""),
-                klasse=structure.get("klasse", structure.get("zielgruppe", "")),
-                thema=structure.get("thema", structure.get("fach_thema", "")),
-                material_type=agent_type,
-                zusatz_anweisungen=f"ÜBERARBEITUNG: {anweisung}\n\nOriginal-Struktur zur Referenz: {str(structure)[:2000]}",
-                conversation_id=ctx.deps.conversation_id,
-            )
-
-            # Update session
-            new_structure_dict = result.structure.model_dump() if hasattr(result.structure, 'model_dump') else {}
-            await _db.update(
-                "agent_sessions",
-                {
-                    "material_structure": new_structure_dict,
-                    "material_id": result.material_id,
-                    "updated_at": "now()",
-                },
-                filters={"id": session["id"]},
-            )
+            new_structure = router_result["output"]
+            new_structure_dict = new_structure.model_dump() if hasattr(new_structure, "model_dump") else {}
 
             # Fire-and-forget: Diff-Learning
             import asyncio
             from app.agents.material_learning_agent import run_iteration_learning
-            if structure and new_structure_dict:
+            if old_structure and new_structure_dict:
                 asyncio.create_task(
                     run_iteration_learning(
-                        material_id=result.material_id,
+                        material_id=session.get("material_id", ""),
                         teacher_id=ctx.deps.teacher_id,
-                        material_type=agent_type,
-                        fach=structure.get("fach", "allgemein"),
-                        old_structure=structure,
+                        material_type=session.get("agent_type", "klausur"),
+                        fach=old_structure.get("fach", "allgemein"),
+                        old_structure=old_structure,
                         new_structure=new_structure_dict,
                         anweisung=anweisung,
                     )
                 )
 
-            summary = result.summary
+            # Generate DOCX from the new structure
+            from app.services.material_service import _generate_docx_for_structure, _store_material
+            import uuid
+            material_id = str(uuid.uuid4())
+            material_type = session.get("agent_type", "klausur")
+            docx_bytes = _generate_docx_for_structure(new_structure, material_type)
+            await _store_material(material_id, ctx.deps.teacher_id, docx_bytes, new_structure, material_type)
+
+            # Update session with new material_id
+            await _db.update(
+                "agent_sessions",
+                {"material_id": material_id, "updated_at": "now()"},
+                filters={"id": session_id},
+            )
+
+            download_url = f"/api/materials/{material_id}/docx"
             if ctx.deps.base_url:
-                summary = summary.replace("Download: /api/", f"[📥 Download DOCX]({ctx.deps.base_url}/api/")
-                if summary != result.summary:
-                    summary = summary.replace("/docx", "/docx)")
-            return f"Material überarbeitet:\n\n{summary}"
+                download_url = f"[📥 Download DOCX]({ctx.deps.base_url}/api/materials/{material_id}/docx)"
+            
+            titel = new_structure_dict.get("titel", new_structure_dict.get("thema", "Material"))
+            return f"Material überarbeitet:\n\n**{titel}**\n\nDownload: {download_url}"
         except Exception as e:
             logger.error(f"Continue material failed: {e}")
             return f"Fehler bei der Überarbeitung: {str(e)}"

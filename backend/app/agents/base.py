@@ -27,7 +27,8 @@ class ClarificationNeededError(Exception):
     The material_router catches this, saves agent state, and returns
     the question to the main agent for relay to the user.
     """
-    def __init__(self, question: str, options: list[str] | None = None):
+    def __init__(self, question: str, options: list[str] | None = None, message_history: list | None = None):
         self.question = question
         self.options = options
+        self.message_history = message_history or []
         super().__init__(question)
