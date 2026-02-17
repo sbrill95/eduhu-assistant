@@ -619,10 +619,6 @@ eduhu-assistant/
 │   ├── curricula/           # Sample-Lehrpläne
 │   └── pyproject.toml
 │
-├── functions/               # Cloudflare Workers (alternativer BE)
-│   ├── api/                 # Edge-Function-Endpunkte
-│   └── lib/                 # Shared Utilities
-│
 ├── supabase/
 │   └── migrations/          # SQL-Migrationen
 │

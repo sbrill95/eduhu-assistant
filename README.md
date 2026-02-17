@@ -203,7 +203,6 @@ eduhu-assistant/
 │   │   └── config.py       # Settings (.env)
 │   └── pyproject.toml
 │
-├── functions/              # Cloudflare Workers (alternativer BE)
 ├── supabase/migrations/    # DB-Schema
 └── docs/                   # Dokumentation
 ```
