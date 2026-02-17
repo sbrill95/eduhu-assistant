@@ -102,6 +102,7 @@ class MaterialRequest(BaseModel):
     klasse: str
     thema: str
     teacher_id: str
+    conversation_id: str = ""
     dauer_minuten: Optional[int] = None
     afb_verteilung: Optional[dict[str, int]] = None
     zusatz_anweisungen: Optional[str] = None

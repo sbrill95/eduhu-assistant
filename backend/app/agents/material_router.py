@@ -68,49 +68,48 @@ async def run_material_agent(request: MaterialRequest):
 
     prompt = _build_prompt(request, material_type)
 
+    # Common deps kwargs for all agents
+    common_deps = dict(
+        teacher_id=request.teacher_id,
+        conversation_id=request.conversation_id,
+        fach=request.fach,
+        teacher_context=teacher_context,
+        wissenskarte=wissenskarte,
+    )
+
     if material_type == "klausur":
         agent = get_klausur_agent()
-        deps = KlausurDeps(teacher_id=request.teacher_id, fach=request.fach,
-                           teacher_context=teacher_context, wissenskarte=wissenskarte)
+        deps = KlausurDeps(**common_deps)
     elif material_type == "differenzierung":
         agent = get_diff_agent()
-        deps = DiffDeps(teacher_id=request.teacher_id, teacher_context=teacher_context)
+        deps = DiffDeps(**common_deps)
     elif material_type == "hilfekarte":
         agent = get_hilfekarten_agent()
-        deps = HilfekarteDeps(teacher_id=request.teacher_id, fach=request.fach,
-                              teacher_context=teacher_context, wissenskarte=wissenskarte)
+        deps = HilfekarteDeps(**common_deps)
     elif material_type == "escape_room":
         agent = get_escape_room_agent()
-        deps = EscapeRoomDeps(teacher_id=request.teacher_id, fach=request.fach,
-                              teacher_context=teacher_context, wissenskarte=wissenskarte)
+        deps = EscapeRoomDeps(**common_deps)
     elif material_type == "mystery":
         agent = get_mystery_agent()
-        deps = MysteryDeps(teacher_id=request.teacher_id, fach=request.fach,
-                           teacher_context=teacher_context, wissenskarte=wissenskarte)
+        deps = MysteryDeps(**common_deps)
     elif material_type == "lernsituation":
         agent = get_lernsituation_agent()
-        deps = LernsituationDeps(teacher_id=request.teacher_id, fach=request.fach,
-                                 teacher_context=teacher_context, wissenskarte=wissenskarte)
+        deps = LernsituationDeps(**common_deps)
     elif material_type == "lernspiel":
         agent = get_lernspiel_agent()
-        deps = LernspielDeps(teacher_id=request.teacher_id, fach=request.fach,
-                             teacher_context=teacher_context, wissenskarte=wissenskarte)
+        deps = LernspielDeps(**common_deps)
     elif material_type == "versuchsanleitung":
         agent = get_versuchsanleitung_agent()
-        deps = VersuchsanleitungDeps(teacher_id=request.teacher_id, fach=request.fach,
-                                     teacher_context=teacher_context, wissenskarte=wissenskarte)
+        deps = VersuchsanleitungDeps(**common_deps)
     elif material_type == "stundenplanung":
         agent = get_stundenplanung_agent()
-        deps = StundenplanungDeps(teacher_id=request.teacher_id, fach=request.fach,
-                                  teacher_context=teacher_context, wissenskarte=wissenskarte)
+        deps = StundenplanungDeps(**common_deps)
     elif material_type == "podcast":
         agent = get_podcast_agent()
-        deps = PodcastDeps(teacher_id=request.teacher_id, fach=request.fach,
-                           teacher_context=teacher_context, wissenskarte=wissenskarte)
+        deps = PodcastDeps(**common_deps)
     elif material_type == "gespraechssimulation":
         agent = get_gespraechssimulation_agent()
-        deps = GespraechssimulationDeps(teacher_id=request.teacher_id, fach=request.fach,
-                                        teacher_context=teacher_context, wissenskarte=wissenskarte)
+        deps = GespraechssimulationDeps(**common_deps)
     else:
         raise ValueError(f"Kein Agent für Typ '{material_type}'")
 

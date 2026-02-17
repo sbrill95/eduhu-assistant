@@ -1,9 +1,15 @@
 """Differenzierungs-Agent — generates multi-level differentiated materials."""
 
 import logging
-from dataclasses import dataclass
 
 from pydantic_ai import Agent, RunContext
+
+from app.agents.base import BaseMaterialDeps
+from app.agents.knowledge import (
+    get_good_practices,
+    get_conversation_context,
+    get_teacher_preferences,
+)
 
 from app.agents.llm import get_haiku
 from app.models import DifferenzierungStructure
@@ -45,14 +51,14 @@ Du erstellst Material in drei Niveaustufen:
 """
 
 
-@dataclass
-class DiffDeps:
-    teacher_id: str
-    teacher_context: str = ""
+# Use BaseMaterialDeps directly
+DiffDeps = BaseMaterialDeps
 
 
 async def _diff_system_prompt(ctx: RunContext[DiffDeps]) -> str:
     prompt = DIFF_SYSTEM_PROMPT
+    if ctx.deps.wissenskarte:
+        prompt += f"\n\n{{ctx.deps.wissenskarte}}"
     if ctx.deps.teacher_context:
         prompt += f"\n\n## Kontext der Lehrkraft\n{ctx.deps.teacher_context}"
     return prompt
@@ -73,6 +79,31 @@ def create_diff_agent() -> Agent[DiffDeps, DifferenzierungStructure]:
         """Durchsuche den Lehrplan nach relevanten Inhalten."""
         logger.info(f"Differenzierung agent curriculum search: {query}")
         return await curriculum_search(ctx.deps.teacher_id, query)
+
+
+    @agent.tool
+    async def get_conversation_context_tool(
+        ctx: RunContext[DiffDeps], depth: str = "summary"
+    ) -> str:
+        """Lies den bisherigen Chat-Verlauf nach.
+        depth='summary': Kompakte Übersicht (~100-200 Tokens)
+        depth='full': Letzte 10 Nachrichten (~500-1000 Tokens)"""
+        logger.info(f"differenzierung agent conversation context: depth={depth}")
+        return await get_conversation_context(ctx.deps.conversation_id, depth=depth)
+
+    @agent.tool
+    async def get_teacher_preferences_tool(ctx: RunContext[DiffDeps]) -> str:
+        """Lade explizite Präferenzen dieser Lehrkraft."""
+        logger.info(f"differenzierung agent teacher preferences")
+        prefs = await get_teacher_preferences(
+            teacher_id=ctx.deps.teacher_id,
+            agent_type="differenzierung",
+            fach=ctx.deps.fach,
+        )
+        if not prefs:
+            return "Keine gespeicherten Präferenzen."
+        parts = [f"- {p.get('description', '')}" for p in prefs if p.get("description")]
+        return "Lehrkraft-Präferenzen:\n" + "\n".join(parts) if parts else "Keine Präferenzen."
 
     return agent
 

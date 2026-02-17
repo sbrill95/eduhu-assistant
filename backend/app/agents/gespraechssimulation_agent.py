@@ -1,12 +1,17 @@
 """Gesprächssimulations-Agent — generates conversation scripts for vocational training."""
 
 import logging
-from dataclasses import dataclass
 from pydantic import BaseModel
 from pydantic_ai import Agent, RunContext
 
+from app.agents.base import BaseMaterialDeps
+
 from app.agents.llm import get_sonnet
-from app.agents.knowledge import get_good_practices
+from app.agents.knowledge import (
+    get_good_practices,
+    get_conversation_context,
+    get_teacher_preferences,
+)
 from app.agents.curriculum_agent import curriculum_search
 
 logger = logging.getLogger(__name__)
@@ -54,12 +59,8 @@ Verfügbare Stimmen: male, female, educator, storyteller.
 Nutze `search_curriculum_tool` und `get_good_practices_tool`."""
 
 
-@dataclass
-class GespraechssimulationDeps:
-    teacher_id: str
-    fach: str = ""
-    teacher_context: str = ""
-    wissenskarte: str = ""
+# Use BaseMaterialDeps directly
+GespraechssimulationDeps = BaseMaterialDeps
 
 
 async def _system_prompt(ctx: RunContext[GespraechssimulationDeps]) -> str:
@@ -91,6 +92,31 @@ def create_gespraechssimulation_agent() -> Agent[GespraechssimulationDeps, Gespr
         if not practices:
             return "Keine Beispiele gefunden."
         return "\n".join(f"- {p.get('description', '')}" for p in practices)
+
+
+    @agent.tool
+    async def get_conversation_context_tool(
+        ctx: RunContext[GespraechssimulationDeps], depth: str = "summary"
+    ) -> str:
+        """Lies den bisherigen Chat-Verlauf nach.
+        depth='summary': Kompakte Übersicht (~100-200 Tokens)
+        depth='full': Letzte 10 Nachrichten (~500-1000 Tokens)"""
+        logger.info(f"gespraechssimulation agent conversation context: depth={depth}")
+        return await get_conversation_context(ctx.deps.conversation_id, depth=depth)
+
+    @agent.tool
+    async def get_teacher_preferences_tool(ctx: RunContext[GespraechssimulationDeps]) -> str:
+        """Lade explizite Präferenzen dieser Lehrkraft."""
+        logger.info(f"gespraechssimulation agent teacher preferences")
+        prefs = await get_teacher_preferences(
+            teacher_id=ctx.deps.teacher_id,
+            agent_type="gespraechssimulation",
+            fach=ctx.deps.fach,
+        )
+        if not prefs:
+            return "Keine gespeicherten Präferenzen."
+        parts = [f"- {p.get('description', '')}" for p in prefs if p.get("description")]
+        return "Lehrkraft-Präferenzen:\n" + "\n".join(parts) if parts else "Keine Präferenzen."
 
     return agent
 

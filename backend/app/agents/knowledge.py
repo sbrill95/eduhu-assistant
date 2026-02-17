@@ -199,12 +199,36 @@ async def get_teacher_preferences(
         return []
 
 
-async def get_full_context(conversation_id: str, max_messages: int = 10) -> str:
-    """Get a summary of the conversation context for sub-agents.
+async def get_conversation_context(conversation_id: str, depth: str = "summary") -> str:
+    """Get conversation context for sub-agents with configurable depth.
     
-    Returns a compact summary (not raw messages) to keep sub-agent context efficient.
+    depth="summary": Compact overview (~100-200 tokens) — last 3 messages, truncated
+    depth="full": Detailed context (~500-1000 tokens) — last 10 messages
     """
+    if not conversation_id:
+        return "Keine Konversation verfügbar."
+    
     try:
+        max_messages = 3 if depth == "summary" else 10
+        truncate_at = 100 if depth == "summary" else 300
+        
+        # Check for session summary first (for "summary" depth)
+        if depth == "summary":
+            try:
+                summaries = await db.select(
+                    "session_logs",
+                    columns="summary",
+                    filters={"conversation_id": conversation_id},
+                    order="created_at.desc",
+                    limit=1,
+                )
+                if summaries and isinstance(summaries, list) and len(summaries) > 0:
+                    summary_text = summaries[0].get("summary", "")
+                    if summary_text:
+                        return f"## Gesprächszusammenfassung\n{summary_text}"
+            except Exception:
+                pass  # Fall through to message-based context
+        
         messages = await db.select(
             "messages",
             columns="role,content",
@@ -215,20 +239,27 @@ async def get_full_context(conversation_id: str, max_messages: int = 10) -> str:
         if not messages or not isinstance(messages, list):
             return "Keine vorherige Konversation."
 
-        # Reverse to get chronological order
         messages.reverse()
 
-        # Build compact summary
         parts = []
         for msg in messages:
             role = "Lehrkraft" if msg.get("role") == "user" else "Assistent"
-            content = str(msg.get("content", ""))[:200]  # Truncate long messages
+            content = str(msg.get("content", ""))[:truncate_at]
+            if len(str(msg.get("content", ""))) > truncate_at:
+                content += "..."
             parts.append(f"{role}: {content}")
 
-        return "## Bisheriger Gesprächsverlauf\n" + "\n".join(parts)
+        header = "## Gesprächsverlauf (Zusammenfassung)" if depth == "summary" else "## Bisheriger Gesprächsverlauf"
+        return header + "\n" + "\n".join(parts)
     except Exception as e:
-        logger.error(f"get_full_context failed: {e}")
+        logger.error(f"get_conversation_context failed: {e}")
         return "Kontext konnte nicht geladen werden."
+
+
+# Keep old name as alias for backward compatibility
+async def get_full_context(conversation_id: str, max_messages: int = 10) -> str:
+    """Legacy alias for get_conversation_context with full depth."""
+    return await get_conversation_context(conversation_id, depth="full")
 
 
 # ---------------------------------------------------------------------------
