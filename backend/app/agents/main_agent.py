@@ -327,45 +327,68 @@ def create_agent() -> Agent[AgentDeps, str]:
             logger.error(f"Continue material failed: {e}")
             return f"Fehler bei der Überarbeitung: {str(e)}"
 
-    # ── Tool: patch_material_task ──
+    # ── Tool: confirm_material ──
     @agent.tool
-    async def patch_material_task(
-        ctx: RunContext[AgentDeps],
-        material_id: str,
-        task_index: int,
-        anweisung: str,
-    ) -> str:
-        """Ändere eine EINZELNE Aufgabe in einer bestehenden Klausur.
-        Nutze dieses Tool wenn die Lehrkraft sagt 'ändere Aufgabe X', 'mach Aufgabe X schwieriger/leichter',
-        oder eine bestimmte Aufgabe überarbeiten möchte.
-        task_index ist 0-basiert (Aufgabe 1 = Index 0, Aufgabe 2 = Index 1, etc.).
-        Die restlichen Aufgaben bleiben EXAKT IDENTISCH — nur die genannte wird ersetzt."""
-        from app.services.material_service import patch_task
-        from fastapi import HTTPException
+    async def confirm_material(ctx: RunContext[AgentDeps]) -> str:
+        """Bestätige einen Entwurf und generiere das finale DOCX-Dokument.
+        Nutze dieses Tool wenn die Lehrkraft einen Entwurf bestätigt hat
+        ('ja passt', 'ok so machen', 'generieren' etc.).
+        Lädt die gespeicherte Material-Struktur aus der letzten Session und erzeugt das DOCX."""
+        from app import db as _db
+        from app.services.material_service import _generate_docx_for_structure, _store_material
+        import uuid
 
-        base = ctx.deps.base_url or "http://localhost:8000"
         try:
-            data = await patch_task(
-                material_id=material_id,
-                task_index=task_index,
-                teacher_id=ctx.deps.teacher_id,
-                anweisung=anweisung,
+            sessions = await _db.select(
+                "agent_sessions",
+                filters={"conversation_id": ctx.deps.conversation_id},
+                order="created_at.desc",
+                limit=1,
             )
-            alte = data["alte_aufgabe"]
-            neue = data["neue_aufgabe"]
-            dl = f"{base}/api/materials/{data['material_id']}/docx" if base else data["docx_url"]
-            return (
-                f"Aufgabe {task_index + 1} wurde geändert. Alle anderen Aufgaben sind unverändert.\n\n"
-                f"**Vorher:** {alte.get('aufgabe','')} (AFB {alte.get('afb_level','')}, {alte.get('punkte',0)}P)\n"
-                f"**Nachher:** {neue.get('aufgabe','')} (AFB {neue.get('afb_level','')}, {neue.get('punkte',0)}P)\n"
-                f"Beschreibung: {neue.get('beschreibung','')}\n\n"
-                f"[📥 Aktualisierte Klausur herunterladen]({dl})"
+            if not sessions or not isinstance(sessions, list) or len(sessions) == 0:
+                return "Kein Entwurf gefunden. Bitte erstelle zuerst Material mit generate_material."
+
+            session = sessions[0]
+            structure_dict = session.get("material_structure", {})
+            if not structure_dict:
+                return "Keine Material-Struktur im Entwurf gefunden."
+
+            agent_type = session.get("agent_type", "klausur")
+
+            # Reconstruct the pydantic model from dict
+            from app.agents.material_router import _normalize_type
+            from app.models import ExamStructure, DifferenzierungStructure
+
+            if agent_type == "klausur":
+                structure = ExamStructure(**structure_dict)
+            elif agent_type == "differenzierung":
+                structure = DifferenzierungStructure(**structure_dict)
+            else:
+                # For generic types, use a SimpleNamespace-like approach
+                from types import SimpleNamespace
+                structure = SimpleNamespace(**structure_dict)
+                structure.model_dump = lambda: structure_dict
+
+            material_id = str(uuid.uuid4())
+            docx_bytes = _generate_docx_for_structure(structure, agent_type)
+            await _store_material(material_id, ctx.deps.teacher_id, docx_bytes, structure, agent_type)
+
+            # Update session
+            await _db.update(
+                "agent_sessions",
+                {"material_id": material_id, "status": "active", "updated_at": "now()"},
+                filters={"id": session["id"]},
             )
-        except HTTPException as e:
-            return f"Fehler beim Ändern der Aufgabe: {e.detail}"
+
+            download_url = f"/api/materials/{material_id}/docx"
+            if ctx.deps.base_url:
+                download_url = f"[📥 Download DOCX]({ctx.deps.base_url}/api/materials/{material_id}/docx)"
+
+            titel = structure_dict.get("titel", structure_dict.get("thema", "Material"))
+            return f"Material finalisiert!\n\n**{titel}**\n\nDownload: {download_url}"
         except Exception as e:
-            logger.error(f"Patch material task failed: {e}")
-            return f"Fehler: {str(e)}"
+            logger.error(f"Confirm material failed: {e}")
+            return f"Fehler beim Finalisieren: {str(e)}"
 
     @agent.tool
     async def search_wikipedia(

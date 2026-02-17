@@ -37,6 +37,10 @@ async def generate_material(req: MaterialRequest):
         logger.error(f"Material generation failed: {type(e).__name__}: {e}", exc_info=True)
         raise HTTPException(500, "Materialerstellung fehlgeschlagen. Bitte versuche es erneut.")
 
+    # Handle clarification (sub-agent needs more info)
+    if result.result_type == "clarification":
+        return {"type": "clarification", "question": result.summary, "session_id": result.session_id}
+
     now = datetime.now(timezone.utc).isoformat()
     return MaterialResponse(
         id=result.material_id,
