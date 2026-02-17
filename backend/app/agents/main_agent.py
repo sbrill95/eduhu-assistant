@@ -158,7 +158,11 @@ def create_agent() -> Agent[AgentDeps, str]:
             "sonne", "mond", "baum", "fisch", "adler", "birne",
         ]
         try:
-            exercise_set = await run_h5p_agent(fach, klasse, thema, exercise_type, num_questions)
+            exercise_set = await run_h5p_agent(
+                fach, klasse, thema, exercise_type, num_questions,
+                teacher_id=ctx.deps.teacher_id,
+                conversation_id=ctx.deps.conversation_id,
+            )
             h5p_exercises = exercise_set_to_h5p(exercise_set)
 
             # Find or create exercise page for this teacher
