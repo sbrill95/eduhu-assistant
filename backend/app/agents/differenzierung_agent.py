@@ -4,7 +4,7 @@ import logging
 
 from pydantic_ai import Agent, RunContext
 
-from app.agents.base import BaseMaterialDeps, register_ask_teacher_tool, register_ask_teacher_tool
+from app.agents.base import BaseMaterialDeps, register_ask_teacher_tool
 from app.agents.knowledge import (
     get_good_practices,
     get_conversation_context,

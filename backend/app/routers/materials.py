@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/materials", tags=["Materials"])
 
-@router.post("/generate", response_model=MaterialResponse)
+@router.post("/generate")
 async def generate_material(req: MaterialRequest):
-    """Generate teaching material (Klausur or Differenzierung)."""
+    """Generate teaching material (any of 12 types)."""
     try:
         result = await gen_mat(
             teacher_id=req.teacher_id,
@@ -30,6 +30,7 @@ async def generate_material(req: MaterialRequest):
             material_type=req.type,
             dauer_minuten=req.dauer_minuten or 45,
             zusatz_anweisungen=req.zusatz_anweisungen or "",
+            conversation_id=getattr(req, 'conversation_id', ''),
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
