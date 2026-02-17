@@ -80,6 +80,25 @@ def create_diff_agent() -> Agent[DiffDeps, DifferenzierungStructure]:
         logger.info(f"Differenzierung agent curriculum search: {query}")
         return await curriculum_search(ctx.deps.teacher_id, query)
 
+    @agent.tool
+    async def get_good_practices_tool(ctx: RunContext[DiffDeps], thema: str) -> str:
+        """Lade bewährte Differenzierungs-Beispiele aus der Wissensdatenbank."""
+        logger.info(f"Differenzierung agent good practices: {thema}")
+        practices = await get_good_practices(
+            teacher_id=ctx.deps.teacher_id,
+            agent_type="differenzierung",
+            fach=ctx.deps.fach,
+            thema=thema,
+            limit=2,
+        )
+        if not practices:
+            return "Keine bewährten Beispiele gefunden."
+        parts = []
+        for p in practices:
+            desc = p.get("description", "")
+            score = p.get("quality_score", 0)
+            parts.append(f"- {desc} (Qualität: {score:.1f})")
+        return "\n".join(parts)
 
     @agent.tool
     async def get_conversation_context_tool(
