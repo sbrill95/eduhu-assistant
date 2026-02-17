@@ -109,6 +109,7 @@ def create_agent() -> Agent[AgentDeps, str]:
                 material_type=material_type,
                 dauer_minuten=dauer_minuten,
                 zusatz_anweisungen=zusatz_anweisungen,
+                conversation_id=ctx.deps.conversation_id,
             )
             # Save session for multi-turn iteration
             try:
@@ -298,6 +299,7 @@ def create_agent() -> Agent[AgentDeps, str]:
                 thema=structure.get("thema", structure.get("fach_thema", "")),
                 material_type=agent_type,
                 zusatz_anweisungen=f"ÜBERARBEITUNG: {anweisung}\n\nOriginal-Struktur zur Referenz: {str(structure)[:2000]}",
+                conversation_id=ctx.deps.conversation_id,
             )
 
             # Update session

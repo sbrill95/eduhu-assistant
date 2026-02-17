@@ -43,6 +43,7 @@ async def generate_material(
     material_type: str = "klausur",
     dauer_minuten: int = 45,
     zusatz_anweisungen: str = "",
+    conversation_id: str = "",
 ) -> MaterialResult:
     """Pipeline: Typ normalisieren -> Sub-Agent -> DOCX -> speichern -> Summary."""
     resolved_type = resolve_material_type(material_type)
@@ -54,6 +55,7 @@ async def generate_material(
         klasse=klasse,
         thema=thema,
         teacher_id=teacher_id,
+        conversation_id=conversation_id,
         dauer_minuten=dauer_minuten,
         zusatz_anweisungen=zusatz_anweisungen or None,
     )
