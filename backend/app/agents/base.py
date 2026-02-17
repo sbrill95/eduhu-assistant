@@ -50,7 +50,11 @@ def register_ask_teacher_tool(agent: Agent) -> None:
     """
 
     @agent.tool
-    async def ask_teacher(ctx: RunContext[BaseMaterialDeps], question: str) -> str:
+    async def ask_teacher(
+        ctx: RunContext[BaseMaterialDeps],
+        question: str,
+        options: list[str] | None = None,
+    ) -> str:
         """Stelle eine Rückfrage an die Lehrkraft.
         
         NUR nutzen wenn:
@@ -62,9 +66,11 @@ def register_ask_teacher_tool(agent: Agent) -> None:
         - Infos die du per Tool finden könntest → nutze erst search_curriculum / get_teacher_preferences
         
         question: Die konkrete Frage an die Lehrkraft (1-2 Sätze, deutsch)
+        options: Optionale Multiple-Choice-Antworten. Nutze bei Oder-Fragen!
+                 Beispiel: ["30/40/30 (Standard)", "25/50/25 (Transfer-Schwerpunkt)", "Andere Verteilung"]
+                 Die letzte Option sollte immer eine Freitext-Alternative sein ("Andere...", "Eigene Angabe").
         """
-        logger.info(f"Sub-agent asks teacher: {question}")
-        # Get current message history from the run context if available
+        logger.info(f"Sub-agent asks teacher: {question} (options: {options})")
         msg_history = []
         try:
             if hasattr(ctx, '_result') and hasattr(ctx._result, 'all_messages'):
@@ -73,5 +79,6 @@ def register_ask_teacher_tool(agent: Agent) -> None:
             pass
         raise ClarificationNeededError(
             question=question,
+            options=options,
             message_history=msg_history,
         )

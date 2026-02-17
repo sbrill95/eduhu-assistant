@@ -1,5 +1,6 @@
 """Haupt-Agent — the central chat agent using Pydantic AI."""
 
+import json
 import logging
 from dataclasses import dataclass
 
@@ -114,7 +115,16 @@ def create_agent() -> Agent[AgentDeps, str]:
 
             # Handle clarification from sub-agent
             if result.result_type == "clarification":
-                return f"🤔 Der Sub-Agent hat eine Rückfrage:\n\n{result.summary}\n\nBitte antworte, dann generiere ich das Material."
+                if result.options:
+                    options_md = "\n".join(f"- **{i+1}.** {opt}" for i, opt in enumerate(result.options))
+                    return (
+                        f"🤔 Kurze Rückfrage:\n\n{result.summary}\n\n{options_md}\n\n"
+                        f"```clarification-card\n"
+                        f'{{"question":"{result.summary}","options":{json.dumps(result.options, ensure_ascii=False)},"session_id":"{result.session_id}"}}\n'
+                        f"```\n\n"
+                        f"Wähle eine Option oder schreib deine eigene Antwort."
+                    )
+                return f"🤔 Kurze Rückfrage:\n\n{result.summary}\n\nBitte antworte, dann generiere ich das Material."
 
             # Session is saved by the router now
             summary = result.summary

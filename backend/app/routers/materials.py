@@ -40,7 +40,10 @@ async def generate_material(req: MaterialRequest):
 
     # Handle clarification (sub-agent needs more info)
     if result.result_type == "clarification":
-        return {"type": "clarification", "question": result.summary, "session_id": result.session_id}
+        resp = {"type": "clarification", "question": result.summary, "session_id": result.session_id}
+        if result.options:
+            resp["options"] = result.options
+        return resp
 
     now = datetime.now(timezone.utc).isoformat()
     return MaterialResponse(

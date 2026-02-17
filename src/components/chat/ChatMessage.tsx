@@ -9,6 +9,7 @@ import { CountdownTimer } from './CountdownTimer';
 import { ImageCard } from './ImageCard';
 import { QRCard } from './QRCard';
 import { TodoCard } from './TodoCard';
+import { ClarificationCard } from './ClarificationCard';
 import { AudioCard } from './AudioCard';
 
 interface Props {
@@ -125,6 +126,19 @@ export function ChatMessage({ message, onChipSelect, isStreaming }: Props) {
                       try {
                         const data = JSON.parse(String(children));
                         return <QRCard {...data} />;
+                      } catch {
+                        return <code {...props}>{children}</code>;
+                      }
+                    }
+                    if (language === 'clarification-card') {
+                      try {
+                        const data = JSON.parse(String(children));
+                        return <ClarificationCard
+                          question={data.question}
+                          options={data.options}
+                          session_id={data.session_id}
+                          onSelect={(answer: string) => onChipSelect?.(answer)}
+                        />;
                       } catch {
                         return <code {...props}>{children}</code>;
                       }

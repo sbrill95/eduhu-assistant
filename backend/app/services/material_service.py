@@ -56,6 +56,7 @@ class MaterialResult:
     summary: str
     result_type: str = "material"  # "material" | "clarification"
     session_id: str = ""
+    options: list[str] | None = None  # Multiple-choice options for clarification
 
 
 async def generate_material(
@@ -95,6 +96,7 @@ async def generate_material(
             summary=router_result["question"],
             result_type="clarification",
             session_id=router_result.get("session_id", ""),
+            options=router_result.get("options"),
         )
 
     structure = router_result["output"]

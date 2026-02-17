@@ -194,12 +194,15 @@ async def run_material_agent(request: MaterialRequest) -> dict[str, Any]:
                 message_history=messages,
                 status="clarification",
             )
-            return {
+            result = {
                 "type": "clarification",
                 "question": e.question,
                 "session_id": session_id,
                 "message_history": messages,
             }
+            if e.options:
+                result["options"] = e.options
+            return result
         except asyncio.TimeoutError:
             logger.warning(f"{material_type} agent timeout, Versuch {attempt + 1}")
             last_error = TimeoutError(f"{material_type}-Agent hat nach {timeout}s nicht geantwortet")
@@ -292,12 +295,15 @@ async def continue_agent_session(session_id: str, user_input: str) -> dict[str, 
             },
             filters={"id": session_id},
         )
-        return {
+        result = {
             "type": "clarification",
             "question": e.question,
             "session_id": session_id,
             "message_history": messages,
         }
+        if e.options:
+            result["options"] = e.options
+        return result
 
 
 async def _save_session(
