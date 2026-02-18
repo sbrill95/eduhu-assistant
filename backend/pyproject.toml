@@ -23,6 +23,10 @@ dependencies = [
     "alembic>=1.15",
     "sqlalchemy>=2.0",
     "pg8000>=1.31",
+    "PyJWT>=2.8",
+    "bcrypt>=4.0",
+    "fastapi-mail>=1.4",
+    "email-validator>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -30,3 +34,7 @@ dev = [
     "pytest>=8",
     "ruff>=0.9",
 ]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["curricula*"]

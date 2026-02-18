@@ -25,6 +25,19 @@ class Settings(BaseSettings):
     sub_agent_timeout_seconds: int = 120
     sub_agent_max_retries: int = 1
 
+    # Auth
+    jwt_secret: str = "change-me-in-production"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
+    # Mail (SMTP via Hetzner)
+    mail_username: str = ""
+    mail_password: str = ""
+    mail_from: str = "noreply@eduhu.app"
+    mail_server: str = ""
+    mail_port: int = 587
+    mail_from_name: str = "eduhu"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
