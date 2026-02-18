@@ -1,6 +1,9 @@
 export interface Teacher {
   teacher_id: string;
   name: string;
+  role: string;
+  access_token: string;
+  refresh_token: string;
 }
 
 export interface Chip {
