@@ -28,6 +28,10 @@ def upgrade() -> None:
     op.execute("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS reset_token TEXT")
     op.execute("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ")
 
+    # Migrate old password data to password_hash, then drop old column
+    op.execute("UPDATE teachers SET password_hash = password WHERE password_hash IS NULL AND password IS NOT NULL")
+    op.execute("ALTER TABLE teachers DROP COLUMN IF EXISTS password")
+
     # Indexes for token lookups
     op.execute("CREATE INDEX IF NOT EXISTS idx_teachers_email ON teachers(email)")
     op.execute("""
@@ -67,5 +71,8 @@ def downgrade() -> None:
     op.execute("ALTER TABLE teachers DROP COLUMN IF EXISTS magic_link_token")
     op.execute("ALTER TABLE teachers DROP COLUMN IF EXISTS email_verified")
     op.execute("ALTER TABLE teachers DROP COLUMN IF EXISTS role")
+    # Restore old password column BEFORE dropping password_hash
+    op.execute("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS password TEXT NOT NULL DEFAULT ''")
+    op.execute("UPDATE teachers SET password = password_hash WHERE password_hash IS NOT NULL")
     op.execute("ALTER TABLE teachers DROP COLUMN IF EXISTS password_hash")
     op.execute("ALTER TABLE teachers DROP COLUMN IF EXISTS email")
