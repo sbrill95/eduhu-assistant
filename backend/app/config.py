@@ -5,8 +5,7 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    supabase_url: str
-    supabase_service_role_key: str
+    database_url: str  # postgresql://user:password@host:5432/dbname
     anthropic_api_key: str
     brave_api_key: str = ""
     openai_api_key: str = ""
@@ -16,6 +15,9 @@ class Settings(BaseSettings):
     webshare_proxy_url: str = ""  # format: http://user-1:pass@p.webshare.io:80
     logfire_token: str = ""
     log_level: str = "INFO"
+    # CORS & Frontend
+    cors_origins: str = ""  # comma-separated, e.g. https://eduhu.example.com
+    frontend_url: str = ""  # for share links, e.g. https://eduhu.example.com
     # Chunking defaults
     chunk_size: int = 1500
     chunk_overlap: int = 200

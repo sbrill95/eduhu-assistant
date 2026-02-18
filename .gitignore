@@ -11,3 +11,7 @@ backend/**/__pycache__/
 *.pyc
 eduhu.log
 .aider*
+
+# Docker
+docker-compose.override.yml
+pgdata/

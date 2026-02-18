@@ -2,7 +2,7 @@
 Shared test fixtures for the eduhu-assistant test suite.
 
 Provides:
-- Fake DB layer (no Supabase needed)
+- Fake DB layer (no database needed)
 - Fake LLM (no Anthropic/OpenAI API needed)
 - FastAPI TestClient
 - Sample data factories
@@ -12,17 +12,15 @@ import os
 import uuid
 import pytest
 import pytest_asyncio
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 # ── Set test environment BEFORE any app imports ──
-os.environ.setdefault("SUPABASE_URL", "https://fake.supabase.co")
-os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "fake-key")
+os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test")
 os.environ.setdefault("ANTHROPIC_API_KEY", "fake-anthropic-key")
 os.environ.setdefault("OPENAI_API_KEY", "fake-openai-key")
 os.environ.setdefault("BRAVE_API_KEY", "fake-brave-key")
 
 from httpx import ASGITransport, AsyncClient
-from app.main import app
 from app.models import (
     ExamStructure, ExamTask,
     DifferenzierungStructure, DiffNiveau, DiffTask,
@@ -161,18 +159,34 @@ class FakeDB:
             "curriculum_chunks": [],
             "generated_materials": [],
             "session_logs": [],
+            "todos": [],
+            "exercise_pages": [],
+            "exercises": [],
+            "polls": [],
+            "agent_sessions": [],
+            "agent_knowledge": [],
+            "audio_pages": [],
         }
 
-    async def select(self, table, *, columns="*", filters=None, order=None, limit=None, single=False):
+    async def select(self, table, *, columns="*", filters=None, order=None, limit=None, single=False, count=False):
         rows = self.tables.get(table, [])
         if filters:
             for col, val in filters.items():
-                rows = [r for r in rows if r.get(col) == val]
+                # Strip operator suffix for FakeDB (e.g. "quality_score.lt" → skip)
+                parts = col.rsplit(".", 1)
+                if len(parts) == 2 and parts[1] in ("eq", "lt", "gt", "lte", "gte", "neq"):
+                    col_name = parts[0]
+                    # Simple equality for fake — doesn't handle lt/gt but good enough for tests
+                    rows = [r for r in rows if r.get(col_name) == val]
+                else:
+                    rows = [r for r in rows if r.get(col) == val]
         if order:
             # Simple sort by first field
             field = order.split(".")[0]
             desc = order.endswith(".desc")
             rows = sorted(rows, key=lambda r: r.get(field, ""), reverse=desc)
+        if count:
+            return len(rows)
         if limit:
             rows = rows[:limit]
         if single:
@@ -199,7 +213,7 @@ class FakeDB:
             for d in data:
                 await self.upsert(table, d, on_conflict)
             return data
-        
+
         # Try to find existing
         conflict_cols = on_conflict.split(",") if on_conflict else ["id"]
         rows = self.tables.get(table, [])
@@ -207,13 +221,32 @@ class FakeDB:
             if all(r.get(c) == data.get(c) for c in conflict_cols if c in data):
                 r.update(data)
                 return [r]
-        
+
         return [await self.insert(table, data)]
+
+    async def delete(self, table, filters):
+        rows = self.tables.get(table, [])
+        to_keep = []
+        deleted = []
+        for r in rows:
+            if all(r.get(k) == v for k, v in filters.items()):
+                deleted.append(r)
+            else:
+                to_keep.append(r)
+        self.tables[table] = to_keep
+        return deleted if deleted else None
+
+    async def delete_by_ids(self, table, ids):
+        rows = self.tables.get(table, [])
+        self.tables[table] = [r for r in rows if r.get("id") not in ids]
 
     async def insert_batch(self, table, rows):
         for r in rows:
             await self.insert(table, r)
         return rows
+
+    async def raw_fetch(self, sql, *args):
+        return []
 
 
 @pytest.fixture
@@ -229,7 +262,12 @@ def db_patch(fake_db):
          patch("app.db.insert", side_effect=fake_db.insert), \
          patch("app.db.update", side_effect=fake_db.update), \
          patch("app.db.upsert", side_effect=fake_db.upsert), \
-         patch("app.db.insert_batch", side_effect=fake_db.insert_batch):
+         patch("app.db.delete", side_effect=fake_db.delete), \
+         patch("app.db.delete_by_ids", side_effect=fake_db.delete_by_ids), \
+         patch("app.db.insert_batch", side_effect=fake_db.insert_batch), \
+         patch("app.db.raw_fetch", side_effect=fake_db.raw_fetch), \
+         patch("app.db.init_pool", new_callable=AsyncMock), \
+         patch("app.db.close_pool", new_callable=AsyncMock):
         yield fake_db
 
 
@@ -240,6 +278,7 @@ def db_patch(fake_db):
 @pytest_asyncio.fixture
 async def client(db_patch):
     """Async HTTP client talking to the FastAPI app with mocked DB."""
+    from app.main import app
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         ac.headers["X-Teacher-ID"] = TEACHER_ID

@@ -1,15 +1,12 @@
 """Curriculum-Agent — RAG over teacher's curriculum data.
 
-Uses pgvector similarity search via Supabase RPC function.
+Uses pgvector similarity search via direct SQL.
 Falls back to keyword search if embedding fails.
 """
 
 import logging
 
-import httpx
-
 from app import db
-from app.config import get_settings
 from app.ingestion import get_embeddings
 
 logger = logging.getLogger(__name__)
@@ -27,7 +24,7 @@ async def curriculum_search(teacher_id: str, query: str) -> str:
     if not curricula or not isinstance(curricula, list) or len(curricula) == 0:
         return "Die Lehrkraft hat noch keine Lehrpläne hochgeladen. Bitte empfehle den PDF-Upload im Profil."
 
-    curriculum_ids = [c["id"] for c in curricula]
+    curriculum_ids = [str(c["id"]) for c in curricula]
     curriculum_map = {c["id"]: c for c in curricula}
 
     # 2. Try embedding-based search first
@@ -44,34 +41,27 @@ async def _embedding_search(
     curriculum_map: dict,
 ) -> str:
     """Similarity search via pgvector."""
-    settings = get_settings()
-
     # Get query embedding
     embeddings = await get_embeddings([query])
     query_embedding = embeddings[0]
 
-    # Call Supabase RPC
-    url = f"{settings.supabase_url}/rest/v1/rpc/match_curriculum_chunks"
-    headers = {
-        "apikey": settings.supabase_service_role_key,
-        "Authorization": f"Bearer {settings.supabase_service_role_key}",
-        "Content-Type": "application/json",
-    }
-
-    async with httpx.AsyncClient() as client:
-        r = await client.post(
-            url,
-            json={
-                "query_embedding": query_embedding,
-                "match_curriculum_ids": curriculum_ids,
-                "match_threshold": 0.25,
-                "match_count": 5,
-            },
-            headers=headers,
-            timeout=15.0,
-        )
-        r.raise_for_status()
-        results = r.json()
+    # Direct pgvector query
+    embedding_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
+    results = await db.raw_fetch(
+        """
+        SELECT id, curriculum_id, chunk_text, section_path,
+               1 - (embedding <=> $1::vector) as similarity
+        FROM curriculum_chunks
+        WHERE curriculum_id::text = ANY($2)
+          AND 1 - (embedding <=> $1::vector) > $3
+        ORDER BY embedding <=> $1::vector
+        LIMIT $4
+        """,
+        embedding_str,
+        curriculum_ids,
+        0.25,
+        5,
+    )
 
     if not results:
         return f"Keine passenden Lehrplaninhalte zu '{query}' gefunden."
@@ -90,7 +80,7 @@ async def _embedding_search(
         cid = chunk["curriculum_id"]
         info = curriculum_map.get(cid, {})
         sources.add(f"{info.get('fach', '?')} {info.get('jahrgang', '')} ({info.get('bundesland', '?')})")
-    source_line = "📖 **Quelle: Rahmenlehrplan " + ", ".join(sources) + "**"
+    source_line = "\U0001f4d6 **Quelle: Rahmenlehrplan " + ", ".join(sources) + "**"
     return source_line + "\n\n" + "\n\n---\n\n".join(formatted)
 
 
@@ -100,36 +90,37 @@ async def _keyword_search(
     curriculum_map: dict,
 ) -> str:
     """Fallback: ilike keyword search over chunk_text."""
-    settings = get_settings()
     results: list[str] = []
     query_words = [w for w in query.lower().split() if len(w) > 2][:3]
 
     for cid in curriculum_ids:
         for word in query_words:
-            url = f"{settings.supabase_url}/rest/v1/curriculum_chunks"
-            headers = {
-                "apikey": settings.supabase_service_role_key,
-                "Authorization": f"Bearer {settings.supabase_service_role_key}",
-            }
-            params = {
-                "select": "chunk_text,section_path",
-                "curriculum_id": f"eq.{cid}",
-                "chunk_text": f"ilike.*{word}*",
-                "limit": "3",
-            }
-            async with httpx.AsyncClient() as client:
-                r = await client.get(url, params=params, headers=headers, timeout=10)
-                if r.status_code == 200:
-                    chunks = r.json()
-                    info = curriculum_map.get(cid, {})
-                    label = f"{info.get('fach', '?')} ({info.get('bundesland', '?')})"
-                    for chunk in chunks:
-                        text = chunk["chunk_text"]
-                        idx = text.lower().find(word)
-                        start = max(0, idx - 400) if idx != -1 else 0
-                        end = min(len(text), (idx if idx != -1 else 0) + 400)
-                        snippet = text[start:end] if idx != -1 else text[:800]
-                        results.append(f"**{label}:**\n{snippet}")
+            chunks = await db.raw_fetch(
+                """
+                SELECT chunk_text, section_path
+                FROM curriculum_chunks
+                WHERE curriculum_id::text = $1
+                  AND chunk_text ILIKE $2
+                LIMIT 3
+                """,
+                cid,
+                f"%{word}%",
+            )
+            info = curriculum_map.get(cid, {})
+            if not info:
+                # Try UUID lookup
+                for k, v in curriculum_map.items():
+                    if str(k) == cid:
+                        info = v
+                        break
+            label = f"{info.get('fach', '?')} ({info.get('bundesland', '?')})"
+            for chunk in chunks:
+                text = chunk["chunk_text"]
+                idx = text.lower().find(word)
+                start = max(0, idx - 400) if idx != -1 else 0
+                end = min(len(text), (idx if idx != -1 else 0) + 400)
+                snippet = text[start:end] if idx != -1 else text[:800]
+                results.append(f"**{label}:**\n{snippet}")
 
     if not results:
         return f"Keine Lehrplaninhalte zu '{query}' gefunden."
@@ -140,5 +131,5 @@ async def _keyword_search(
     source_labels = set()
     for c in curriculum_map.values():
         source_labels.add(f"{c.get('fach', '?')} {c.get('jahrgang', '')} ({c.get('bundesland', '?')})")
-    source_line = "📖 **Quelle: Rahmenlehrplan " + ", ".join(source_labels) + "**"
+    source_line = "\U0001f4d6 **Quelle: Rahmenlehrplan " + ", ".join(source_labels) + "**"
     return source_line + "\n\n" + "\n\n---\n\n".join(unique[:5])
