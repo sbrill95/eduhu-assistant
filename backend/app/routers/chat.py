@@ -6,6 +6,22 @@ from app.models import (
 )
 from app.agents.main_agent import get_agent, AgentDeps
 from app.agents.memory_agent import run_memory_agent
+from app.memory_cleanup import run_cleanup
+
+# Cooldown: max 1 cleanup per teacher per 10 minutes
+_cleanup_cooldowns: dict[str, float] = {}
+_CLEANUP_COOLDOWN_SECONDS = 600  # 10 min
+
+
+async def _memory_then_cleanup(teacher_id: str, conversation_id: str, messages: list):
+    """Run memory agent, then cleanup if cooldown expired."""
+    import time
+    await run_memory_agent(teacher_id, conversation_id, messages)
+    now = time.time()
+    last = _cleanup_cooldowns.get(teacher_id, 0)
+    if now - last >= _CLEANUP_COOLDOWN_SECONDS:
+        _cleanup_cooldowns[teacher_id] = now
+        await run_cleanup(teacher_id)
 # Material learning now triggered by download/iteration signals, not chat analysis
 from app.agents.summary_agent import maybe_summarize
 from app.deps import get_current_teacher_id
@@ -200,7 +216,7 @@ async def chat_send(
                 logger.error(f"Memory agent failed: {task.exception()}")
 
         mem_task = asyncio.create_task(
-            run_memory_agent(teacher_id, conversation_id, full_messages)
+            _memory_then_cleanup(teacher_id, conversation_id, full_messages)
         )
         mem_task.add_done_callback(_on_memory_done)
 
@@ -312,7 +328,7 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
                     logger.error(f"Memory agent failed: {task.exception()}")
 
             mem_task = asyncio.create_task(
-                run_memory_agent(teacher_id, conversation_id, full_messages)
+                _memory_then_cleanup(teacher_id, conversation_id, full_messages)
             )
             mem_task.add_done_callback(_on_memory_done)
 
