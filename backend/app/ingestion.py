@@ -1,4 +1,4 @@
-"""Curriculum ingestion — PDF → text → chunks → embeddings → Supabase.
+"""Curriculum ingestion — PDF → text → chunks → embeddings → PostgreSQL.
 
 Flexible chunking with configurable size/overlap.
 Embeddings via OpenAI text-embedding-3-small.
@@ -274,11 +274,4 @@ def _extract_wissenskarte(text: str) -> dict[str, Any]:
 
 async def _delete_old_chunks(curriculum_id: str) -> None:
     """Delete existing chunks for a curriculum (before re-ingestion)."""
-    settings = get_settings()
-    url = f"{settings.supabase_url}/rest/v1/curriculum_chunks?curriculum_id=eq.{curriculum_id}"
-    headers = {
-        "apikey": settings.supabase_service_role_key,
-        "Authorization": f"Bearer {settings.supabase_service_role_key}",
-    }
-    async with httpx.AsyncClient() as client:
-        await client.delete(url, headers=headers)
+    await db.delete("curriculum_chunks", filters={"curriculum_id": str(curriculum_id)})

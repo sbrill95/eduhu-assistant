@@ -14,8 +14,7 @@ from httpx import ASGITransport, AsyncClient
 from tests.conftest import TEACHER_ID, TEACHER_NAME, make_exam_structure
 
 import os
-os.environ.setdefault("SUPABASE_URL", "https://fake.supabase.co")
-os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "fake-key")
+os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test")
 os.environ.setdefault("ANTHROPIC_API_KEY", "fake-anthropic-key")
 os.environ.setdefault("OPENAI_API_KEY", "fake-openai-key")
 

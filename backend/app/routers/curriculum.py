@@ -1,8 +1,6 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from app import db
 from app.ingestion import ingest_curriculum
-from app.config import get_settings
-import httpx
 import logging
 
 logger = logging.getLogger(__name__)
@@ -57,17 +55,6 @@ async def list_curricula(teacher_id: str):
 @router.delete("/{curriculum_id}")
 async def delete_curriculum(curriculum_id: str, teacher_id: str):
     """Delete a curriculum and its chunks."""
-    settings = get_settings()
-    # Delete chunks first
-    url = f"{settings.supabase_url}/rest/v1/curriculum_chunks?curriculum_id=eq.{curriculum_id}"
-    headers = {
-        "apikey": settings.supabase_service_role_key,
-        "Authorization": f"Bearer {settings.supabase_service_role_key}",
-    }
-    async with httpx.AsyncClient() as client:
-        await client.delete(url, headers=headers)
-    # Delete curriculum
-    url2 = f"{settings.supabase_url}/rest/v1/user_curricula?id=eq.{curriculum_id}&user_id=eq.{teacher_id}"
-    async with httpx.AsyncClient() as client:
-        await client.delete(url2, headers=headers)
+    await db.delete("curriculum_chunks", filters={"curriculum_id": curriculum_id})
+    await db.delete("user_curricula", filters={"id": curriculum_id, "user_id": teacher_id})
     return {"deleted": True}

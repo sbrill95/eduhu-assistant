@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from app import db
+from app.config import get_settings
 from app.models import (
     H5PExerciseRequest, H5PExerciseResponse, PageOut
 )
@@ -91,7 +92,7 @@ async def generate_h5p_exercise(req: H5PExerciseRequest):
             page_id=page_id,
             access_code=access_code,
             title=exercise_set.title,
-            page_url=f"https://eduhu-assistant.pages.dev/s/{access_code}"
+            page_url=f"{get_settings().frontend_url}/s/{access_code}"
         )
 
     except Exception as e:

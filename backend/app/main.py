@@ -46,12 +46,15 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🦉 eduhu-assistant starting...")
-    # Pre-create agent
+    logger.info("eduhu-assistant starting...")
+    from app.db import init_pool, close_pool
+    await init_pool()
+    logger.info("Database pool ready")
     get_agent()
-    logger.info("✅ Agent ready")
+    logger.info("Agent ready")
     yield
-    logger.info("🦉 eduhu-assistant shutting down")
+    logger.info("eduhu-assistant shutting down")
+    await close_pool()
 
 
 app = FastAPI(
@@ -71,13 +74,13 @@ if logfire is not None:
         pass
 
 # CORS for frontend
+_cors_settings = get_settings()
+_cors_origins = ["http://localhost:5173", "http://localhost:4173"]
+if _cors_settings.cors_origins:
+    _cors_origins.extend([o.strip() for o in _cors_settings.cors_origins.split(",") if o.strip()])
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://eduhu-assistant.pages.dev",
-        "http://localhost:5173",
-        "http://localhost:4173",
-    ],  # Production + local dev
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -171,7 +174,7 @@ async def debug_env():
         "brave_api_key": bool(settings.brave_api_key),
         "openai_api_key": bool(settings.openai_api_key),
         "logfire_token": bool(settings.logfire_token),
-        "RENDER": bool(os.environ.get("RENDER")),
+        "COOLIFY": bool(os.environ.get("COOLIFY_URL")),
     }
 
 

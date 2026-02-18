@@ -10,6 +10,7 @@ from app.agents.llm import get_sonnet
 from app.agents.system_prompt import build_system_prompt
 from app.agents.curriculum_agent import curriculum_search
 from app.agents.research_agent import web_search
+from app.config import get_settings
 from app import db
 
 logger = logging.getLogger(__name__)
@@ -196,7 +197,7 @@ def create_agent() -> Agent[AgentDeps, str]:
                     "h5p_content": h5p_content,
                 })
 
-            page_url = f"https://eduhu-assistant.pages.dev/s/{access_code}"
+            page_url = f"{get_settings().frontend_url}/s/{access_code}"
             qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={page_url}"
             qr_card = json.dumps({"title": exercise_set.title, "code": access_code, "url": page_url, "qr_url": qr_url, "count": len(h5p_exercises)}, ensure_ascii=False)
             return (
@@ -527,7 +528,7 @@ def create_agent() -> Agent[AgentDeps, str]:
             "access_code": access_code,
         })
 
-        poll_url = f"https://eduhu-assistant.pages.dev/poll/{access_code}"
+        poll_url = f"{get_settings().frontend_url}/poll/{access_code}"
         qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={poll_url}"
 
         return (
