@@ -62,6 +62,20 @@ async def run_memory_agent(
 
     try:
         result = await agent.run(context)
+        # Track Haiku token usage (fire-and-forget)
+        try:
+            import asyncio as _aio
+            from app.token_tracking import log_usage
+            usage = result.usage()
+            _aio.create_task(log_usage(
+                teacher_id=teacher_id,
+                model="claude-3-5-haiku",
+                input_tokens=usage.input_tokens or 0,
+                output_tokens=usage.output_tokens or 0,
+                agent_type="memory",
+            ))
+        except Exception as e:
+            logger.debug(f"Token tracking skipped: {e}")
         text = result.output
         # Parse JSON
         cleaned = text.replace("```json", "").replace("```", "").strip()

@@ -1,9 +1,23 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from app import db
 from app.models import ProfileUpdate
 from app.deps import get_current_teacher_id
+from app.token_tracking import get_usage_summary
 
 router = APIRouter(prefix="/api/profile", tags=["Profile"])
+
+
+# ── Static routes FIRST (before /{teacher_id} catch-all) ──
+
+@router.get("/token-usage")
+async def get_token_usage(
+    days: int = Query(default=7, ge=1, le=90),
+    agent_type: str | None = Query(default=None),
+    current_user_id: str = Depends(get_current_teacher_id),
+):
+    """Get token usage summary for the current teacher."""
+    return await get_usage_summary(current_user_id, days=days, agent_type=agent_type)
+
 
 @router.get("/{teacher_id}")
 async def get_profile(
