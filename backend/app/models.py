@@ -1,16 +1,55 @@
 """Pydantic models for API requests/responses."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Optional
 
 
-class LoginRequest(BaseModel):
+class RegisterRequest(BaseModel):
+    email: EmailStr
     password: str
+    name: str
+
+
+class LoginRequest(BaseModel):
+    """Updated: supports email+password OR email+magic_link mode."""
+
+    email: EmailStr
+    password: Optional[str] = None
+    request_magic_link: bool = False
 
 
 class LoginResponse(BaseModel):
     teacher_id: str
     name: str
+    role: str
+    access_token: str
+    refresh_token: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class UserOut(BaseModel):
+    id: str
+    name: str
+    email: str
+    role: str
+    email_verified: bool
 
 
 class ChatRequest(BaseModel):
