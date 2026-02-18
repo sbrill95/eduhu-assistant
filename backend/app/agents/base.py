@@ -32,7 +32,13 @@ Du hast Fach, Klasse und Thema — das reicht. GENERIERE SOFORT.
 Nutze sinnvolle Defaults für alles was nicht angegeben ist.
 Stelle Rückfragen (ask_teacher) NUR bei echten Widersprüchen.
 KEINE Rückfragen bei fehlenden Details — entscheide selbst.
-Wenn du fragst, biete Multiple-Choice-Optionen an (options Parameter).
+
+## Rückfragen-Format (PFLICHT!)
+Wenn du doch fragst: Nutze IMMER den options-Parameter von ask_teacher!
+- Biete 2-4 konkrete Optionen an
+- Die letzte Option soll immer eine Freitext-Alternative sein ("Andere...", "Eigene Angabe")
+- NIEMALS ask_teacher ohne options aufrufen!
+Beispiel: ask_teacher("Welcher Schwerpunkt?", options=["Optik", "Mechanik", "Andere Angabe"])
 """
 
 
@@ -80,6 +86,10 @@ def register_ask_teacher_tool(agent: Agent) -> None:
                  Beispiel: ["30/40/30 (Standard)", "25/50/25 (Transfer-Schwerpunkt)", "Andere Verteilung"]
                  Die letzte Option sollte immer eine Freitext-Alternative sein ("Andere...", "Eigene Angabe").
         """
+        # Ensure options are always provided
+        if not options:
+            logger.warning(f"ask_teacher called without options: {question}")
+            options = ["Ja", "Nein", "Eigene Angabe"]
         logger.info(f"Sub-agent asks teacher: {question} (options: {options})")
         msg_history = []
         try:
