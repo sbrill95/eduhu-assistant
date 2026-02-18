@@ -215,7 +215,7 @@ async def chat_send(
     # Update conversation timestamp
     await db.update(
         "conversations",
-        {"updated_at": datetime.now(timezone.utc).isoformat()},
+        {"updated_at": datetime.now(timezone.utc)},
         filters={"id": conversation_id},
     )
 
@@ -376,7 +376,7 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
         # Update conversation timestamp
         await db.update(
             "conversations",
-            {"updated_at": datetime.now(timezone.utc).isoformat()},
+            {"updated_at": datetime.now(timezone.utc)},
             filters={"id": conversation_id},
         )
         

@@ -1,0 +1,20 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Docker Compose Up",
+      "type": "node",
+      "request": "launch",
+      "preLaunchTask": "Docker Compose Up",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Dev: Full Stack (Hot-Reload)",
+      "type": "node",
+      "request": "launch",
+      "preLaunchTask": "Dev: Full Stack",
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": []
+}

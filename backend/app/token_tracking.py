@@ -62,34 +62,21 @@ async def log_usage(
 async def get_usage_summary(teacher_id: str, days: int = 7, agent_type: str | None = None) -> dict:
     """Get aggregated usage stats for a teacher."""
     from datetime import timedelta
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
-    # Server-side filtering via Supabase
-    filters: dict[str, str] = {"teacher_id": teacher_id}
+    filters: dict[str, any] = {
+        "teacher_id": teacher_id,
+        "created_at.gte": cutoff,
+    }
     if agent_type:
         filters["agent_type"] = agent_type
 
-    # Use httpx directly for gte filter (db.select only supports eq)
-    import httpx
-    from app.config import get_settings
-    s = get_settings()
-    params: dict[str, str] = {
-        "teacher_id": f"eq.{teacher_id}",
-        "created_at": f"gte.{cutoff}",
-        "order": "created_at.desc",
-        "limit": "5000",
-    }
-    if agent_type:
-        params["agent_type"] = f"eq.{agent_type}"
-
-    headers = {
-        "apikey": s.supabase_service_role_key,
-        "Authorization": f"Bearer {s.supabase_service_role_key}",
-    }
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        r = await client.get(f"{s.supabase_url}/rest/v1/token_usage", params=params, headers=headers)
-        r.raise_for_status()
-        filtered = r.json()
+    filtered = await db.select(
+        "token_usage",
+        filters=filters,
+        order="created_at.desc",
+        limit=5000,
+    )
 
     if not filtered:
         return {"daily": [], "total": {"input_tokens": 0, "output_tokens": 0, "calls": 0, "cost_usd": 0}}
