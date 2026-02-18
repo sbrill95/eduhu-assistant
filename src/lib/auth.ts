@@ -1,6 +1,7 @@
 import type { Teacher } from './types';
 
 const STORAGE_KEY = 'eduhu_teacher';
+const API = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
 export function getSession(): Teacher | null {
   const raw = localStorage.getItem(STORAGE_KEY);
@@ -20,22 +21,99 @@ export function clearSession(): void {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-export async function login(password: string): Promise<Teacher> {
-  const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
-  const baseUrl = apiUrl ?? '';
-  
-  const res = await fetch(`${baseUrl}/api/auth/login`, {
+export async function login(email: string, password: string): Promise<Teacher> {
+  const res = await fetch(`${API}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ email, password }),
   });
-
   if (!res.ok) {
-    const data = await res.json().catch(() => ({})) as Record<string, string>;
-    throw new Error(data['error'] ?? 'Login fehlgeschlagen');
+    const data = (await res.json().catch(() => ({}))) as Record<string, string>;
+    throw new Error(data['detail'] ?? 'Login fehlgeschlagen');
   }
+  const teacher = (await res.json()) as Teacher;
+  setSession(teacher);
+  return teacher;
+}
 
-  const teacher = await res.json() as Teacher;
+export async function register(
+  email: string,
+  password: string,
+  name: string,
+): Promise<string> {
+  const res = await fetch(`${API}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, name }),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as Record<string, string>;
+    throw new Error(data['detail'] ?? 'Registrierung fehlgeschlagen');
+  }
+  const data = (await res.json()) as { message: string };
+  return data.message;
+}
+
+export async function requestMagicLink(email: string): Promise<string> {
+  const res = await fetch(`${API}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, request_magic_link: true }),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as Record<string, string>;
+    throw new Error(data['detail'] ?? 'Magic Link fehlgeschlagen');
+  }
+  const data = (await res.json()) as { message: string };
+  return data.message;
+}
+
+export async function forgotPassword(email: string): Promise<string> {
+  const res = await fetch(`${API}/api/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  const data = (await res.json()) as { message: string };
+  return data.message;
+}
+
+export async function resetPassword(
+  token: string,
+  newPassword: string,
+): Promise<string> {
+  const res = await fetch(`${API}/api/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as Record<string, string>;
+    throw new Error(data['detail'] ?? 'Passwort-Reset fehlgeschlagen');
+  }
+  const data = (await res.json()) as { message: string };
+  return data.message;
+}
+
+export async function verifyEmail(token: string): Promise<string> {
+  const res = await fetch(`${API}/api/auth/verify/${token}`);
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as Record<string, string>;
+    throw new Error(data['detail'] ?? 'Verifizierung fehlgeschlagen');
+  }
+  const data = (await res.json()) as { message: string };
+  return data.message;
+}
+
+export async function magicLogin(token: string): Promise<Teacher> {
+  const res = await fetch(`${API}/api/auth/magic-login?token=${token}`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as Record<string, string>;
+    throw new Error(data['detail'] ?? 'Magic Login fehlgeschlagen');
+  }
+  const teacher = (await res.json()) as Teacher;
   setSession(teacher);
   return teacher;
 }

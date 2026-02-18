@@ -1,8 +1,22 @@
 """E-Mail service — SMTP via Hetzner."""
 import logging
+from pathlib import Path
 from app.config import get_settings
 from app import db
+
 logger = logging.getLogger(__name__)
+
+TEMPLATE_DIR = Path(__file__).parent / "templates"
+
+
+def _render(template_name: str, **kwargs: str) -> str:
+    """Load an HTML template and replace {{key}} placeholders."""
+    html = (TEMPLATE_DIR / template_name).read_text(encoding="utf-8")
+    for key, value in kwargs.items():
+        html = html.replace(f"{{{{{key}}}}}", value)
+    return html
+
+
 async def send_email(recipient: str, subject: str, body: str, email_type: str) -> bool:
     """Send an email via SMTP and log to email_log table.
 
@@ -19,9 +33,30 @@ async def send_email(recipient: str, subject: str, body: str, email_type: str) -
     log_id = log_entry["id"]
 
     if not s.mail_server or not s.mail_username:
-        logger.warning(f"Mail not configured, skipping email to {recipient}")
-        await db.update("email_log", {"status": "failed", "error_message": "SMTP not configured"}, filters={"id": log_id})
-        return False
+        # DEV mode: print email to console so developers can grab links
+        import re
+        from datetime import datetime, timezone
+
+        plain = re.sub(r"<[^>]+>", "", body).strip()
+        plain = re.sub(r"\n\s*\n+", "\n", plain)
+        logger.warning(
+            "\n"
+            "╔══════════════════════════════════════════════════════════════╗\n"
+            "║  📧  DEV MAIL (SMTP not configured)                        ║\n"
+            "╠══════════════════════════════════════════════════════════════╣\n"
+            f"║  To:      {recipient}\n"
+            f"║  Subject: {subject}\n"
+            "╠══════════════════════════════════════════════════════════════╣\n"
+            f"{plain}\n"
+            "╚══════════════════════════════════════════════════════════════╝"
+        )
+        await db.update("email_log", {
+            "status": "sent",
+            "attempts": 1,
+            "sent_at": datetime.now(timezone.utc),
+            "error_message": "DEV: printed to console",
+        }, filters={"id": log_id})
+        return True
 
     import smtplib
     from email.mime.text import MIMEText
@@ -43,7 +78,7 @@ async def send_email(recipient: str, subject: str, body: str, email_type: str) -
         await db.update("email_log", {
             "status": "sent",
             "attempts": 1,
-            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "sent_at": datetime.now(timezone.utc),
         }, filters={"id": log_id})
         logger.info(f"Email sent to {recipient} ({email_type})")
         return True
@@ -57,43 +92,28 @@ async def send_email(recipient: str, subject: str, body: str, email_type: str) -
         return False
 
 
+def _frontend_url() -> str:
+    """Return frontend_url with a sensible local fallback."""
+    url = get_settings().frontend_url
+    return url if url else "http://localhost:5173"
+
+
 async def send_verification_email(email: str, token: str) -> bool:
     """Send Double-Opt-In verification email."""
-    s = get_settings()
-    verify_url = f"{s.frontend_url}/verify?token={token}"
-    body = f"""
-    <h2>Willkommen bei eduhu! 🦉</h2>
-    <p>Bitte bestätige deine E-Mail-Adresse:</p>
-    <p><a href="{verify_url}" style="background:#C8552D;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">E-Mail bestätigen</a></p>
-    <p>Oder kopiere diesen Link: {verify_url}</p>
-    <p>Der Link ist 24 Stunden gültig.</p>
-    """
+    url = f"{_frontend_url()}/verify?token={token}"
+    body = _render("verify.html", url=url)
     return await send_email(email, "E-Mail bestätigen — eduhu", body, "verify")
 
 
 async def send_reset_email(email: str, token: str) -> bool:
     """Send password reset email."""
-    s = get_settings()
-    reset_url = f"{s.frontend_url}/reset-password?token={token}"
-    body = f"""
-    <h2>Passwort zurücksetzen</h2>
-    <p>Du hast angefordert, dein Passwort zurückzusetzen:</p>
-    <p><a href="{reset_url}" style="background:#C8552D;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Neues Passwort setzen</a></p>
-    <p>Oder kopiere diesen Link: {reset_url}</p>
-    <p>Der Link ist 1 Stunde gültig.</p>
-    """
+    url = f"{_frontend_url()}/reset-password?token={token}"
+    body = _render("reset.html", url=url)
     return await send_email(email, "Passwort zurücksetzen — eduhu", body, "reset")
 
 
 async def send_magic_link_email(email: str, token: str) -> bool:
     """Send magic link login email."""
-    s = get_settings()
-    login_url = f"{s.frontend_url}/magic-login?token={token}"
-    body = f"""
-    <h2>Dein Login-Link 🦉</h2>
-    <p>Klicke hier, um dich bei eduhu anzumelden:</p>
-    <p><a href="{login_url}" style="background:#C8552D;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Jetzt einloggen</a></p>
-    <p>Oder kopiere diesen Link: {login_url}</p>
-    <p>Der Link ist 15 Minuten gültig.</p>
-    """
+    url = f"{_frontend_url()}/magic-login?token={token}"
+    body = _render("magic_link.html", url=url)
     return await send_email(email, "Dein Login-Link — eduhu", body, "magic_link")
