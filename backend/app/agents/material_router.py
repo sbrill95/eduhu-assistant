@@ -166,6 +166,21 @@ async def run_material_agent(request: MaterialRequest) -> dict[str, Any]:
             )
             messages = _serialize_messages(result.all_messages())
 
+            # Track token usage (fire-and-forget)
+            try:
+                import asyncio as _aio
+                from app.token_tracking import log_usage
+                usage = result.usage()
+                _aio.create_task(log_usage(
+                    teacher_id=request.teacher_id,
+                    model=getattr(result, '_model_name', None) or "claude-sonnet-4",
+                    input_tokens=usage.input_tokens or 0,
+                    output_tokens=usage.output_tokens or 0,
+                    agent_type=material_type,
+                ))
+            except Exception as e:
+                logger.debug(f"Token tracking skipped: {e}")
+
             # Save session
             await _save_session(
                 session_id=session_id,
@@ -264,6 +279,21 @@ async def continue_agent_session(session_id: str, user_input: str) -> dict[str, 
             timeout=settings.sub_agent_timeout_seconds,
         )
         messages = _serialize_messages(result.all_messages())
+
+        # Track token usage (fire-and-forget)
+        try:
+            import asyncio as _aio
+            from app.token_tracking import log_usage
+            usage = result.usage()
+            _aio.create_task(log_usage(
+                teacher_id=common_deps.get("teacher_id", ""),
+                model=getattr(result, '_model_name', None) or "claude-sonnet-4",
+                input_tokens=usage.input_tokens or 0,
+                output_tokens=usage.output_tokens or 0,
+                agent_type=agent_type,
+            ))
+        except Exception as e:
+            logger.debug(f"Token tracking skipped: {e}")
 
         # Update session
         structure = result.output.model_dump() if hasattr(result.output, "model_dump") else {}

@@ -24,6 +24,7 @@ async def _memory_then_cleanup(teacher_id: str, conversation_id: str, messages: 
         await run_cleanup(teacher_id)
 # Material learning now triggered by download/iteration signals, not chat analysis
 from app.agents.summary_agent import maybe_summarize
+from app.token_tracking import log_usage
 from app.deps import get_current_teacher_id
 from datetime import datetime, timezone
 import asyncio
@@ -191,6 +192,19 @@ async def chat_send(
             logger.error(f"Agent error: {type(e).__name__}: {e}", exc_info=True)
             raise HTTPException(500, f"KI-Antwort fehlgeschlagen: {type(e).__name__}")
 
+    # Track token usage (fire-and-forget)
+    try:
+        usage = result.usage()
+        asyncio.create_task(log_usage(
+            teacher_id=teacher_id,
+            model=deps.model_name if hasattr(deps, 'model_name') else "claude-sonnet-4",
+            input_tokens=usage.input_tokens or 0,
+            output_tokens=usage.output_tokens or 0,
+            agent_type="main",
+        ))
+    except Exception as e:
+        logger.debug(f"Token tracking skipped: {e}")
+
     # Store assistant message
     saved = await db.insert("messages", {
         "conversation_id": conversation_id,
@@ -293,6 +307,18 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
                 elif isinstance(event, AgentRunResultEvent):
                     if not full_text:
                         full_text = str(event.result.output or "")
+                    # Track token usage from stream result
+                    try:
+                        usage = event.result.usage()
+                        asyncio.create_task(log_usage(
+                            teacher_id=teacher_id,
+                            model="claude-sonnet-4",
+                            input_tokens=usage.input_tokens or 0,
+                            output_tokens=usage.output_tokens or 0,
+                            agent_type="main",
+                        ))
+                    except Exception:
+                        pass
         except Exception as e:
             logger.error(f"Agent stream error: {type(e).__name__}: {e}", exc_info=True)
             # Yield an error message if something goes wrong during the stream
