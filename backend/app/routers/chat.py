@@ -281,7 +281,34 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
             "generate_audio_dialogue": "🎙️ Dialog wird vertont…",
         }
 
+        # Tools that involve multi-step processing (show progress)
+        _MULTI_STEP_TOOLS = {
+            "generate_material": [
+                "🔍 Anforderungen werden analysiert…",
+                "📝 Material wird erstellt…",
+                "📄 Dokument wird formatiert…",
+            ],
+            "continue_material": [
+                "📖 Bisheriges Material wird geladen…",
+                "✏️ Änderungen werden eingearbeitet…",
+                "📄 Dokument wird aktualisiert…",
+            ],
+            "generate_image": [
+                "🎨 Prompt wird vorbereitet…",
+                "🖼️ Bild wird generiert…",
+            ],
+            "youtube_quiz": [
+                "🎬 Video wird analysiert…",
+                "❓ Quiz-Fragen werden erstellt…",
+            ],
+            "generate_audio_dialogue": [
+                "📝 Dialog-Skript wird erstellt…",
+                "🎙️ Audio wird generiert…",
+            ],
+        }
+
         full_text = ""
+        step_counter = 0
         try:
             async for event in agent.run_stream_events(run_input, deps=deps, message_history=message_history):
                 from pydantic_ai.messages import (
@@ -292,9 +319,19 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
 
                 if isinstance(event, FunctionToolCallEvent):
                     tool_name = event.part.tool_name
-                    label = _TOOL_LABELS.get(tool_name, f"⚙️ {tool_name}…")
-                    yield f"data: {json.dumps({'type': 'step', 'text': label})}\n\n"
+                    step_counter += 1
+
+                    # Multi-step tools: send initial step
+                    if tool_name in _MULTI_STEP_TOOLS:
+                        steps = _MULTI_STEP_TOOLS[tool_name]
+                        yield f"data: {json.dumps({'type': 'step', 'text': steps[0], 'step': 1, 'total_steps': len(steps)})}\n\n"
+                    else:
+                        label = _TOOL_LABELS.get(tool_name, f"⚙️ {tool_name}…")
+                        yield f"data: {json.dumps({'type': 'step', 'text': label, 'step': step_counter})}\n\n"
                 elif isinstance(event, PartStartEvent):
+                    # When text starts, signal step complete
+                    if step_counter > 0:
+                        yield f"data: {json.dumps({'type': 'step', 'text': '✅ Fertig!', 'done': True})}\n\n"
                     if isinstance(event.part, TextPart) and event.part.content:
                         delta_text = event.part.content
                         full_text += delta_text
