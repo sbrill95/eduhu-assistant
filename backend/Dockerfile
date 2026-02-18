@@ -19,6 +19,10 @@ RUN uv sync --no-dev
 # Copy application code
 COPY app/ ./app/
 
+# Copy Alembic migration config and revisions
+COPY alembic.ini ./
+COPY alembic/ ./alembic/
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \

@@ -47,6 +47,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("eduhu-assistant starting...")
+    from app.migrations import run_migrations
+    run_migrations()
+    logger.info("Database migrations done")
     from app.db import init_pool, close_pool
     await init_pool()
     logger.info("Database pool ready")

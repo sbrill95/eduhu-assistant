@@ -620,7 +620,7 @@ def create_agent() -> Agent[AgentDeps, str]:
 
         elif action == "complete":
             from datetime import datetime, timezone
-            await db.update("todos", {"done": True, "completed_at": datetime.now(timezone.utc).isoformat()}, filters={"id": todo_id, "teacher_id": teacher_id})
+            await db.update("todos", {"done": True, "completed_at": datetime.now(timezone.utc)}, filters={"id": todo_id, "teacher_id": teacher_id})
             return "Todo erledigt! ✅"
 
         elif action == "delete":

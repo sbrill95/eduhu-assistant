@@ -241,3 +241,30 @@ export async function transcribeAudio(audioBlob: Blob, teacherId: string): Promi
   const data = await resp.json();
   return data.text || '';
 }
+
+export interface TokenUsageDaily {
+  date: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  calls: number;
+  cost_usd: number;
+}
+export interface TokenUsageSummary {
+  daily: TokenUsageDaily[];
+  total: {
+    input_tokens: number;
+    output_tokens: number;
+    calls: number;
+    cost_usd: number;
+  };
+}
+export async function getTokenUsage(days: number = 7): Promise<TokenUsageSummary> {
+  const teacher = getSession();
+  if (!teacher) throw new Error('Nicht angemeldet');
+  const res = await fetch(`${BASE}/api/profile/token-usage?days=${days}`, {
+    headers: getAuthHeaders(teacher.teacher_id),
+  });
+  if (!res.ok) throw new Error('Token-Usage konnte nicht geladen werden.');
+  return res.json();
+}
