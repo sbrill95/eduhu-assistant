@@ -15,3 +15,5 @@ eduhu.log
 # Docker
 docker-compose.override.yml
 pgdata/
+
+concepts

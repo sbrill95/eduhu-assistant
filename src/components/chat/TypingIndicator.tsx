@@ -64,8 +64,8 @@ export function TypingIndicator({ context }: TypingIndicatorProps) {
 
   return (
     <div className="flex gap-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-lg">
-        🦉
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white border border-border">
+        <img src="/Eduhu_Eule_Kopf.svg" alt="" className="h-5 w-5" />
       </div>
       <div className="rounded-[var(--radius-card)] bg-bg-card px-4 py-3 shadow-card">
         <div className="flex items-center gap-2">

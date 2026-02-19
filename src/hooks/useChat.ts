@@ -16,7 +16,9 @@ export function useChat() {
   useEffect(() => {
     if (!teacher) return;
     
-    fetch(`${API_BASE}/api/suggestions?teacher_id=${teacher.teacher_id}`)
+    fetch(`${API_BASE}/api/suggestions?teacher_id=${teacher.teacher_id}`, {
+      headers: { Authorization: `Bearer ${teacher.access_token}` },
+    })
       .then(res => res.json())
       .then(data => setSuggestions(data.suggestions))
       .catch(() => setSuggestions(["Plane eine Unterrichtsstunde", "Erstelle Material", "Hilf mir bei der Vorbereitung"]))
