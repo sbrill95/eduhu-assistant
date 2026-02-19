@@ -342,6 +342,42 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* Admin: Demo Mode Toggle */}
+      {teacher.role === 'admin' && (
+        <div className="rounded-[20px] bg-bg-card p-7 shadow-soft mb-6">
+          <h3 className="text-[13px] font-bold uppercase text-text-secondary mb-5">
+            Demo-Modus (Didacta)
+          </h3>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-text-strong">Demo-Modus aktivieren</p>
+              <p className="text-xs text-text-secondary mt-1">
+                Zeigt "Demo starten" auf der Login-Seite. Demo-Accounts laufen nach 7 Tagen ab.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                const current = (document.getElementById('demo-toggle') as HTMLInputElement)?.checked;
+                try {
+                  const API = import.meta.env.VITE_API_URL || '';
+                  await fetch(`${API}/api/auth/demo-toggle?enabled=${!current}`, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${teacher.access_token}` },
+                  });
+                  const toggle = document.getElementById('demo-toggle') as HTMLInputElement;
+                  if (toggle) toggle.checked = !current;
+                } catch { /* silent */ }
+              }}
+              className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-bg-subtle hover:bg-gray-300"
+            >
+              <input type="checkbox" id="demo-toggle" className="sr-only peer" />
+              <span className="peer-checked:translate-x-5 peer-checked:bg-primary inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform translate-x-0.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Token Usage — only visible for admins */}
       {teacher?.role === 'admin' && (
         <div className="rounded-[20px] bg-bg-card p-7 shadow-soft mb-6">

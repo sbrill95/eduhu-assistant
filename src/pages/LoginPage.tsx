@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login, register, requestMagicLink, forgotPassword } from '../lib/auth';
+import { login, register, requestMagicLink, forgotPassword, checkDemoEnabled, startDemo } from '../lib/auth';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -15,9 +15,12 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [demoEnabled, setDemoEnabled] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   useEffect(() => {
     fetch(`${API}/api/health`).catch(() => {});
+    void checkDemoEnabled().then(setDemoEnabled);
   }, []);
 
   function clearMessages() {
@@ -375,6 +378,28 @@ export default function LoginPage() {
               ← Zurück zum Login
             </button>
           </form>
+        )}
+
+        {/* Demo Button */}
+        {demoEnabled && (
+          <button
+            type="button"
+            onClick={async () => {
+              setDemoLoading(true);
+              try {
+                await startDemo();
+                void navigate('/dashboard');
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Demo konnte nicht gestartet werden');
+              } finally {
+                setDemoLoading(false);
+              }
+            }}
+            disabled={demoLoading}
+            className="mt-4 w-full rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 py-3 text-sm font-semibold text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+          >
+            {demoLoading ? 'Demo wird gestartet...' : '🎯 Demo starten — 7 Tage kostenlos testen'}
+          </button>
         )}
 
         {/* Footer */}

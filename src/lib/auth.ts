@@ -105,6 +105,33 @@ export async function verifyEmail(token: string): Promise<string> {
   return data.message;
 }
 
+export function isDemoUser(): boolean {
+  const session = getSession();
+  return session?.role === 'demo';
+}
+
+export async function checkDemoEnabled(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API}/api/auth/demo-status`);
+    if (!res.ok) return false;
+    const data = (await res.json()) as { demo_enabled: boolean };
+    return data.demo_enabled;
+  } catch {
+    return false;
+  }
+}
+
+export async function startDemo(): Promise<Teacher> {
+  const res = await fetch(`${API}/api/auth/demo-start`, { method: 'POST' });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as Record<string, string>;
+    throw new Error(data['detail'] ?? 'Demo konnte nicht gestartet werden');
+  }
+  const teacher = (await res.json()) as Teacher;
+  setSession(teacher);
+  return teacher;
+}
+
 export async function magicLogin(token: string): Promise<Teacher> {
   const res = await fetch(`${API}/api/auth/magic-login?token=${token}`, {
     method: 'POST',

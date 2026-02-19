@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getSession } from '@/lib/auth';
+import { getSession, isDemoUser } from '@/lib/auth';
+import { ExitSurvey } from '@/components/ExitSurvey';
 
 const TITLES: Record<string, string> = {
   '/dashboard': 'Übersicht',
@@ -17,6 +19,8 @@ export function TopBar({ onMenuToggle }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
   const teacher = getSession();
+  const [showExitSurvey, setShowExitSurvey] = useState(false);
+  const isDemo = isDemoUser();
 
   const title = TITLES[location.pathname] || 'eduhu';
   const initial = teacher?.name?.charAt(0)?.toUpperCase() || 'U';
@@ -41,7 +45,16 @@ export function TopBar({ onMenuToggle }: Props) {
         </h1>
       </div>
 
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-3">
+        {isDemo && (
+          <button
+            type="button"
+            onClick={() => setShowExitSurvey(true)}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors"
+          >
+            🎯 Demo beenden
+          </button>
+        )}
         <button
           type="button"
           onClick={() => void navigate('/profile')}
@@ -50,6 +63,17 @@ export function TopBar({ onMenuToggle }: Props) {
           {initial}
         </button>
       </div>
+
+      {showExitSurvey && (
+        <ExitSurvey
+          onClose={() => setShowExitSurvey(false)}
+          onUpgrade={(email) => {
+            // TODO: call demo-upgrade endpoint
+            console.log('Upgrade to:', email);
+            setShowExitSurvey(false);
+          }}
+        />
+      )}
     </header>
   );
 }
