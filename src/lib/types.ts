@@ -48,5 +48,5 @@ export interface Artifact {
   /** For H5P: the exercise page URL */
   pageUrl?: string;
   /** Message ID this artifact belongs to */
-  messageId?: string;
+  messageId: string;
 }

@@ -34,6 +34,7 @@ export default function ChatPage() {
   } = useChat();
 
   const [showOnboarding, setShowOnboarding] = useState(false);
+  // TODO: Auto-open on mobile when artifact detected (needs screen width check)
   const [mobileArtifact, setMobileArtifact] = useState<Artifact | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
