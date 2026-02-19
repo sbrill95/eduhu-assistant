@@ -20,9 +20,10 @@ const NAV_ITEMS: NavItem[] = [
 interface Props {
   collapsed: boolean;
   onToggle: () => void;
+  onNavigate?: () => void;
 }
 
-export function Sidebar({ collapsed, onToggle }: Props) {
+export function Sidebar({ collapsed, onToggle, onNavigate }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
   const teacher = getSession();
@@ -39,15 +40,15 @@ export function Sidebar({ collapsed, onToggle }: Props) {
 
   return (
     <nav
-      className="flex flex-col border-r border-border/30 bg-bg-card transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)]"
+      className="flex flex-col border-r border-border/30 bg-bg-card transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] h-full"
       style={{ width: collapsed ? 'var(--sidebar-collapsed-w)' : 'var(--sidebar-w)', minWidth: collapsed ? 'var(--sidebar-collapsed-w)' : 'var(--sidebar-w)' }}
     >
       <div className="relative flex flex-col h-full px-5 py-7" style={{ padding: collapsed ? '30px 12px' : undefined }}>
-        {/* Toggle Button */}
+        {/* Toggle Button (hidden on mobile) */}
         <button
           type="button"
           onClick={onToggle}
-          className="absolute top-7 right-4 flex h-7 w-7 items-center justify-center rounded-full bg-bg-page text-text-secondary transition-colors hover:bg-primary hover:text-white"
+          className="hidden md:flex absolute top-7 right-4 h-7 w-7 items-center justify-center rounded-full bg-bg-page text-text-secondary transition-colors hover:bg-primary hover:text-white"
           style={collapsed ? { right: '26px', transform: 'rotate(180deg)' } : undefined}
         >
           <i className="fa-solid fa-chevron-left text-xs" />
@@ -56,7 +57,7 @@ export function Sidebar({ collapsed, onToggle }: Props) {
         {/* Logo */}
         <button
           type="button"
-          onClick={() => void navigate('/dashboard')}
+          onClick={() => { void navigate('/dashboard'); onNavigate?.(); }}
           className="mb-10 flex items-center gap-3 overflow-hidden bg-transparent border-none cursor-pointer"
           style={collapsed ? { paddingLeft: 0, justifyContent: 'center' } : { paddingLeft: '10px' }}
         >
@@ -75,7 +76,7 @@ export function Sidebar({ collapsed, onToggle }: Props) {
               <button
                 key={item.path}
                 type="button"
-                onClick={() => void navigate(item.path)}
+                onClick={() => { void navigate(item.path); onNavigate?.(); }}
                 className={`flex items-center gap-3.5 rounded-[var(--radius-btn)] px-4 py-3.5 text-[15px] font-semibold transition-all duration-200 ${
                   isActive
                     ? 'bg-primary text-white shadow-[0_4px_12px_rgba(245,104,61,0.25)]'
@@ -99,7 +100,7 @@ export function Sidebar({ collapsed, onToggle }: Props) {
                 <button
                   key={conv.id}
                   type="button"
-                  onClick={() => void navigate(`/workspace?c=${conv.id}`)}
+                  onClick={() => { void navigate(`/workspace?c=${conv.id}`); onNavigate?.(); }}
                   className="flex items-center gap-3.5 rounded-[var(--radius-btn)] px-4 py-3.5 text-sm font-medium text-text-secondary transition-all hover:bg-bg-page hover:text-text-strong"
                 >
                   <i className="fa-regular fa-comment w-6 text-center text-base shrink-0" />

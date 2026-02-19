@@ -42,9 +42,9 @@ export default function LibraryPage() {
   return (
     <AppShell>
       {/* Header with search */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <h1 className="text-2xl font-bold text-text-strong">Bibliothek</h1>
-        <div className="flex items-center gap-2.5 bg-bg-card rounded-full px-5 py-2.5 shadow-soft w-80">
+        <div className="flex items-center gap-2.5 bg-bg-card rounded-full px-5 py-2.5 shadow-soft w-full sm:w-80">
           <i className="fa-solid fa-magnifying-glass text-text-secondary" />
           <input
             type="text"
@@ -53,7 +53,7 @@ export default function LibraryPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 bg-transparent border-none outline-none text-sm font-medium text-text-strong"
           />
-          <span className="text-text-secondary opacity-50 text-xs">Ctrl+K</span>
+          <span className="text-text-secondary opacity-50 text-xs hidden sm:inline">Ctrl+K</span>
         </div>
       </div>
 
@@ -61,7 +61,7 @@ export default function LibraryPage() {
       <h3 className="text-[13px] font-bold uppercase text-text-secondary tracking-wider mb-3">
         Ordner
       </h3>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3 sm:gap-4 mb-8">
         {FOLDERS.map((folder) => (
           <div
             key={folder.name}
