@@ -65,7 +65,7 @@ export function ChatInput({ onSend, disabled }: Props) {
 
         setIsTranscribing(true);
         try {
-          const transcribedText = await transcribeAudio(audioBlob, teacher.teacher_id);
+          const transcribedText = await transcribeAudio(audioBlob);
           setText((prev) => (prev ? `${prev.trim()} ${transcribedText}` : transcribedText));
           // Manuelles Auslösen des Input-Handlers, um die Textarea-Größe anzupassen
           setTimeout(() => handleInput(), 0);
