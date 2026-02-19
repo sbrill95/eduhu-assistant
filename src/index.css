@@ -130,3 +130,8 @@
     color: var(--color-text-muted);
   }
 }
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
