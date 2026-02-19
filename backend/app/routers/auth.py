@@ -99,13 +99,30 @@ async def verify_email(token: str):
 
 @router.post("/login", response_model=LoginResponse)
 async def login(req: LoginRequest):
-    """Login with email+password or request a magic link."""
+    """Login with email+password or request a magic link. Also supports legacy password-only login for accounts without email. """
     # Find teacher by email
     teachers = await db.raw_fetch(
         "SELECT id, name, email, password_hash, role, email_verified FROM teachers WHERE email = $1",
         req.email,
     )
     if not teachers:
+        # Fallback: legacy password-only login (accounts without email set)
+        if req.password:
+            legacy = await db.raw_fetch(
+                "SELECT id, name, role, password FROM teachers WHERE password = $1 AND email IS NULL",
+                req.password,
+            )
+            if legacy:
+                teacher = legacy[0]
+                access_token = create_access_token(teacher["id"], teacher.get("role", "teacher"))
+                refresh_token = create_refresh_token(teacher["id"])
+                return LoginResponse(
+                    teacher_id=teacher["id"],
+                    name=teacher["name"],
+                    role=teacher.get("role", "teacher"),
+                    access_token=access_token,
+                    refresh_token=refresh_token,
+                )
         raise HTTPException(401, "Ungültige Anmeldedaten")
     teacher = teachers[0]
 

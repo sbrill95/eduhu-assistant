@@ -342,83 +342,85 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Token Usage */}
-      <div className="rounded-[20px] bg-bg-card p-7 shadow-soft mb-6">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-[13px] font-bold uppercase text-text-secondary">
-            Token-Verbrauch
-          </h3>
-          <select
-            value={usageDays}
-            onChange={(e) => setUsageDays(Number(e.target.value))}
-            className="px-3 py-1.5 rounded-xl bg-[#F0EDE9] border border-transparent text-sm text-text-strong outline-none"
-          >
-            <option value={7}>7 Tage</option>
-            <option value={30}>30 Tage</option>
-            <option value={90}>90 Tage</option>
-          </select>
-        </div>
-        {usageLoading ? (
-          <p className="text-sm text-text-secondary">Laden...</p>
-        ) : usage && usage.daily.length > 0 ? (
-          <>
-            <div className="grid grid-cols-3 gap-4 mb-5">
-              <div className="rounded-2xl bg-[#F0EDE9] p-4 text-center">
-                <p className="text-[11px] font-bold uppercase text-text-secondary mb-1">Anfragen</p>
-                <p className="text-xl font-bold text-text-strong">{usage.total.calls}</p>
+      {/* Token Usage — only visible for admins */}
+      {teacher?.role === 'admin' && (
+        <div className="rounded-[20px] bg-bg-card p-7 shadow-soft mb-6">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-[13px] font-bold uppercase text-text-secondary">
+              Token-Verbrauch
+            </h3>
+            <select
+              value={usageDays}
+              onChange={(e) => setUsageDays(Number(e.target.value))}
+              className="px-3 py-1.5 rounded-xl bg-[#F0EDE9] border border-transparent text-sm text-text-strong outline-none"
+            >
+              <option value={7}>7 Tage</option>
+              <option value={30}>30 Tage</option>
+              <option value={90}>90 Tage</option>
+            </select>
+          </div>
+          {usageLoading ? (
+            <p className="text-sm text-text-secondary">Laden...</p>
+          ) : usage && usage.daily.length > 0 ? (
+            <>
+              <div className="grid grid-cols-3 gap-4 mb-5">
+                <div className="rounded-2xl bg-[#F0EDE9] p-4 text-center">
+                  <p className="text-[11px] font-bold uppercase text-text-secondary mb-1">Anfragen</p>
+                  <p className="text-xl font-bold text-text-strong">{usage.total.calls}</p>
+                </div>
+                <div className="rounded-2xl bg-[#F0EDE9] p-4 text-center">
+                  <p className="text-[11px] font-bold uppercase text-text-secondary mb-1">Tokens</p>
+                  <p className="text-xl font-bold text-text-strong">
+                    {((usage.total.input_tokens + usage.total.output_tokens) / 1000).toFixed(1)}k
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-[#F0EDE9] p-4 text-center">
+                  <p className="text-[11px] font-bold uppercase text-text-secondary mb-1">Kosten</p>
+                  <p className="text-xl font-bold text-text-strong">
+                    ${usage.total.cost_usd.toFixed(2)}
+                  </p>
+                </div>
               </div>
-              <div className="rounded-2xl bg-[#F0EDE9] p-4 text-center">
-                <p className="text-[11px] font-bold uppercase text-text-secondary mb-1">Tokens</p>
-                <p className="text-xl font-bold text-text-strong">
-                  {((usage.total.input_tokens + usage.total.output_tokens) / 1000).toFixed(1)}k
-                </p>
-              </div>
-              <div className="rounded-2xl bg-[#F0EDE9] p-4 text-center">
-                <p className="text-[11px] font-bold uppercase text-text-secondary mb-1">Kosten</p>
-                <p className="text-xl font-bold text-text-strong">
-                  ${usage.total.cost_usd.toFixed(2)}
-                </p>
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-border text-[11px] font-bold uppercase text-text-secondary">
-                    <th className="pb-2 pr-3">Datum</th>
-                    <th className="pb-2 pr-3">Modell</th>
-                    <th className="pb-2 pr-3 text-right">Input</th>
-                    <th className="pb-2 pr-3 text-right">Output</th>
-                    <th className="pb-2 pr-3 text-right">Calls</th>
-                    <th className="pb-2 text-right">Kosten</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {usage.daily.map((row, i) => (
-                    <tr key={i} className="border-b border-border/50">
-                      <td className="py-2.5 pr-3 text-text-strong">{row.date}</td>
-                      <td className="py-2.5 pr-3 text-text-secondary">
-                        {row.model.replace('claude-', '').replace('-20250514', '').replace('-20241022', '')}
-                      </td>
-                      <td className="py-2.5 pr-3 text-right text-text-strong">
-                        {(row.input_tokens / 1000).toFixed(1)}k
-                      </td>
-                      <td className="py-2.5 pr-3 text-right text-text-strong">
-                        {(row.output_tokens / 1000).toFixed(1)}k
-                      </td>
-                      <td className="py-2.5 pr-3 text-right text-text-strong">{row.calls}</td>
-                      <td className="py-2.5 text-right text-text-strong">
-                        ${row.cost_usd.toFixed(4)}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-[11px] font-bold uppercase text-text-secondary">
+                      <th className="pb-2 pr-3">Datum</th>
+                      <th className="pb-2 pr-3">Modell</th>
+                      <th className="pb-2 pr-3 text-right">Input</th>
+                      <th className="pb-2 pr-3 text-right">Output</th>
+                      <th className="pb-2 pr-3 text-right">Calls</th>
+                      <th className="pb-2 text-right">Kosten</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-text-secondary">Noch keine Nutzungsdaten vorhanden.</p>
-        )}
-      </div>
+                  </thead>
+                  <tbody>
+                    {usage.daily.map((row, i) => (
+                      <tr key={i} className="border-b border-border/50">
+                        <td className="py-2.5 pr-3 text-text-strong">{row.date}</td>
+                        <td className="py-2.5 pr-3 text-text-secondary">
+                          {row.model.replace('claude-', '').replace('-20250514', '').replace('-20241022', '')}
+                        </td>
+                        <td className="py-2.5 pr-3 text-right text-text-strong">
+                          {(row.input_tokens / 1000).toFixed(1)}k
+                        </td>
+                        <td className="py-2.5 pr-3 text-right text-text-strong">
+                          {(row.output_tokens / 1000).toFixed(1)}k
+                        </td>
+                        <td className="py-2.5 pr-3 text-right text-text-strong">{row.calls}</td>
+                        <td className="py-2.5 text-right text-text-strong">
+                          ${row.cost_usd.toFixed(4)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-text-secondary">Noch keine Nutzungsdaten vorhanden.</p>
+          )}
+        </div>
+      )}
     </AppShell>
   );
 }
