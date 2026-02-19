@@ -35,7 +35,7 @@ export default function LoginPage() {
     clearMessages();
     try {
       await login(email, password);
-      void navigate('/chat');
+      void navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login fehlgeschlagen');
     } finally {
@@ -109,9 +109,8 @@ export default function LoginPage() {
     <div className="flex min-h-dvh items-center justify-center bg-bg-page px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="mb-8 text-center">
-          <div className="mb-3 text-6xl">🦉</div>
-          <h1 className="text-2xl font-bold text-text-strong">eduhu</h1>
+        <div className="mb-8 flex flex-col items-center">
+          <img src="/eduhu_logo_transparent.svg" alt="eduhu" className="h-14 mb-3" />
           <p className="mt-1 text-sm text-text-secondary">
             Dein KI-Assistent im Lehrerzimmer
           </p>

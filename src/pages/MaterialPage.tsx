@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getSession } from '../lib/auth';
+import { AppShell } from '@/components/layout/AppShell';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
@@ -34,6 +36,13 @@ interface MaterialResult {
 }
 
 export default function MaterialPage() {
+  const navigate = useNavigate();
+  const teacher = getSession();
+
+  useEffect(() => {
+    if (!teacher) void navigate('/');
+  }, [teacher, navigate]);
+
   const [type, setType] = useState<'klausur' | 'differenzierung'>('klausur');
   const [fach, setFach] = useState('');
   const [klasse, setKlasse] = useState('');
@@ -93,9 +102,12 @@ export default function MaterialPage() {
     window.open(`${BASE}${result.docx_url}`, '_blank');
   };
 
+  if (!teacher) return null;
+
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-[#2D2018] mb-6">📝 Material erstellen</h1>
+    <AppShell>
+    <div className="max-w-3xl mx-auto">
+      <h1 className="text-2xl font-bold text-text-strong mb-6">Material erstellen</h1>
 
       {/* Form */}
       <div className="bg-white rounded-xl shadow-sm border border-[#E8DDD4] p-6 mb-6">
@@ -231,6 +243,7 @@ export default function MaterialPage() {
         </div>
       )}
     </div>
+    </AppShell>
   );
 }
 

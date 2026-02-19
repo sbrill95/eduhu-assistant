@@ -1,5 +1,5 @@
 import { type ChatMessage, type Conversation } from './types';
-import { getSession } from './auth';
+import { getSession, clearSession } from './auth';
 
 export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 const BASE = API_BASE;
@@ -14,6 +14,16 @@ function getAuthHeaders(withContentType = true): Record<string, string> {
     headers['Content-Type'] = 'application/json';
   }
   return headers;
+}
+
+/** Handle 401 responses by clearing session — caller should redirect to login */
+function handle401(res: Response): boolean {
+  if (res.status === 401) {
+    clearSession();
+    window.location.href = '/';
+    return true;
+  }
+  return false;
 }
 
 export async function sendMessage(
@@ -109,7 +119,10 @@ export async function getHistory(conversationId: string): Promise<ChatMessage[]>
     headers: { Authorization: `Bearer ${teacher.access_token}` }
   });
 
-  if (!res.ok) throw new Error('Verlauf konnte nicht geladen werden.');
+  if (!res.ok) {
+    handle401(res);
+    throw new Error('Verlauf konnte nicht geladen werden.');
+  }
   const data = (await res.json()) as { messages: ChatMessage[] };
   return data.messages;
 }
@@ -122,7 +135,10 @@ export async function getConversations(): Promise<Conversation[]> {
     headers: { Authorization: `Bearer ${teacher.access_token}` }
   });
 
-  if (!res.ok) return [];
+  if (!res.ok) {
+    handle401(res);
+    return [];
+  }
   return res.json() as Promise<Conversation[]>;
 }
 
@@ -207,7 +223,10 @@ export async function getProfile(): Promise<Profile | null> {
     headers: { Authorization: `Bearer ${teacher.access_token}` }
   });
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    handle401(res);
+    return null;
+  }
   return res.json() as Promise<Profile>;
 }
 

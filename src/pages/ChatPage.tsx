@@ -1,16 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { ChipSelector } from '@/components/chat/ChipSelector';
-import { ConversationSidebar } from '@/components/chat/ConversationSidebar';
 import { useChat } from '@/hooks/useChat';
 import { OnboardingModal } from '@/components/OnboardingModal';
 
 export default function ChatPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const {
     messages,
     suggestions,
@@ -24,8 +24,9 @@ export default function ChatPage() {
     teacher,
   } = useChat();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  // Document preview state — will be set when document generation is connected
+  const [docContent] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Redirect if not logged in
@@ -33,7 +34,25 @@ export default function ChatPage() {
     if (!teacher) void navigate('/');
   }, [teacher, navigate]);
 
-  // Check if onboarding needed (first login — no profile data)
+  // Load conversation from URL param
+  useEffect(() => {
+    const convId = searchParams.get('c');
+    if (convId) {
+      void loadConversation(convId);
+    }
+  }, [searchParams, loadConversation]);
+
+  // Handle pre-filled message from dashboard
+  useEffect(() => {
+    const msg = searchParams.get('msg');
+    if (msg && teacher) {
+      void send(msg);
+      // Clear the URL param
+      void navigate('/workspace', { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Check if onboarding needed
   useEffect(() => {
     if (!teacher) return;
     const onboarded = localStorage.getItem(`eduhu_onboarded_${teacher.teacher_id}`);
@@ -55,6 +74,8 @@ export default function ChatPage() {
 
   if (!teacher) return null;
 
+  const isDocVisible = docContent !== null;
+
   return (
     <AppShell>
       {showOnboarding && (
@@ -66,50 +87,35 @@ export default function ChatPage() {
           }}
         />
       )}
-      <div className="flex h-full">
-        {/* Sidebar */}
-        <div className="hidden sm:block">
-          <ConversationSidebar
-            currentId={conversationId}
-            onSelect={(id) => void loadConversation(id)}
-            onNewChat={resetChat}
-            open={true}
-            onClose={() => { }}
-          />
-        </div>
-
-        {/* Mobile sidebar */}
-        {sidebarOpen && (
-          <div className="fixed inset-0 z-50 sm:hidden">
-            <div className="absolute inset-0 bg-black/30" onClick={() => setSidebarOpen(false)} />
-            <div className="relative h-full w-72">
-              <ConversationSidebar
-                currentId={conversationId}
-                onSelect={(id) => { void loadConversation(id); setSidebarOpen(false); }}
-                onNewChat={() => { resetChat(); setSidebarOpen(false); }}
-                open={true}
-                onClose={() => setSidebarOpen(false)}
-              />
+      <div className="flex gap-5 h-full transition-all duration-300">
+        {/* Chat Widget */}
+        <div
+          className={`flex flex-col rounded-[var(--radius-card)] bg-bg-card shadow-soft overflow-hidden transition-all duration-400 ${
+            isDocVisible
+              ? 'w-[350px] shrink-0'
+              : 'w-full max-w-[1000px] mx-auto shadow-modal'
+          }`}
+          style={!isDocVisible ? { height: '90%' } : { height: '100%' }}
+        >
+          {/* Chat Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-bg-page">
+            <div className="font-bold text-text-strong">
+              <i className="fa-solid fa-sparkles text-primary mr-1" /> Assistent
             </div>
-          </div>
-        )}
-
-        {/* Chat area */}
-        <div className="flex flex-1 flex-col">
-          {/* Mobile sidebar toggle */}
-          <div className="flex h-10 items-center border-b border-border px-3 sm:hidden">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="text-sm text-text-secondary"
-            >
-              ☰ Gespräche
-            </button>
+            {conversationId && (
+              <button
+                type="button"
+                onClick={resetChat}
+                className="text-xs font-semibold text-text-secondary hover:text-primary transition-colors"
+              >
+                + Neuer Chat
+              </button>
+            )}
           </div>
 
           {/* Messages */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
-            <div className="mx-auto max-w-3xl space-y-4">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">
+            <div className="space-y-4">
               {messages.map((msg, idx) => (
                 <ChatMessage
                   key={msg.id}
@@ -121,18 +127,20 @@ export default function ChatPage() {
 
               {showWelcomeChips && (
                 <div className="flex flex-col items-center justify-center py-12">
-                  <div className="text-6xl mb-6">🦉</div>
-                  <h1 className="text-2xl font-semibold mb-2">
-                    Hallo {teacher?.name}! 👋
-                  </h1>
+                  <div className="mb-6">
+                    <img src="/Eduhu_Eule_Kopf.svg" alt="eduhu" className="h-12 w-12" />
+                  </div>
+                  <h2 className="text-2xl font-semibold mb-2">
+                    Womit kann ich dir helfen?
+                  </h2>
                   <p className="text-text-secondary mb-8">
-                    Womit kann ich dir heute helfen?
+                    Frag mich etwas oder wähle einen Vorschlag.
                   </p>
                   {loadingSuggestions ? (
                     <div className="flex space-x-2">
-                      <div className="h-8 w-32 animate-pulse rounded-full bg-surface-secondary" />
-                      <div className="h-8 w-40 animate-pulse rounded-full bg-surface-secondary" />
-                      <div className="h-8 w-36 animate-pulse rounded-full bg-surface-secondary" />
+                      <div className="h-8 w-32 animate-pulse rounded-full bg-bg-subtle" />
+                      <div className="h-8 w-40 animate-pulse rounded-full bg-bg-subtle" />
+                      <div className="h-8 w-36 animate-pulse rounded-full bg-bg-subtle" />
                     </div>
                   ) : (
                     <ChipSelector
@@ -143,15 +151,65 @@ export default function ChatPage() {
                 </div>
               )}
 
-              {isTyping && !messages.some(m => m.id.startsWith('stream-')) && <TypingIndicator context={messages.filter(m => m.role === 'user').slice(-1)[0]?.content} />}
+              {isTyping && !messages.some(m => m.id.startsWith('stream-')) && (
+                <TypingIndicator context={messages.filter(m => m.role === 'user').slice(-1)[0]?.content} />
+              )}
             </div>
           </div>
 
+          {/* Suggestion Chips */}
+          {!showWelcomeChips && suggestions.length > 0 && messages.length > 0 && (
+            <div className="flex gap-2.5 px-5 pb-2.5 overflow-x-auto shrink-0" style={{ scrollbarWidth: 'none' }}>
+              {suggestions.slice(0, 3).map((sug, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => handleChipSelect(sug)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all hover:-translate-y-0.5 ${
+                    i === 0
+                      ? 'bg-primary-soft text-primary'
+                      : 'bg-blue-bg text-blue-accent'
+                  }`}
+                >
+                  {sug}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Input */}
-          <div className="mx-auto w-full max-w-3xl">
-            <ChatInput onSend={(t, f) => void send(t, f)} disabled={isTyping} />
-          </div>
+          <ChatInput onSend={(t, f) => void send(t, f)} disabled={isTyping} />
         </div>
+
+        {/* Document Preview */}
+        {isDocVisible && (
+          <div className="flex-1 flex flex-col rounded-[var(--radius-card)] bg-bg-card shadow-soft overflow-hidden animate-[fadeIn_0.5s_ease]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-bg-page">
+              <div className="font-semibold text-text-strong">
+                Entwurf.html
+                <span className="ml-2 text-[11px] bg-[#FFE0E0] text-[#FF3B30] px-1.5 py-0.5 rounded">
+                  UNSAVED
+                </span>
+              </div>
+              <div className="flex gap-2.5">
+                <button className="bg-bg-page text-text-strong border-none px-4 py-1.5 rounded-lg font-semibold text-xs cursor-pointer">
+                  Kopieren
+                </button>
+                <button
+                  className="bg-text-strong text-white border-none px-4 py-1.5 rounded-lg font-semibold text-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  Exportieren <i className="fa-solid fa-chevron-down text-[10px]" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 bg-[#525659] flex justify-center p-7 overflow-y-auto">
+              <div
+                className="bg-white w-full max-w-[600px] min-h-[800px] p-12 shadow-[0_0_20px_rgba(0,0,0,0.3)]"
+                dangerouslySetInnerHTML={{ __html: docContent || '' }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </AppShell>
   );

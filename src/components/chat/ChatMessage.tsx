@@ -66,8 +66,8 @@ export function ChatMessage({ message, onChipSelect, isStreaming }: Props) {
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
       {/* Avatar */}
       {!isUser && (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-lg">
-          🦉
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white border border-border">
+          <img src="/Eduhu_Eule_Kopf.svg" alt="" className="h-5 w-5" />
         </div>
       )}
 

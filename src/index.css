@@ -2,51 +2,54 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  /* Colors */
-  --color-primary: #C8552D;
-  --color-primary-hover: #A8461F;
-  --color-primary-soft: #FADDD0;
+  /* Colors — based on gemini_design.html */
+  --color-primary: #f5683d;
+  --color-primary-hover: #e05e41;
+  --color-primary-soft: #FFF5F2;
 
-  --color-text-strong: #2D2018;
-  --color-text-default: #3A3530;
-  --color-text-secondary: #6B6360;
-  --color-text-muted: #9E9A96;
+  --color-text-strong: #1C1C1E;
+  --color-text-default: #1C1C1E;
+  --color-text-secondary: #8E8E93;
+  --color-text-muted: #AEAEB2;
+  --color-text-heading: #874144;
 
-  --color-bg-page: #F5F0EB;
+  --color-bg-page: #F5F7FA;
   --color-bg-card: #FFFFFF;
-  --color-bg-card-dark: #3A2E2A;
-  --color-bg-subtle: #F0EDEA;
+  --color-bg-card-dark: #1C1C1E;
+  --color-bg-subtle: #F1F5F9;
 
-  --color-border: #D9D3CD;
-  --color-border-focus: #C8552D;
+  --color-border: #E5E5EA;
+  --color-border-focus: #f5683d;
 
-  --color-success: #4A8C5C;
-  --color-error: #C0392B;
-  --color-warning: #D4872A;
+  --color-success: #34C759;
+  --color-error: #FF3B30;
+  --color-warning: #FF9500;
 
-  /* Secondary colors (eduhu Design System) */
-  --color-sage: #C5D5A0;
-  --color-sage-soft: #E8F0D8;
-  --color-salmon: #F2A8A0;
-  --color-salmon-soft: #FDE8E5;
-  --color-gold: #E8D568;
-  --color-gold-soft: #F7F0C8;
-  --color-sky: #A8B8D8;
-  --color-sky-soft: #DDE5F0;
+  /* Accent colors */
+  --color-blue-accent: #64748B;
+  --color-blue-bg: #F1F5F9;
 
   /* Fonts */
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
   /* Border Radius */
-  --radius-card: 16px;
-  --radius-btn: 14px;
-  --radius-input: 14px;
+  --radius-xl: 32px;
+  --radius-card: 24px;
+  --radius-btn: 16px;
+  --radius-input: 12px;
   --radius-badge: 8px;
 
   /* Shadows */
-  --shadow-card: 0 2px 8px rgba(0,0,0,0.06);
-  --shadow-elevated: 0 4px 16px rgba(0,0,0,0.10);
-  --shadow-subtle: 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-soft: 0 8px 24px rgba(0,0,0,0.03);
+  --shadow-card: 0 8px 24px rgba(0,0,0,0.03);
+  --shadow-elevated: 0 12px 32px rgba(0,0,0,0.06);
+  --shadow-modal: 0 20px 50px rgba(0,0,0,0.2);
+  --shadow-subtle: 0 2px 8px rgba(0,0,0,0.04);
+
+  /* Layout */
+  --sidebar-w: 250px;
+  --sidebar-collapsed-w: 80px;
+  --header-h: 70px;
 }
 
 @layer base {

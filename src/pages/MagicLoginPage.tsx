@@ -18,7 +18,7 @@ export default function MagicLoginPage() {
     void magicLogin(token)
       .then(() => {
         setMessage('Erfolgreich angemeldet!');
-        setTimeout(() => void navigate('/chat'), 1000);
+        setTimeout(() => void navigate('/dashboard'), 1000);
       })
       .catch((err) => {
         setMessage(
