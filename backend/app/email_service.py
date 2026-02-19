@@ -16,6 +16,13 @@ TEMPLATE_DIR = Path(__file__).parent / "templates"
 SMTP_TIMEOUT_SECONDS = 15
 
 
+class _LoggingSMTP(smtplib.SMTP):
+    """SMTP subclass that routes debug output to our logger instead of stderr."""
+
+    def _print_debug(self, *args: object) -> None:
+        logger.debug("SMTP >>> %s", " ".join(str(a) for a in args))
+
+
 def _render(template_name: str, **kwargs: str) -> str:
     """Load an HTML template and replace {{key}} placeholders."""
     html = (TEMPLATE_DIR / template_name).read_text(encoding="utf-8")
@@ -82,13 +89,16 @@ async def send_email(recipient: str, subject: str, body: str, email_type: str) -
         msg["To"] = recipient
         msg.attach(MIMEText(body, "html"))
 
-        with smtplib.SMTP(s.mail_server, s.mail_port, timeout=SMTP_TIMEOUT_SECONDS) as server:
-            server.set_debuglevel(0)
+        with _LoggingSMTP(s.mail_server, s.mail_port, timeout=SMTP_TIMEOUT_SECONDS) as server:
+            server.set_debuglevel(1)
             server.ehlo()
             server.starttls()
             server.ehlo()
             server.login(s.mail_username, s.mail_password)
-            server.send_message(msg)
+            refused = server.send_message(msg)
+
+        if refused:
+            logger.warning("SMTP: some recipients refused: %s", refused)
 
         await db.update("email_log", {
             "status": "sent",
