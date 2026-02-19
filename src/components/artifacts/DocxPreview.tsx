@@ -17,8 +17,10 @@ export function DocxPreview({ url }: Props) {
     setError(null);
     const teacher = getSession();
     const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+    // Only send auth token to our own API
+    const isSameOrigin = !url.startsWith('http') || (API_BASE && fullUrl.startsWith(API_BASE));
     fetch(fullUrl, {
-      headers: teacher ? { Authorization: `Bearer ${teacher.access_token}` } : {},
+      headers: teacher && isSameOrigin ? { Authorization: `Bearer ${teacher.access_token}` } : {},
     })
       .then(res => {
         if (!res.ok) throw new Error('Download fehlgeschlagen');

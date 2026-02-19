@@ -1,6 +1,5 @@
 import type { Artifact } from '@/lib/types';
-import { DocxPreview } from './DocxPreview';
-import { H5PPlayer } from '@/components/exercises/H5PPlayer';
+import { ArtifactContent } from './ArtifactContent';
 
 interface Props {
   artifacts: Artifact[];
@@ -83,22 +82,7 @@ export function ArtifactPanel({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 bg-[#f0eded]">
-        {active.type === 'docx' && <DocxPreview url={active.url} />}
-        {active.type === 'h5p' && <H5PPlayer exerciseId={active.id} />}
-        {active.type === 'audio' && (
-          <div className="flex items-center justify-center h-full">
-            <audio controls src={active.url} className="w-full max-w-md" />
-          </div>
-        )}
-        {active.type === 'image' && (
-          <div className="flex items-center justify-center">
-            <img
-              src={active.url}
-              alt={active.title}
-              className="max-w-full rounded-lg shadow-md"
-            />
-          </div>
-        )}
+        <ArtifactContent artifact={active} />
       </div>
     </div>
   );

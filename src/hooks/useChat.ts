@@ -69,11 +69,15 @@ export function useChat() {
   const detectArtifacts = useCallback((content: string, messageId: string) => {
     const newArtifacts: Artifact[] = [];
 
+    let counter = 0;
+
     // Detect DOCX downloads: [📥 Download DOCX](url)
     const docxRegex = /\[📥[^\]]*\]\(([^)]+\/materials\/([a-f0-9-]+)\/docx)\)/g;
     let match;
     while ((match = docxRegex.exec(content)) !== null) {
-      const titleMatch = content.match(/\*\*([^*]+)\*\*/);
+      // Find the closest **bold** text before this match for title
+      const before = content.slice(0, match.index);
+      const titleMatch = before.match(/\*\*([^*]+)\*\*[^*]*$/);
       newArtifacts.push({ id: match[2]!, type: 'docx', title: titleMatch?.[1] ?? 'Material', url: match[1]!, messageId });
     }
 
@@ -82,14 +86,14 @@ export function useChat() {
     while ((match = qrRegex.exec(content)) !== null) {
       try {
         const data = JSON.parse(match[1]!);
-        newArtifacts.push({ id: data.code || `h5p-${Date.now()}`, type: 'h5p', title: data.title || 'H5P Übung', url: data.url || '', accessCode: data.code, pageUrl: data.url, messageId });
+        newArtifacts.push({ id: data.code || `h5p-${++counter}`, type: 'h5p', title: data.title || 'H5P Übung', url: data.url || '', accessCode: data.code, pageUrl: data.url, messageId });
       } catch { /* ignore */ }
     }
 
     // Detect audio links
     const audioRegex = /\[([^\]]+)\]\(([^)]*\/api\/audio\/[^)]+)\)/g;
     while ((match = audioRegex.exec(content)) !== null) {
-      newArtifacts.push({ id: `audio-${Date.now()}`, type: 'audio', title: match[1] ?? 'Audio', url: match[2]!, messageId });
+      newArtifacts.push({ id: `audio-${++counter}-${messageId}`, type: 'audio', title: match[1] ?? 'Audio', url: match[2]!, messageId });
     }
 
     // Detect image-card code blocks
@@ -97,13 +101,18 @@ export function useChat() {
     while ((match = imgRegex.exec(content)) !== null) {
       try {
         const data = JSON.parse(match[1]!);
-        newArtifacts.push({ id: `img-${Date.now()}`, type: 'image', title: data.alt || data.title || 'Bild', url: data.url || data.src || '', messageId });
+        newArtifacts.push({ id: `img-${++counter}-${messageId}`, type: 'image', title: data.alt || data.title || 'Bild', url: data.url || data.src || '', messageId });
       } catch { /* ignore */ }
     }
 
     if (newArtifacts.length > 0) {
-      setArtifacts(prev => [...prev, ...newArtifacts]);
-      setActiveArtifactIndex(0);
+      setArtifacts(prev => {
+        // Deduplicate by id
+        const existingIds = new Set(prev.map(a => a.id));
+        const unique = newArtifacts.filter(a => !existingIds.has(a.id));
+        return unique.length > 0 ? [...prev, ...unique] : prev;
+      });
+      setActiveArtifactIndex(prev => prev); // keep current, user can switch
     }
   }, []);
 
