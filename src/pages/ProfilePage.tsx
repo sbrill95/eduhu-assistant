@@ -39,6 +39,56 @@ const LEARNING_GROUPS = [
   { name: 'Englisch 13 LK', tag: null },
 ];
 
+const API_URL = import.meta.env.VITE_API_URL || '';
+
+function DemoModeToggle({ teacherId, accessToken }: { teacherId: string; accessToken: string }) {
+  const [enabled, setEnabled] = useState(false);
+  const [toggling, setToggling] = useState(false);
+
+  useEffect(() => {
+    void fetch(`${API_URL}/api/auth/demo-status`)
+      .then(r => r.json())
+      .then((d: { demo_enabled: boolean }) => setEnabled(d.demo_enabled))
+      .catch(() => {});
+  }, []);
+
+  async function toggle() {
+    setToggling(true);
+    try {
+      await fetch(`${API_URL}/api/auth/demo-toggle?enabled=${!enabled}&teacher_id=${teacherId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      setEnabled(!enabled);
+    } catch { /* silent */ }
+    setToggling(false);
+  }
+
+  return (
+    <div className="rounded-[20px] bg-bg-card p-7 shadow-soft mb-6">
+      <h3 className="text-[13px] font-bold uppercase text-text-secondary mb-5">
+        Demo-Modus (Didacta)
+      </h3>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-text-strong">Demo-Modus aktivieren</p>
+          <p className="text-xs text-text-secondary mt-1">
+            Zeigt &quot;Demo starten&quot; auf der Login-Seite. Demo-Accounts laufen nach 7 Tagen ab.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void toggle()}
+          disabled={toggling}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enabled ? 'bg-primary' : 'bg-bg-subtle'}`}
+        >
+          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const navigate = useNavigate();
   const teacher = getSession();
@@ -343,40 +393,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Admin: Demo Mode Toggle */}
-      {teacher.role === 'admin' && (
-        <div className="rounded-[20px] bg-bg-card p-7 shadow-soft mb-6">
-          <h3 className="text-[13px] font-bold uppercase text-text-secondary mb-5">
-            Demo-Modus (Didacta)
-          </h3>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-text-strong">Demo-Modus aktivieren</p>
-              <p className="text-xs text-text-secondary mt-1">
-                Zeigt "Demo starten" auf der Login-Seite. Demo-Accounts laufen nach 7 Tagen ab.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={async () => {
-                const current = (document.getElementById('demo-toggle') as HTMLInputElement)?.checked;
-                try {
-                  const API = import.meta.env.VITE_API_URL || '';
-                  await fetch(`${API}/api/auth/demo-toggle?enabled=${!current}`, {
-                    method: 'POST',
-                    headers: { Authorization: `Bearer ${teacher.access_token}` },
-                  });
-                  const toggle = document.getElementById('demo-toggle') as HTMLInputElement;
-                  if (toggle) toggle.checked = !current;
-                } catch { /* silent */ }
-              }}
-              className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors bg-bg-subtle hover:bg-gray-300"
-            >
-              <input type="checkbox" id="demo-toggle" className="sr-only peer" />
-              <span className="peer-checked:translate-x-5 peer-checked:bg-primary inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform translate-x-0.5" />
-            </button>
-          </div>
-        </div>
-      )}
+      {teacher.role === 'admin' && <DemoModeToggle teacherId={teacher.teacher_id} accessToken={teacher.access_token} />}
 
       {/* Token Usage */}
       <div className="rounded-[20px] bg-bg-card p-7 shadow-soft mb-6">

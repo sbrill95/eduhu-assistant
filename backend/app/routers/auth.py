@@ -1,6 +1,8 @@
-"""Auth router — registration, login, verification, password reset."""
+"""Auth router — registration, login, verification, password reset, demo mode."""
 import secrets
 import logging
+import uuid
+import random
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException
 from app import db
@@ -252,10 +254,7 @@ async def demo_status():
 
 @router.post("/demo-start")
 async def demo_start():
-    """Create a temporary demo account (7-day TTL). Rate-limited to 10/hour via IP."""
-    import uuid
-    import random
-
+    """Create a temporary demo account (7-day TTL). Rate-limited to 10/hour globally."""
     # Check if demo mode is enabled
     admins = await db.raw_fetch(
         "SELECT id FROM teachers WHERE role = 'admin' AND demo_mode = true LIMIT 1"
@@ -281,7 +280,7 @@ async def demo_start():
         "role": "demo",
         "email_verified": True,  # skip verification for demo
         "demo_expires_at": expires,
-        "password": f"demo-{uuid.uuid4().hex[:8]}",  # dummy password
+        "password_hash": hash_password(f"demo-{uuid.uuid4().hex}"),
     })
 
     # Create profile
@@ -309,19 +308,27 @@ async def demo_upgrade(
     password: str,
     name: str = "",
 ):
-    """Upgrade a demo account to a full teacher account."""
-    from fastapi import Depends, Header
-    from app.deps import get_current_teacher_id
-
-    # TODO: use proper JWT auth once auth-jwt-integration is merged
-    # For now, this needs to be called with the teacher_id somehow
-
+    """Upgrade a demo account to a full teacher account.
+    
+    TODO: Implement after auth-jwt-integration MR is merged.
+    Needs: JWT auth, email verification, password setting.
+    """
     raise HTTPException(501, "Demo-Upgrade wird nach Auth-Integration aktiviert")
 
 
 @router.post("/demo-cleanup")
-async def demo_cleanup():
-    """Cleanup expired demo accounts. Called by cron job or admin."""
+async def demo_cleanup(admin_key: str = ""):
+    """Cleanup expired demo accounts. Called by cron job or admin.
+    
+    Accepts admin_key query param for cron job authentication.
+    """
+    from app.config import get_settings
+    settings = get_settings()
+
+    # Simple auth: must provide admin_key matching JWT_SECRET prefix or be called internally
+    if admin_key != (settings.jwt_secret or "")[:16]:
+        raise HTTPException(403, "Ungültiger Admin-Key")
+
     now = datetime.now(timezone.utc)
     expired = await db.raw_fetch(
         "SELECT id FROM teachers WHERE role = 'demo' AND demo_expires_at < $1", now
@@ -332,26 +339,41 @@ async def demo_cleanup():
     count = 0
     for row in expired:
         tid = row["id"]
-        # Cascade delete: messages → conversations → memories → materials → profile → teacher
-        await db.raw_fetch("DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = $1)", tid)
-        await db.raw_fetch("DELETE FROM conversations WHERE user_id = $1", tid)
-        await db.raw_fetch("DELETE FROM user_memories WHERE teacher_id = $1", tid)
-        await db.raw_fetch("DELETE FROM user_profiles WHERE id = $1", tid)
-        await db.raw_fetch("DELETE FROM teachers WHERE id = $1", tid)
-        count += 1
+        try:
+            # Cascade delete all related data
+            await db.raw_fetch("DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = $1)", tid)
+            await db.raw_fetch("DELETE FROM session_logs WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = $1)", tid)
+            await db.raw_fetch("DELETE FROM conversations WHERE user_id = $1", tid)
+            await db.raw_fetch("DELETE FROM user_memories WHERE teacher_id = $1", tid)
+            await db.raw_fetch("DELETE FROM generated_materials WHERE teacher_id = $1", tid)
+            await db.raw_fetch("DELETE FROM exercises WHERE teacher_id = $1", tid)
+            await db.raw_fetch("DELETE FROM exercise_pages WHERE teacher_id = $1", tid)
+            await db.raw_fetch("DELETE FROM token_usage WHERE teacher_id = $1", tid)
+            await db.raw_fetch("DELETE FROM user_profiles WHERE id = $1", tid)
+            await db.raw_fetch("DELETE FROM teachers WHERE id = $1", tid)
+            count += 1
+        except Exception as e:
+            logger.error(f"Demo cleanup failed for {tid}: {e}")
 
     logger.info(f"Demo cleanup: deleted {count} expired accounts")
     return {"deleted": count}
 
 
 @router.post("/demo-toggle")
-async def demo_toggle(enabled: bool):
+async def demo_toggle(enabled: bool, teacher_id: str = ""):
     """Toggle demo mode for the current admin. Requires admin role."""
-    # TODO: use proper JWT auth. For now accept teacher_id as query param
-    from fastapi import Query
-    # Simplified: toggle for ALL admins (will be refined with proper auth)
+    if not teacher_id:
+        raise HTTPException(401, "Nicht authentifiziert")
+
+    # Verify admin role
+    admins = await db.raw_fetch(
+        "SELECT id FROM teachers WHERE id = $1 AND role = 'admin'", teacher_id
+    )
+    if not admins:
+        raise HTTPException(403, "Nur Admins können den Demo-Modus umschalten")
+
     await db.raw_fetch(
-        "UPDATE teachers SET demo_mode = $1 WHERE role = 'admin'", enabled
+        "UPDATE teachers SET demo_mode = $1 WHERE id = $2", enabled, teacher_id
     )
     return {"demo_mode": enabled}
 
