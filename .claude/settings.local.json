@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(git -C c:/Users/chris/eduhu-assistant status)",
+      "Bash(git -C c:/Users/chris/eduhu-assistant ls-files)",
+      "Bash(npm audit:*)"
     ]
   }
 }

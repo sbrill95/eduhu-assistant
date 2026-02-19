@@ -67,24 +67,24 @@ export default function DashboardPage() {
   return (
     <AppShell>
       {/* Hero Section */}
-      <div className="flex items-center justify-between rounded-[var(--radius-card)] bg-bg-card p-6 shadow-soft mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between rounded-[var(--radius-card)] bg-bg-card p-5 md:p-6 shadow-soft mb-6 gap-4">
         <div>
-          <h1 className="text-[28px] font-bold text-text-heading mb-1">
+          <h1 className="text-2xl md:text-[28px] font-bold text-text-heading mb-1">
             Hallo {firstName}!
           </h1>
           <p className="text-[15px] font-medium text-text-secondary">
             Dein Fokus heute.
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-col md:items-end gap-2">
           <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">
             Deine heutigen Stunden
           </span>
-          <div className="flex gap-3">
+          <div className="flex gap-2 md:gap-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
             {UPCOMING.map((evt) => (
               <div
                 key={evt.time}
-                className="flex items-center gap-2.5 rounded-xl bg-bg-page px-4 py-2 border border-transparent transition-all cursor-pointer hover:bg-bg-card hover:border-border hover:shadow-subtle"
+                className="flex items-center gap-2.5 rounded-xl bg-bg-page px-3 md:px-4 py-2 border border-transparent transition-all cursor-pointer hover:bg-bg-card hover:border-border hover:shadow-subtle shrink-0"
               >
                 <span className="text-sm font-bold text-primary bg-primary-soft px-2 py-1 rounded-md">
                   {evt.time}
@@ -99,7 +99,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Dashboard Split: Templates + Chat */}
-      <div className="grid grid-cols-2 gap-6 mb-8" style={{ height: '450px', minHeight: '450px' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 lg:h-[450px] lg:min-h-[450px]">
         {/* Left: Templates Grid */}
         <div className="overflow-y-auto pr-1" style={{ scrollbarWidth: 'none' }}>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4 pb-2">
@@ -193,7 +193,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Pricing / Promo Section */}
-      <div className="rounded-[var(--radius-card)] bg-bg-card p-10 shadow-soft text-center">
+      <div className="rounded-[var(--radius-card)] bg-bg-card p-5 md:p-10 shadow-soft text-center">
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-text-heading mb-2">
             Starte jetzt mit eduhu Beta 2.0

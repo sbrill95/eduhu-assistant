@@ -128,7 +128,7 @@ export default function ProfilePage() {
       <h1 className="text-2xl font-bold text-text-strong mb-6">Einstellungen & Profil</h1>
 
       {/* Two-column grid */}
-      <div className="grid grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         {/* Left: Profile Form */}
         <div className="rounded-[20px] bg-bg-card p-7 shadow-soft">
           {loading ? (
