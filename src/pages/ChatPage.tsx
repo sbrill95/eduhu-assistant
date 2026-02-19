@@ -7,6 +7,9 @@ import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { ChipSelector } from '@/components/chat/ChipSelector';
 import { useChat } from '@/hooks/useChat';
 import { OnboardingModal } from '@/components/OnboardingModal';
+import { ArtifactPanel } from '@/components/artifacts/ArtifactPanel';
+import { ArtifactModal } from '@/components/artifacts/ArtifactModal';
+import type { Artifact } from '@/lib/types';
 
 export default function ChatPage() {
   const navigate = useNavigate();
@@ -23,11 +26,15 @@ export default function ChatPage() {
     resetChat,
     send,
     teacher,
+    artifacts,
+    activeArtifactIndex,
+    setActiveArtifactIndex,
+    closeArtifact,
+    closeAllArtifacts,
   } = useChat();
 
   const [showOnboarding, setShowOnboarding] = useState(false);
-  // Document preview state — will be set when document generation is connected
-  const [docContent] = useState<string | null>(null);
+  const [mobileArtifact, setMobileArtifact] = useState<Artifact | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Redirect if not logged in
@@ -75,7 +82,7 @@ export default function ChatPage() {
 
   if (!teacher) return null;
 
-  const isDocVisible = docContent !== null;
+  const hasArtifacts = artifacts.length > 0;
 
   return (
     <AppShell>
@@ -92,11 +99,11 @@ export default function ChatPage() {
         {/* Chat Widget */}
         <div
           className={`flex flex-col rounded-[var(--radius-card)] bg-bg-card shadow-soft overflow-hidden transition-all duration-400 ${
-            isDocVisible
-              ? 'w-[350px] shrink-0'
+            hasArtifacts
+              ? 'lg:w-[calc(100%-500px)] w-full'
               : 'w-full max-w-[1000px] mx-auto shadow-modal'
           }`}
-          style={!isDocVisible ? { height: '90%' } : { height: '100%' }}
+          style={!hasArtifacts ? { height: '90%' } : { height: '100%' }}
         >
           {/* Chat Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-bg-page">
@@ -192,36 +199,26 @@ export default function ChatPage() {
           <ChatInput onSend={(t, f) => void send(t, f)} disabled={isTyping} />
         </div>
 
-        {/* Document Preview */}
-        {isDocVisible && (
-          <div className="flex-1 flex flex-col rounded-[var(--radius-card)] bg-bg-card shadow-soft overflow-hidden animate-[fadeIn_0.5s_ease]">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-bg-page">
-              <div className="font-semibold text-text-strong">
-                Entwurf.html
-                <span className="ml-2 text-[11px] bg-[#FFE0E0] text-[#FF3B30] px-1.5 py-0.5 rounded">
-                  UNSAVED
-                </span>
-              </div>
-              <div className="flex gap-2.5">
-                <button className="bg-bg-page text-text-strong border-none px-4 py-1.5 rounded-lg font-semibold text-xs cursor-pointer">
-                  Kopieren
-                </button>
-                <button
-                  className="bg-text-strong text-white border-none px-4 py-1.5 rounded-lg font-semibold text-xs cursor-pointer flex items-center gap-1.5"
-                >
-                  Exportieren <i className="fa-solid fa-chevron-down text-[10px]" />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 bg-[#525659] flex justify-center p-7 overflow-y-auto">
-              <div
-                className="bg-white w-full max-w-[600px] min-h-[800px] p-12 shadow-[0_0_20px_rgba(0,0,0,0.3)]"
-                dangerouslySetInnerHTML={{ __html: docContent || '' }}
-              />
-            </div>
+        {/* Artifact Panel — Desktop only */}
+        {hasArtifacts && (
+          <div className="hidden lg:flex w-[480px] shrink-0">
+            <ArtifactPanel
+              artifacts={artifacts}
+              activeIndex={activeArtifactIndex}
+              onSetActive={setActiveArtifactIndex}
+              onClose={closeArtifact}
+              onCloseAll={closeAllArtifacts}
+            />
           </div>
         )}
       </div>
+
+      {/* Artifact Modal — Mobile only */}
+      {mobileArtifact && (
+        <div className="lg:hidden">
+          <ArtifactModal artifact={mobileArtifact} onClose={() => setMobileArtifact(null)} />
+        </div>
+      )}
     </AppShell>
   );
 }
