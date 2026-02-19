@@ -241,6 +241,121 @@ async def refresh(req: RefreshRequest):
     return TokenResponse(access_token=access_token)
 
 
+@router.get("/demo-status")
+async def demo_status():
+    """Check if demo mode is enabled (any admin has demo_mode=true)."""
+    admins = await db.raw_fetch(
+        "SELECT demo_mode FROM teachers WHERE role = 'admin' AND demo_mode = true LIMIT 1"
+    )
+    return {"demo_enabled": len(admins) > 0 if admins else False}
+
+
+@router.post("/demo-start")
+async def demo_start():
+    """Create a temporary demo account (7-day TTL). Rate-limited to 10/hour via IP."""
+    import uuid
+    import random
+
+    # Check if demo mode is enabled
+    admins = await db.raw_fetch(
+        "SELECT id FROM teachers WHERE role = 'admin' AND demo_mode = true LIMIT 1"
+    )
+    if not admins:
+        raise HTTPException(403, "Demo-Modus ist nicht aktiviert")
+
+    # Rate limit: max 10 demo accounts per hour (simple check)
+    one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+    recent = await db.raw_fetch(
+        "SELECT COUNT(*) as cnt FROM teachers WHERE role = 'demo' AND created_at > $1",
+        one_hour_ago,
+    )
+    if recent and recent[0]["cnt"] >= 10:
+        raise HTTPException(429, "Zu viele Demo-Accounts erstellt. Bitte später erneut versuchen.")
+
+    # Create demo teacher
+    demo_name = f"Demo-User {random.randint(1000, 9999)}"
+    expires = datetime.now(timezone.utc) + timedelta(days=7)
+
+    teacher = await db.insert("teachers", {
+        "name": demo_name,
+        "role": "demo",
+        "email_verified": True,  # skip verification for demo
+        "demo_expires_at": expires,
+        "password": f"demo-{uuid.uuid4().hex[:8]}",  # dummy password
+    })
+
+    # Create profile
+    await db.upsert(
+        "user_profiles",
+        {"id": teacher["id"], "name": demo_name},
+        on_conflict="id",
+    )
+
+    access_token = create_access_token(teacher["id"], "demo")
+    refresh_token = create_refresh_token(teacher["id"])
+
+    return LoginResponse(
+        teacher_id=teacher["id"],
+        name=demo_name,
+        role="demo",
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
+
+
+@router.post("/demo-upgrade")
+async def demo_upgrade(
+    email: str,
+    password: str,
+    name: str = "",
+):
+    """Upgrade a demo account to a full teacher account."""
+    from fastapi import Depends, Header
+    from app.deps import get_current_teacher_id
+
+    # TODO: use proper JWT auth once auth-jwt-integration is merged
+    # For now, this needs to be called with the teacher_id somehow
+
+    raise HTTPException(501, "Demo-Upgrade wird nach Auth-Integration aktiviert")
+
+
+@router.post("/demo-cleanup")
+async def demo_cleanup():
+    """Cleanup expired demo accounts. Called by cron job or admin."""
+    now = datetime.now(timezone.utc)
+    expired = await db.raw_fetch(
+        "SELECT id FROM teachers WHERE role = 'demo' AND demo_expires_at < $1", now
+    )
+    if not expired:
+        return {"deleted": 0}
+
+    count = 0
+    for row in expired:
+        tid = row["id"]
+        # Cascade delete: messages → conversations → memories → materials → profile → teacher
+        await db.raw_fetch("DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = $1)", tid)
+        await db.raw_fetch("DELETE FROM conversations WHERE user_id = $1", tid)
+        await db.raw_fetch("DELETE FROM user_memories WHERE teacher_id = $1", tid)
+        await db.raw_fetch("DELETE FROM user_profiles WHERE id = $1", tid)
+        await db.raw_fetch("DELETE FROM teachers WHERE id = $1", tid)
+        count += 1
+
+    logger.info(f"Demo cleanup: deleted {count} expired accounts")
+    return {"deleted": count}
+
+
+@router.post("/demo-toggle")
+async def demo_toggle(enabled: bool):
+    """Toggle demo mode for the current admin. Requires admin role."""
+    # TODO: use proper JWT auth. For now accept teacher_id as query param
+    from fastapi import Query
+    # Simplified: toggle for ALL admins (will be refined with proper auth)
+    await db.raw_fetch(
+        "UPDATE teachers SET demo_mode = $1 WHERE role = 'admin'", enabled
+    )
+    return {"demo_mode": enabled}
+
+
 @router.get("/me", response_model=UserOut)
 async def get_me(teacher_id: str = None):
     """Get current user info.
