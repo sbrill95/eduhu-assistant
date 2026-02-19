@@ -11,6 +11,7 @@ import { QRCard } from './QRCard';
 import { TodoCard } from './TodoCard';
 import { ClarificationCard } from './ClarificationCard';
 import { AudioCard } from './AudioCard';
+import { extractSources, SourcesFooter } from './SourcesFooter';
 
 interface Props {
   message: ChatMessageType;
@@ -21,6 +22,7 @@ interface Props {
 export function ChatMessage({ message, onChipSelect, isStreaming }: Props) {
   const isUser = message.role === 'user';
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const { cleanContent, sources } = isUser ? { cleanContent: message.content, sources: [] } : extractSources(message.content);
 
   const stripMarkdown = (markdownText: string) => {
     // Remove code blocks
@@ -47,7 +49,7 @@ export function ChatMessage({ message, onChipSelect, isStreaming }: Props) {
   };
 
   const handleSpeak = () => {
-    const plainText = stripMarkdown(message.content);
+    const plainText = stripMarkdown(cleanContent);
     if (plainText) {
       const utterance = new SpeechSynthesisUtterance(plainText);
       utterance.lang = 'de-DE';
@@ -169,13 +171,13 @@ export function ChatMessage({ message, onChipSelect, isStreaming }: Props) {
                   },
                 }}
               >
-                {message.content.startsWith('⏳') ? '' : message.content.replace(/\{\{TIMER:\d+:[^}]*\}\}/g, '')}
+                {cleanContent.startsWith('⏳') ? '' : cleanContent.replace(/\{\{TIMER:\d+:[^}]*\}\}/g, '')}
               </ReactMarkdown>
-              {message.content.startsWith('⏳') && (
-                <p className="text-sm text-text-muted animate-pulse">{message.content}</p>
+              {cleanContent.startsWith('⏳') && (
+                <p className="text-sm text-text-muted animate-pulse">{cleanContent}</p>
               )}
               {(() => {
-                const timerMatch = message.content.match(/\{\{TIMER:(\d+):([^}]*)\}\}/);
+                const timerMatch = cleanContent.match(/\{\{TIMER:(\d+):([^}]*)\}\}/);
                 if (timerMatch) {
                   return <CountdownTimer seconds={parseInt(timerMatch[1] ?? '0')} label={timerMatch[2] ?? ''} />;
                 }
@@ -208,6 +210,9 @@ export function ChatMessage({ message, onChipSelect, isStreaming }: Props) {
             </div>
           )}
         </div>
+
+        {/* Sources */}
+        {sources.length > 0 && <SourcesFooter sources={sources} />}
 
         {/* Chips */}
         {message.chips && message.chips.length > 0 && onChipSelect && (
