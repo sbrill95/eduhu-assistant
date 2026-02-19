@@ -1,5 +1,6 @@
 import { type ChatMessage, type Conversation } from './types';
 import { getSession, clearSession } from './auth';
+import { log } from './logger';
 
 export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 const BASE = API_BASE;
@@ -82,33 +83,60 @@ export async function sendMessageStream(
     body.attachment_type = file.type;
   }
 
+  log.info('stream', 'fetch start', { conversationId, messageLength: message.length, hasFile: !!file });
+  log.time('stream:fetch');
+
   const res = await fetch(`${BASE}/api/chat/send-stream`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
   });
 
-  if (!res.ok) throw new Error('Stream failed');
-  
+  log.timeEnd('stream:fetch');
+
+  if (!res.ok) {
+    log.error('stream', 'fetch failed', { status: res.status, statusText: res.statusText });
+    throw new Error('Stream failed');
+  }
+
+  log.info('stream', 'response received, reading stream…', { status: res.status });
+  log.time('stream:firstChunk');
+
   const reader = res.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let chunkCount = 0;
+  let firstChunkLogged = false;
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
+
+    chunkCount++;
+    if (!firstChunkLogged) {
+      log.timeEnd('stream:firstChunk');
+      firstChunkLogged = true;
+    }
+
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split('\n');
     buffer = lines.pop() || '';
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue;
-      const data = JSON.parse(line.slice(6));
-      if (data.type === 'delta') onDelta(data.text);
-      else if (data.type === 'meta') onMeta(data);
-      else if (data.type === 'done') onDone(data);
-      else if (data.type === 'step' && onStep) onStep(data.text);
+      try {
+        const data = JSON.parse(line.slice(6));
+        log.debug('stream', `event: ${data.type}`, data.type === 'delta' ? { len: data.text?.length } : data);
+        if (data.type === 'delta') onDelta(data.text);
+        else if (data.type === 'meta') onMeta(data);
+        else if (data.type === 'done') onDone(data);
+        else if (data.type === 'step' && onStep) onStep(data.text);
+      } catch (e) {
+        log.warn('stream', 'failed to parse SSE line', { line, error: e });
+      }
     }
   }
+
+  log.info('stream', 'stream complete', { totalChunks: chunkCount });
 }
 
 export async function getHistory(conversationId: string): Promise<ChatMessage[]> {

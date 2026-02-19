@@ -17,6 +17,7 @@ export default function ChatPage() {
     loadingSuggestions,
     conversationId,
     isTyping,
+    streamingStep,
     showWelcomeChips,
     loadConversation,
     resetChat,
@@ -153,6 +154,16 @@ export default function ChatPage() {
 
               {isTyping && !messages.some(m => m.id.startsWith('stream-')) && (
                 <TypingIndicator context={messages.filter(m => m.role === 'user').slice(-1)[0]?.content} />
+              )}
+
+              {isTyping && streamingStep && messages.some(m => m.id.startsWith('stream-') && m.content && !m.content.startsWith('⏳')) && (
+                <div className="flex items-center gap-2 pl-11 py-1 text-sm text-text-secondary">
+                  <span
+                    className="inline-block h-2 w-2 rounded-full bg-primary"
+                    style={{ animation: 'pulse-dot 1.2s ease-in-out infinite' }}
+                  />
+                  <span>{streamingStep}</span>
+                </div>
               )}
             </div>
           </div>
