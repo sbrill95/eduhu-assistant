@@ -123,6 +123,7 @@ export default function LoginPage() {
             type="button"
             onClick={() => {
               setTab('login');
+              setPassword('');
               clearMessages();
             }}
             className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
@@ -137,6 +138,7 @@ export default function LoginPage() {
             type="button"
             onClick={() => {
               setTab('register');
+              setPassword('');
               clearMessages();
             }}
             className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
@@ -193,8 +195,8 @@ export default function LoginPage() {
               <input
                 id="login-password"
                 type="password"
+                autoComplete="current-password"
                 className="input"
-                placeholder="Dein Passwort"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
@@ -295,8 +297,8 @@ export default function LoginPage() {
               <input
                 id="reg-password"
                 type="password"
+                autoComplete="new-password"
                 className="input"
-                placeholder="Mind. 8 Zeichen"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);

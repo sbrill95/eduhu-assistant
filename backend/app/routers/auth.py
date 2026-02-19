@@ -46,7 +46,10 @@ async def register(req: RegisterRequest):
                 req.name,
                 existing[0]["id"],
             )
-            await send_verification_email(req.email, token)
+            sent = await send_verification_email(req.email, token)
+            if not sent:
+                logger.error("Verification email failed for %s (re-send)", req.email)
+                raise HTTPException(502, "Verifizierungs-E-Mail konnte nicht gesendet werden. Bitte später erneut versuchen.")
             return {"message": "Verifizierungs-E-Mail erneut gesendet"}
 
     # Create new teacher with email_verified=false
@@ -69,7 +72,10 @@ async def register(req: RegisterRequest):
         on_conflict="id",
     )
 
-    await send_verification_email(req.email, token)
+    sent = await send_verification_email(req.email, token)
+    if not sent:
+        logger.error("Verification email failed for %s (new registration)", req.email)
+        raise HTTPException(502, "Verifizierungs-E-Mail konnte nicht gesendet werden. Bitte später erneut versuchen.")
     return {"message": "Registrierung erfolgreich. Bitte E-Mail bestätigen."}
 
 
@@ -116,7 +122,10 @@ async def login(req: LoginRequest):
             expires,
             teacher["id"],
         )
-        await send_magic_link_email(req.email, token)
+        sent = await send_magic_link_email(req.email, token)
+        if not sent:
+            logger.error("Magic link email failed for %s", req.email)
+            raise HTTPException(502, "E-Mail konnte nicht gesendet werden. Bitte später erneut versuchen.")
         return {"message": "Magic Link gesendet. Prüfe dein Postfach."}
 
     # Password mode
@@ -185,7 +194,9 @@ async def forgot_password(req: ForgotPasswordRequest):
             expires,
             teachers[0]["id"],
         )
-        await send_reset_email(req.email, token)
+        sent = await send_reset_email(req.email, token)
+        if not sent:
+            logger.error("Password reset email failed for %s", req.email)
 
     return {"message": "Falls ein Account existiert, wurde eine E-Mail gesendet."}
 

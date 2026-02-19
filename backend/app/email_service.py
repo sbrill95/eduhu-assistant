@@ -1,5 +1,10 @@
 """E-Mail service — SMTP via Hetzner."""
 import logging
+import re
+import smtplib
+from datetime import datetime, timezone
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from pathlib import Path
 from app.config import get_settings
 from app import db
@@ -8,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 
+SMTP_TIMEOUT_SECONDS = 15
+
 
 def _render(template_name: str, **kwargs: str) -> str:
     """Load an HTML template and replace {{key}} placeholders."""
@@ -15,6 +22,13 @@ def _render(template_name: str, **kwargs: str) -> str:
     for key, value in kwargs.items():
         html = html.replace(f"{{{{{key}}}}}", value)
     return html
+
+
+def _mask(value: str) -> str:
+    """Mask a secret for safe logging: show first 2 and last 2 chars."""
+    if len(value) <= 4:
+        return "***"
+    return f"{value[:2]}***{value[-2:]}"
 
 
 async def send_email(recipient: str, subject: str, body: str, email_type: str) -> bool:
@@ -34,15 +48,12 @@ async def send_email(recipient: str, subject: str, body: str, email_type: str) -
 
     if not s.mail_server or not s.mail_username:
         # DEV mode: print email to console so developers can grab links
-        import re
-        from datetime import datetime, timezone
-
         plain = re.sub(r"<[^>]+>", "", body).strip()
         plain = re.sub(r"\n\s*\n+", "\n", plain)
         logger.warning(
             "\n"
             "╔══════════════════════════════════════════════════════════════╗\n"
-            "║  📧  DEV MAIL (SMTP not configured)                        ║\n"
+            "║  DEV MAIL (SMTP not configured)                            ║\n"
             "╠══════════════════════════════════════════════════════════════╣\n"
             f"║  To:      {recipient}\n"
             f"║  Subject: {subject}\n"
@@ -58,10 +69,11 @@ async def send_email(recipient: str, subject: str, body: str, email_type: str) -
         }, filters={"id": log_id})
         return True
 
-    import smtplib
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
-    from datetime import datetime, timezone
+    logger.info(
+        "SMTP send attempt: server=%s:%s, user=%s, from=%s, to=%s, type=%s",
+        s.mail_server, s.mail_port, _mask(s.mail_username),
+        s.mail_from, recipient, email_type,
+    )
 
     try:
         msg = MIMEMultipart("alternative")
@@ -70,8 +82,11 @@ async def send_email(recipient: str, subject: str, body: str, email_type: str) -
         msg["To"] = recipient
         msg.attach(MIMEText(body, "html"))
 
-        with smtplib.SMTP(s.mail_server, s.mail_port) as server:
+        with smtplib.SMTP(s.mail_server, s.mail_port, timeout=SMTP_TIMEOUT_SECONDS) as server:
+            server.set_debuglevel(0)
+            server.ehlo()
             server.starttls()
+            server.ehlo()
             server.login(s.mail_username, s.mail_password)
             server.send_message(msg)
 
@@ -80,16 +95,39 @@ async def send_email(recipient: str, subject: str, body: str, email_type: str) -
             "attempts": 1,
             "sent_at": datetime.now(timezone.utc),
         }, filters={"id": log_id})
-        logger.info(f"Email sent to {recipient} ({email_type})")
+        logger.info("Email sent successfully to %s (%s)", recipient, email_type)
         return True
-    except Exception as e:
-        logger.error(f"Failed to send email to {recipient}: {e}")
-        await db.update("email_log", {
-            "status": "failed",
-            "error_message": str(e)[:500],
-            "attempts": 1,
-        }, filters={"id": log_id})
+    except smtplib.SMTPAuthenticationError as e:
+        logger.error("SMTP auth failed for user %s on %s:%s — %s",
+                      s.mail_username, s.mail_server, s.mail_port, e)
+        await _mark_failed(log_id, e)
         return False
+    except smtplib.SMTPConnectError as e:
+        logger.error("SMTP connect failed to %s:%s — %s",
+                      s.mail_server, s.mail_port, e)
+        await _mark_failed(log_id, e)
+        return False
+    except smtplib.SMTPException as e:
+        logger.error("SMTP error sending to %s: %s", recipient, e)
+        await _mark_failed(log_id, e)
+        return False
+    except OSError as e:
+        logger.error("Network error connecting to %s:%s — %s",
+                      s.mail_server, s.mail_port, e)
+        await _mark_failed(log_id, e)
+        return False
+    except Exception as e:
+        logger.error("Unexpected error sending email to %s: %s", recipient, e, exc_info=True)
+        await _mark_failed(log_id, e)
+        return False
+
+
+async def _mark_failed(log_id: str, error: Exception) -> None:
+    await db.update("email_log", {
+        "status": "failed",
+        "error_message": str(error)[:500],
+        "attempts": 1,
+    }, filters={"id": log_id})
 
 
 def _frontend_url() -> str:
