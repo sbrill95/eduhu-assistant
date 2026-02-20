@@ -92,16 +92,19 @@ async def run_memory_agent(
             usage = result.usage()
             _aio.create_task(log_usage(
                 teacher_id=teacher_id,
-                model="claude-3-5-haiku",
+                model="claude-haiku-4-5",
                 input_tokens=usage.input_tokens or 0,
                 output_tokens=usage.output_tokens or 0,
                 agent_type="memory",
             ))
         except Exception as e:
             logger.debug(f"Token tracking skipped: {e}")
-        text = result.output
+        text = result.output or ""
         # Parse JSON
         cleaned = text.replace("```json", "").replace("```", "").strip()
+        if not cleaned:
+            logger.info("Memory agent: empty response, skipping")
+            return
         extraction = json.loads(cleaned)
 
         stored = 0

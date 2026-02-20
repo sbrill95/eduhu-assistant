@@ -204,7 +204,7 @@ async def insert(table: str, data: dict[str, Any]) -> dict[str, Any]:
     cols = list(data.keys())
     placeholders = ", ".join(f"${i + 1}" for i in range(len(cols)))
     col_names = ", ".join(cols)
-    values = [_parse_value(data[c]) for c in cols]
+    values = [_jsonb_encode(_parse_value(data[c])) for c in cols]
 
     sql = f"INSERT INTO {table} ({col_names}) VALUES ({placeholders}) RETURNING *"
 
@@ -223,7 +223,7 @@ async def update(
     pool = _get_pool()
     set_cols = list(data.keys())
     set_parts = [f"{col} = ${i + 1}" for i, col in enumerate(set_cols)]
-    set_values = [_parse_value(data[c]) for c in set_cols]
+    set_values = [_jsonb_encode(_parse_value(data[c])) for c in set_cols]
 
     where_clause, where_values = _build_where(filters, offset=len(set_values))
 
@@ -252,7 +252,7 @@ async def upsert(
     cols = list(data.keys())
     placeholders = ", ".join(f"${i + 1}" for i in range(len(cols)))
     col_names = ", ".join(cols)
-    values = [_parse_value(data[c]) for c in cols]
+    values = [_jsonb_encode(_parse_value(data[c])) for c in cols]
 
     if on_conflict:
         conflict_cols = on_conflict.strip()
@@ -314,7 +314,7 @@ async def insert_batch(table: str, rows: list[dict[str, Any]]) -> list[dict[str,
         stmt = await conn.prepare(sql)
 
         for row_data in rows:
-            values = [_parse_value(row_data[c]) for c in cols]
+            values = [_jsonb_encode(_parse_value(row_data[c])) for c in cols]
             record = await stmt.fetchrow(*values)
             if record:
                 results.append(_record_to_dict(record))

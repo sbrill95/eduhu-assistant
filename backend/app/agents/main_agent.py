@@ -21,7 +21,6 @@ class AgentDeps:
     """Dependencies injected into the agent at runtime."""
     teacher_id: str
     conversation_id: str
-    base_url: str = ""
     collected_sources: list = field(default_factory=list)
 
 
@@ -132,10 +131,10 @@ def create_agent() -> Agent[AgentDeps, str]:
 
             # Session is saved by the router now
             summary = result.summary
-            if ctx.deps.base_url:
-                summary = summary.replace("Download: /api/", f"[📥 Download DOCX]({ctx.deps.base_url}/api/")
-                if summary != result.summary:
-                    summary = summary.replace("/docx", "/docx)")
+            # Use relative URLs so the browser routes through the frontend proxy
+            summary = summary.replace("Download: /api/", "[📥 Download DOCX](/api/")
+            if summary != result.summary:
+                summary = summary.replace("/docx", "/docx)")
             return summary
         except Exception as e:
             logger.error(f"Material generation failed: {e}")
@@ -331,10 +330,8 @@ def create_agent() -> Agent[AgentDeps, str]:
                 filters={"id": session_id},
             )
 
-            download_url = f"/api/materials/{material_id}/docx"
-            if ctx.deps.base_url:
-                download_url = f"[📥 Download DOCX]({ctx.deps.base_url}/api/materials/{material_id}/docx)"
-            
+            download_url = f"[📥 Download DOCX](/api/materials/{material_id}/docx)"
+
             titel = new_structure_dict.get("titel", new_structure_dict.get("thema", "Material"))
             return f"Material überarbeitet:\n\n**{titel}**\n\nDownload: {download_url}"
         except Exception as e:
@@ -394,9 +391,7 @@ def create_agent() -> Agent[AgentDeps, str]:
                 filters={"id": session["id"]},
             )
 
-            download_url = f"/api/materials/{material_id}/docx"
-            if ctx.deps.base_url:
-                download_url = f"[📥 Download DOCX]({ctx.deps.base_url}/api/materials/{material_id}/docx)"
+            download_url = f"[📥 Download DOCX](/api/materials/{material_id}/docx)"
 
             titel = structure_dict.get("titel", structure_dict.get("thema", "Material"))
             return f"Material finalisiert!\n\n**{titel}**\n\nDownload: {download_url}"
@@ -648,8 +643,7 @@ def create_agent() -> Agent[AgentDeps, str]:
 
         try:
             audio_id, _ = await text_to_speech(text[:5000], voice)
-            base = ctx.deps.base_url or ""
-            return f"🔊 Audio erstellt: [{voice}-Stimme]({base}/api/audio/{audio_id})"
+            return f"🔊 Audio erstellt: [{voice}-Stimme](/api/audio/{audio_id})"
         except Exception as e:
             logger.error(f"TTS failed: {e}")
             return f"TTS-Fehler: {str(e)}"
@@ -708,9 +702,8 @@ def create_agent() -> Agent[AgentDeps, str]:
         try:
             script = json.loads(script_json)
             audio_id, audio_bytes = await generate_dialogue(script)
-            base = ctx.deps.base_url or ""
             duration_est = len(audio_bytes) / 16000  # ~16KB/s for MP3
-            return f"🎙️ Audio-Dialog erstellt ({len(script)} Segmente, ~{duration_est:.0f}s): [Anhören]({base}/api/audio/{audio_id})"
+            return f"🎙️ Audio-Dialog erstellt ({len(script)} Segmente, ~{duration_est:.0f}s): [Anhören](/api/audio/{audio_id})"
         except json.JSONDecodeError:
             return "Fehler: script_json ist kein gültiges JSON."
         except Exception as e:
