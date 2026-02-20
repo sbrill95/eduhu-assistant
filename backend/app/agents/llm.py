@@ -22,4 +22,4 @@ def get_sonnet() -> AnthropicModel:
 @lru_cache
 def get_haiku() -> AnthropicModel:
     _ensure_api_key()
-    return AnthropicModel("claude-3-5-haiku-20241022")
+    return AnthropicModel("claude-haiku-4-5-20251001")

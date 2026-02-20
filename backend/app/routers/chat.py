@@ -91,7 +91,6 @@ async def _prepare_chat(req: ChatRequest, request: Request, teacher_id: str):
     deps = AgentDeps(
         teacher_id=teacher_id,
         conversation_id=conversation_id,
-        base_url=str(request.base_url).rstrip("/"),
     )
 
     # Build message history for Pydantic AI
@@ -430,6 +429,11 @@ async def chat_history(
     for m in (messages if isinstance(messages, list) else []):
         msg: dict = {"id": m["id"], "role": m["role"], "content": m["content"], "timestamp": m["created_at"]}
         meta = m.get("metadata") or {}
+        if isinstance(meta, str):
+            try:
+                meta = json.loads(meta)
+            except (json.JSONDecodeError, TypeError):
+                meta = {}
         if meta.get("sources"):
             msg["sources"] = meta["sources"]
         result_messages.append(msg)

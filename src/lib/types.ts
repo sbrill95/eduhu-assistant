@@ -36,3 +36,17 @@ export interface Conversation {
   last_message: string | null;
   updated_at: string;
 }
+
+export type ArtifactType = 'docx' | 'h5p' | 'audio' | 'image';
+export interface Artifact {
+  id: string;
+  type: ArtifactType;
+  title: string;
+  url: string;
+  /** For H5P: the access code */
+  accessCode?: string;
+  /** For H5P: the exercise page URL */
+  pageUrl?: string;
+  /** Message ID this artifact belongs to */
+  messageId: string;
+}

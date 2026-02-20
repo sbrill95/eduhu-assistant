@@ -7,7 +7,7 @@ from typing import Optional
 
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-JUDGE_MODEL = "claude-3-5-haiku-20241022"
+JUDGE_MODEL = "claude-haiku-4-5-20251001"
 
 
 async def judge(content: str, criteria: str, context: dict | None = None) -> dict:

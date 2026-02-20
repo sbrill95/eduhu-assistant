@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { getSession } from '../lib/auth';
 import { sendMessage, getHistory, API_BASE, sendMessageStream } from '../lib/api';
-import type { ChatMessage } from '../lib/types';
+import type { ChatMessage, Artifact } from '../lib/types';
 import { log } from '../lib/logger';
 
 export function useChat() {
@@ -13,6 +13,9 @@ export function useChat() {
   const [isTyping, setIsTyping] = useState(false);
   const [streamingStep, setStreamingStep] = useState<string | null>(null);
   const [showWelcomeChips, setShowWelcomeChips] = useState(true);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [activeArtifactIndex, setActiveArtifactIndex] = useState(0);
+  const streamTextRef = useRef('');
 
   // Load suggestions on mount
   useEffect(() => {
@@ -58,12 +61,76 @@ export function useChat() {
     setConversationId(null);
     setMessages([]);
     setShowWelcomeChips(true);
+    setArtifacts([]);
+    setActiveArtifactIndex(0);
+  }, []);
+
+  /** Detect artifacts from assistant message content */
+  const detectArtifacts = useCallback((content: string, messageId: string) => {
+    const newArtifacts: Artifact[] = [];
+
+    let counter = 0;
+
+    // Detect DOCX downloads: [📥 Download DOCX](url)
+    const docxRegex = /\[📥[^\]]*\]\(([^)]+\/materials\/([a-f0-9-]+)\/docx)\)/g;
+    let match;
+    while ((match = docxRegex.exec(content)) !== null) {
+      // Find the closest **bold** text before this match for title
+      const before = content.slice(0, match.index);
+      const titleMatch = before.match(/\*\*([^*]+)\*\*[^*]*$/);
+      newArtifacts.push({ id: match[2]!, type: 'docx', title: titleMatch?.[1] ?? 'Material', url: match[1]!, messageId });
+    }
+
+    // Detect H5P exercises: qr-card code blocks
+    const qrRegex = /```qr-card\n({[^`]+})\n```/g;
+    while ((match = qrRegex.exec(content)) !== null) {
+      try {
+        const data = JSON.parse(match[1]!);
+        newArtifacts.push({ id: data.code || `h5p-${++counter}`, type: 'h5p', title: data.title || 'H5P Übung', url: data.url || '', accessCode: data.code, pageUrl: data.url, messageId });
+      } catch { /* ignore */ }
+    }
+
+    // Detect audio links
+    const audioRegex = /\[([^\]]+)\]\(([^)]*\/api\/audio\/[^)]+)\)/g;
+    while ((match = audioRegex.exec(content)) !== null) {
+      newArtifacts.push({ id: `audio-${++counter}-${messageId}`, type: 'audio', title: match[1] ?? 'Audio', url: match[2]!, messageId });
+    }
+
+    // Detect image-card code blocks
+    const imgRegex = /```image-card\n({[^`]+})\n```/g;
+    while ((match = imgRegex.exec(content)) !== null) {
+      try {
+        const data = JSON.parse(match[1]!);
+        newArtifacts.push({ id: `img-${++counter}-${messageId}`, type: 'image', title: data.alt || data.title || 'Bild', url: data.url || data.src || '', messageId });
+      } catch { /* ignore */ }
+    }
+
+    if (newArtifacts.length > 0) {
+      setArtifacts(prev => {
+        // Deduplicate by id
+        const existingIds = new Set(prev.map(a => a.id));
+        const unique = newArtifacts.filter(a => !existingIds.has(a.id));
+        return unique.length > 0 ? [...prev, ...unique] : prev;
+      });
+      setActiveArtifactIndex(prev => prev); // keep current, user can switch
+    }
+  }, []);
+
+  const closeArtifact = useCallback((index: number) => {
+    setArtifacts(prev => prev.filter((_, i) => i !== index));
+    setActiveArtifactIndex(prev => Math.max(0, prev >= index ? prev - 1 : prev));
+  }, []);
+
+  const closeAllArtifacts = useCallback(() => {
+    setArtifacts([]);
+    setActiveArtifactIndex(0);
   }, []);
 
   const send = useCallback(async (text: string, file?: { name: string; type: string; base64: string }) => {
     if (!teacher) return;
     
     setShowWelcomeChips(false);
+    streamTextRef.current = '';
 
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -90,6 +157,7 @@ export function useChat() {
         // onDelta
         (delta) => {
           deltaCount++;
+          streamTextRef.current += delta;
           if (!hasContent) {
             log.info('chat', 'first content delta received', { deltaCount });
           }
@@ -116,6 +184,8 @@ export function useChat() {
               ? { ...m, id: done.message_id || streamMsgId, ...(done.sources?.length ? { sources: done.sources } : {}) }
               : m
           ));
+          detectArtifacts(streamTextRef.current, done.message_id || streamMsgId);
+          streamTextRef.current = '';
         },
         // onStep
         (stepText) => {
@@ -170,5 +240,10 @@ export function useChat() {
     resetChat,
     send,
     teacher,
+    artifacts,
+    activeArtifactIndex,
+    setActiveArtifactIndex,
+    closeArtifact,
+    closeAllArtifacts,
   };
 }

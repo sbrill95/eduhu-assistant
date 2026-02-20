@@ -10,12 +10,12 @@ logger = logging.getLogger(__name__)
 # USD per 1M tokens
 MODEL_PRICES: dict[str, dict[str, float]] = {
     "claude-sonnet-4-20250514": {"input": 3.0, "output": 15.0},
-    "claude-3-5-haiku-20241022": {"input": 0.80, "output": 4.0},
+    "claude-haiku-4-5-20251001": {"input": 0.80, "output": 4.0},
 }
 
 # Aliases
 MODEL_PRICES["claude-sonnet-4"] = MODEL_PRICES["claude-sonnet-4-20250514"]
-MODEL_PRICES["claude-3-5-haiku"] = MODEL_PRICES["claude-3-5-haiku-20241022"]
+MODEL_PRICES["claude-haiku-4-5"] = MODEL_PRICES["claude-haiku-4-5-20251001"]
 
 
 def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float | None:

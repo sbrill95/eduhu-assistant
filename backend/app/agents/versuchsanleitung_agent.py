@@ -6,7 +6,7 @@ from pydantic_ai import Agent, RunContext
 
 from app.agents.base import BaseMaterialDeps, register_ask_teacher_tool, DIRECT_GENERATION_DIRECTIVE
 
-from app.agents.llm import get_haiku
+from app.agents.llm import get_sonnet
 from app.agents.knowledge import (
     get_good_practices,
     get_conversation_context,
@@ -64,7 +64,7 @@ async def _system_prompt(ctx: RunContext[VersuchsanleitungDeps]) -> str:
 
 def create_versuchsanleitung_agent() -> Agent[VersuchsanleitungDeps, VersuchsanleitungStructure]:
     agent = Agent(
-        get_haiku(),
+        get_sonnet(),
         deps_type=VersuchsanleitungDeps,
         output_type=VersuchsanleitungStructure,
         instructions=_system_prompt,
