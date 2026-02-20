@@ -7,6 +7,7 @@ import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { ChipSelector } from '@/components/chat/ChipSelector';
 import { useChat } from '@/hooks/useChat';
 import { OnboardingModal } from '@/components/OnboardingModal';
+import { getProfile } from '@/lib/api';
 
 export default function ChatPage() {
   const navigate = useNavigate();
@@ -53,13 +54,14 @@ export default function ChatPage() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Check if onboarding needed
+  // Check if onboarding needed (DB-backed, no localStorage)
   useEffect(() => {
     if (!teacher) return;
-    const onboarded = localStorage.getItem(`eduhu_onboarded_${teacher.teacher_id}`);
-    if (!onboarded) {
-      setShowOnboarding(true);
-    }
+    void getProfile().then((profile) => {
+      if (profile && !profile.onboarding_completed) {
+        setShowOnboarding(true);
+      }
+    });
   }, [teacher]);
 
   // Auto-scroll on new messages
@@ -81,10 +83,8 @@ export default function ChatPage() {
     <AppShell>
       {showOnboarding && (
         <OnboardingModal
-          teacherId={teacher.teacher_id}
           onComplete={() => {
             setShowOnboarding(false);
-            localStorage.setItem(`eduhu_onboarded_${teacher.teacher_id}`, '1');
           }}
         />
       )}

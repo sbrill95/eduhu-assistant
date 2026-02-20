@@ -1,6 +1,5 @@
 import { useState } from 'react';
-
-const API = import.meta.env.VITE_API_URL || '';
+import { updateProfile } from '@/lib/api';
 
 const BUNDESLAENDER = [
   'Baden-Württemberg', 'Bayern', 'Berlin', 'Brandenburg', 'Bremen',
@@ -21,11 +20,10 @@ const FAECHER = [
 ];
 
 interface Props {
-  teacherId: string;
   onComplete: () => void;
 }
 
-export function OnboardingModal({ teacherId, onComplete }: Props) {
+export function OnboardingModal({ onComplete }: Props) {
   const [bundesland, setBundesland] = useState('');
   const [schulform, setSchulform] = useState('');
   const [selectedFaecher, setSelectedFaecher] = useState<string[]>([]);
@@ -40,17 +38,11 @@ export function OnboardingModal({ teacherId, onComplete }: Props) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch(`${API}/api/profile/${teacherId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Teacher-ID': teacherId,
-        },
-        body: JSON.stringify({
-          bundesland,
-          schulform,
-          faecher: selectedFaecher,
-        }),
+      await updateProfile({
+        bundesland,
+        schulform,
+        faecher: selectedFaecher,
+        onboarding_completed: true,
       });
       onComplete();
     } catch {
