@@ -136,8 +136,6 @@ async def update_profile(
         data["faecher"] = req.faecher
     if req.jahrgaenge is not None:
         data["jahrgaenge"] = req.jahrgaenge
-    if req.onboarding_completed is not None:
-        data["onboarding_completed"] = req.onboarding_completed
 
     result = await db.update("user_profiles", data, filters={"id": teacher_id})
     return result

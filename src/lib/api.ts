@@ -241,7 +241,6 @@ export interface Profile {
   schulform?: string;
   faecher?: string[];
   jahrgaenge?: number[];
-  onboarding_completed?: boolean;
 }
 
 export async function getProfile(): Promise<Profile | null> {
