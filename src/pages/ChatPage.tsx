@@ -7,10 +7,10 @@ import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { ChipSelector } from '@/components/chat/ChipSelector';
 import { useChat } from '@/hooks/useChat';
 import { OnboardingModal } from '@/components/OnboardingModal';
-import { DemoOnboardingModal } from '@/components/DemoOnboardingModal';
 import { ArtifactPanel } from '@/components/artifacts/ArtifactPanel';
 import { ArtifactModal } from '@/components/artifacts/ArtifactModal';
 import type { Artifact } from '@/lib/types';
+import { getProfile } from '@/lib/api';
 
 export default function ChatPage() {
   const navigate = useNavigate();
@@ -62,13 +62,14 @@ export default function ChatPage() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Check if onboarding needed
+  // Check if onboarding needed (DB-backed, no localStorage)
   useEffect(() => {
     if (!teacher) return;
-    const onboarded = localStorage.getItem(`eduhu_onboarded_${teacher.teacher_id}`);
-    if (!onboarded) {
-      setShowOnboarding(true);
-    }
+    void getProfile().then((profile) => {
+      if (profile && !profile.onboarding_completed) {
+        setShowOnboarding(true);
+      }
+    });
   }, [teacher]);
 
   // Auto-scroll on new messages
@@ -89,22 +90,11 @@ export default function ChatPage() {
   return (
     <AppShell>
       {showOnboarding && (
-        teacher.role === 'demo' ? (
-          <DemoOnboardingModal
-            onComplete={() => {
-              setShowOnboarding(false);
-              localStorage.setItem(`eduhu_onboarded_${teacher.teacher_id}`, '1');
-            }}
-          />
-        ) : (
-          <OnboardingModal
-            teacherId={teacher.teacher_id}
-            onComplete={() => {
-              setShowOnboarding(false);
-              localStorage.setItem(`eduhu_onboarded_${teacher.teacher_id}`, '1');
-            }}
-          />
-        )
+        <OnboardingModal
+          onComplete={() => {
+            setShowOnboarding(false);
+          }}
+        />
       )}
       <div className="flex gap-5 h-full transition-all duration-300">
         {/* Chat Widget */}
