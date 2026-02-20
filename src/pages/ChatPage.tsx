@@ -11,6 +11,7 @@ import { DemoOnboardingModal } from '@/components/DemoOnboardingModal';
 import { ArtifactPanel } from '@/components/artifacts/ArtifactPanel';
 import { ArtifactModal } from '@/components/artifacts/ArtifactModal';
 import type { Artifact } from '@/lib/types';
+import { DemoOnboardingModal } from '@/components/DemoOnboardingModal';
 
 export default function ChatPage() {
   const navigate = useNavigate();
