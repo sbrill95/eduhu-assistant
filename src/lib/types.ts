@@ -26,6 +26,7 @@ export interface ChatMessage {
   content: string;
   chips?: Chip[];
   attachments?: Attachment[];
+  sources?: Array<{ index: number; title: string; url?: string }>;
   timestamp: string;
 }
 

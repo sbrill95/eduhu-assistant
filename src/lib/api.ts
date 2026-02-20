@@ -66,7 +66,7 @@ export async function sendMessageStream(
   file: { name: string; type: string; base64: string } | undefined,
   onDelta: (text: string) => void,
   onMeta: (data: { conversation_id: string }) => void,
-  onDone: (data: { message_id: string }) => void,
+  onDone: (data: { message_id: string; sources?: Array<{ index: number; title: string; url?: string }> }) => void,
   onStep?: (text: string) => void,
 ): Promise<void> {
   const teacher = getSession();

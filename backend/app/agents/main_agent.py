@@ -2,7 +2,7 @@
 
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pydantic_ai import Agent, RunContext
 
@@ -22,6 +22,7 @@ class AgentDeps:
     teacher_id: str
     conversation_id: str
     base_url: str = ""
+    collected_sources: list = field(default_factory=list)
 
 
 def create_agent() -> Agent[AgentDeps, str]:
@@ -51,7 +52,9 @@ def create_agent() -> Agent[AgentDeps, str]:
         Nutze dieses Tool für Fakten, aktuelle Materialien, Methoden
         oder wenn die Lehrkraft nach externen Quellen fragt."""
         logger.info(f"Web search: {query}")
-        return await web_search(query)
+        text, sources = await web_search(query)
+        ctx.deps.collected_sources.extend(sources)
+        return text
 
     # ── Tool: remember ──
     @agent.tool
