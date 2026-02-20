@@ -12,6 +12,7 @@ import AudioPage from './pages/AudioPage';
 import VerifyPage from './pages/VerifyPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import MagicLoginPage from './pages/MagicLoginPage';
+import UpgradePage from './pages/UpgradePage';
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/verify" element={<VerifyPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/magic-login" element={<MagicLoginPage />} />
+        <Route path="/upgrade" element={<UpgradePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

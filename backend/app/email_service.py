@@ -165,3 +165,17 @@ async def send_magic_link_email(email: str, token: str) -> bool:
     url = f"{_frontend_url()}/magic-login?token={token}"
     body = _render("magic_link.html", url=url)
     return await send_email(email, "Dein Login-Link — eduhu", body, "magic_link")
+
+
+async def send_upgrade_email(email: str, token: str) -> bool:
+    """Send demo-to-teacher upgrade email."""
+    url = f"{_frontend_url()}/upgrade?token={token}"
+    body = _render("upgrade.html", url=url)
+    return await send_email(email, "Dein eduhu-Konto aktivieren", body, "upgrade")
+
+
+async def send_invite_email(recipient: str, sender_name: str) -> bool:
+    """Send colleague invitation email."""
+    url = _frontend_url()
+    body = _render("invite.html", url=url, sender_name=sender_name)
+    return await send_email(recipient, f"{sender_name} empfiehlt eduhu", body, "invite")

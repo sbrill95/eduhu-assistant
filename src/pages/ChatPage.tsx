@@ -7,6 +7,7 @@ import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { ChipSelector } from '@/components/chat/ChipSelector';
 import { useChat } from '@/hooks/useChat';
 import { OnboardingModal } from '@/components/OnboardingModal';
+import { DemoOnboardingModal } from '@/components/DemoOnboardingModal';
 import { ArtifactPanel } from '@/components/artifacts/ArtifactPanel';
 import { ArtifactModal } from '@/components/artifacts/ArtifactModal';
 import type { Artifact } from '@/lib/types';
@@ -88,13 +89,22 @@ export default function ChatPage() {
   return (
     <AppShell>
       {showOnboarding && (
-        <OnboardingModal
-          teacherId={teacher.teacher_id}
-          onComplete={() => {
-            setShowOnboarding(false);
-            localStorage.setItem(`eduhu_onboarded_${teacher.teacher_id}`, '1');
-          }}
-        />
+        teacher.role === 'demo' ? (
+          <DemoOnboardingModal
+            onComplete={() => {
+              setShowOnboarding(false);
+              localStorage.setItem(`eduhu_onboarded_${teacher.teacher_id}`, '1');
+            }}
+          />
+        ) : (
+          <OnboardingModal
+            teacherId={teacher.teacher_id}
+            onComplete={() => {
+              setShowOnboarding(false);
+              localStorage.setItem(`eduhu_onboarded_${teacher.teacher_id}`, '1');
+            }}
+          />
+        )
       )}
       <div className="flex gap-5 h-full transition-all duration-300">
         {/* Chat Widget */}
