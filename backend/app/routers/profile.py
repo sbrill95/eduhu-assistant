@@ -133,9 +133,9 @@ async def update_profile(
     if req.schulform is not None:
         data["schulform"] = req.schulform
     if req.faecher is not None:
-        data["faecher"] = req.faecher
+        data["faecher"] = tuple(req.faecher)
     if req.jahrgaenge is not None:
-        data["jahrgaenge"] = req.jahrgaenge
+        data["jahrgaenge"] = tuple(req.jahrgaenge)
     if req.onboarding_completed is not None:
         data["onboarding_completed"] = req.onboarding_completed
 

@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSession } from '@/lib/auth';
 import { AppShell } from '@/components/layout/AppShell';
-import { DemoOnboardingModal } from '@/components/DemoOnboardingModal';
+import { OnboardingModal } from '@/components/OnboardingModal';
+import { getProfile } from '@/lib/api';
 
 const TEMPLATE_CARDS = [
   {
@@ -52,13 +53,14 @@ export default function DashboardPage() {
     if (!teacher) void navigate('/');
   }, [teacher, navigate]);
 
-  // Show demo onboarding on first visit
+  // Check if onboarding needed (DB-backed, no localStorage)
   useEffect(() => {
-    if (!teacher || teacher.role !== 'demo') return;
-    const onboarded = localStorage.getItem(`eduhu_onboarded_${teacher.teacher_id}`);
-    if (!onboarded) {
-      setShowOnboarding(true);
-    }
+    if (!teacher) return;
+    void getProfile().then((profile) => {
+      if (profile && !profile.onboarding_completed) {
+        setShowOnboarding(true);
+      }
+    });
   }, [teacher]);
 
   function handleChatSend() {
@@ -79,10 +81,9 @@ export default function DashboardPage() {
   return (
     <AppShell>
       {showOnboarding && (
-        <DemoOnboardingModal
+        <OnboardingModal
           onComplete={() => {
             setShowOnboarding(false);
-            localStorage.setItem(`eduhu_onboarded_${teacher.teacher_id}`, '1');
           }}
         />
       )}

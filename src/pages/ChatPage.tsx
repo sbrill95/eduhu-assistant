@@ -6,11 +6,9 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { ChipSelector } from '@/components/chat/ChipSelector';
 import { useChat } from '@/hooks/useChat';
-import { OnboardingModal } from '@/components/OnboardingModal';
 import { ArtifactPanel } from '@/components/artifacts/ArtifactPanel';
 import { ArtifactModal } from '@/components/artifacts/ArtifactModal';
 import type { Artifact } from '@/lib/types';
-import { getProfile } from '@/lib/api';
 
 export default function ChatPage() {
   const navigate = useNavigate();
@@ -34,7 +32,6 @@ export default function ChatPage() {
     closeAllArtifacts,
   } = useChat();
 
-  const [showOnboarding, setShowOnboarding] = useState(false);
   // TODO: Auto-open on mobile when artifact detected (needs screen width check)
   const [mobileArtifact, setMobileArtifact] = useState<Artifact | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -62,16 +59,6 @@ export default function ChatPage() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Check if onboarding needed (DB-backed, no localStorage)
-  useEffect(() => {
-    if (!teacher) return;
-    void getProfile().then((profile) => {
-      if (profile && !profile.onboarding_completed) {
-        setShowOnboarding(true);
-      }
-    });
-  }, [teacher]);
-
   // Auto-scroll on new messages
   useEffect(() => {
     if (scrollRef.current) {
@@ -89,13 +76,6 @@ export default function ChatPage() {
 
   return (
     <AppShell>
-      {showOnboarding && (
-        <OnboardingModal
-          onComplete={() => {
-            setShowOnboarding(false);
-          }}
-        />
-      )}
       <div className="flex gap-5 h-full transition-all duration-300">
         {/* Chat Widget */}
         <div
