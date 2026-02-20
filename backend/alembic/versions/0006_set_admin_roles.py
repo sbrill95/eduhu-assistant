@@ -1,4 +1,4 @@
-"""Set admin roles for existing admin accounts.
+"""Clean up legacy plaintext accounts and set admin roles by email.
 
 Revision ID: 0006
 Revises: 0005
@@ -18,12 +18,19 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Set known admin accounts (by name or password)
-    # Steffen (krake26), Christopher (leopard26) get admin role
+    # Delete legacy accounts whose password_hash contains plaintext
+    # (migration 0005 copied plaintext passwords without hashing)
+    # bcrypt hashes always start with '$2b$'
+    op.execute("""
+    DELETE FROM teachers
+    WHERE password_hash IS NOT NULL AND password_hash NOT LIKE '$2b$%'
+    """)
+
+    # Set admin role by email
     op.execute("""
     UPDATE teachers
     SET role = 'admin'
-    WHERE password IN ('krake26', 'leopard26')
+    WHERE email IN ('c.utsch@eduhu.de', 's.brill@eduhu.de')
     """)
 
 
@@ -31,5 +38,5 @@ def downgrade() -> None:
     op.execute("""
     UPDATE teachers
     SET role = 'teacher'
-    WHERE password IN ('krake26', 'leopard26')
+    WHERE email IN ('c.utsch@eduhu.de', 's.brill@eduhu.de')
     """)
