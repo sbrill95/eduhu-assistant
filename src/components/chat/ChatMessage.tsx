@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -13,22 +13,7 @@ import { ClarificationCard } from './ClarificationCard';
 import { AudioCard } from './AudioCard';
 import { extractSources, SourcesFooter, detectType } from './SourcesFooter';
 import type { Source } from './SourcesFooter';
-
-/** Replace standalone [N] citation markers with markdown links for styling. */
-function insertCitationLinks(text: string): string {
-  // Split by code blocks / inline code — only transform prose parts
-  const parts = text.split(/(```[\s\S]*?```|`[^`]+`)/g);
-  return parts
-    .map((part, i) => {
-      if (i % 2 === 1) return part; // code block — leave untouched
-      // Match [N] not preceded by [ and not followed by [ or ( (would be markdown link)
-      return part.replace(
-        /(?<!\[)\[(\d{1,2})\](?!\s*[\[(])/g,
-        '[$1](#ref-$1)',
-      );
-    })
-    .join('');
-}
+import { rehypeCitations } from './rehypeCitations';
 
 interface Props {
   message: ChatMessageType;
@@ -40,13 +25,25 @@ export function ChatMessage({ message, onChipSelect, isStreaming }: Props) {
   const isUser = message.role === 'user';
   const [isSpeaking, setIsSpeaking] = useState(false);
   // Prefer structured sources from backend metadata; fall back to regex extraction for old messages
-  const extracted = isUser ? null : extractSources(message.content);
+  const extracted = useMemo(
+    () => (isUser ? null : extractSources(message.content)),
+    [isUser, message.content],
+  );
   const cleanContent = isUser ? message.content : extracted!.cleanContent;
-  const sources: Source[] = isUser
-    ? []
-    : message.sources?.length
-      ? message.sources.map((s) => ({ ...s, type: detectType(s.title, s.url) }))
-      : extracted!.sources;
+  const sources: Source[] = useMemo(
+    () =>
+      isUser
+        ? []
+        : message.sources?.length
+          ? message.sources.map((s) => ({ ...s, type: detectType(s.title, s.url) }))
+          : extracted!.sources,
+    [isUser, message.sources, extracted],
+  );
+
+  const rehypePlugins = useMemo(
+    () => [[rehypeCitations, { sources }]] as [[typeof rehypeCitations, { sources: Source[] }]],
+    [sources],
+  );
 
   const stripMarkdown = (markdownText: string) => {
     // Remove code blocks
@@ -111,6 +108,7 @@ export function ChatMessage({ message, onChipSelect, isStreaming }: Props) {
           ) : (
             <div className="prose prose-sm max-w-none text-text-default prose-headings:text-text-strong prose-strong:text-text-strong prose-a:text-primary">
               <ReactMarkdown
+                rehypePlugins={rehypePlugins}
                 components={{
                   pre({ children }: any) {
                     // Unwrap <pre> if it contains a custom card component instead of code
@@ -122,21 +120,6 @@ export function ChatMessage({ message, onChipSelect, isStreaming }: Props) {
                     return <pre className="overflow-auto rounded-lg bg-[#F5F0EB] p-3">{children}</pre>;
                   },
                   a({ href, children, ...props }: any) {
-                    // Citation reference badge [N] — clickable if source URL exists
-                    if (href && href.startsWith('#ref-')) {
-                      const idx = parseInt(href.replace('#ref-', ''), 10);
-                      const source = sources.find((s) => s.index === idx);
-                      if (source?.url) {
-                        return (
-                          <a href={source.url} target="_blank" rel="noopener noreferrer" title={source.title}>
-                            <sup className="citation-ref citation-ref--link">{children}</sup>
-                          </a>
-                        );
-                      }
-                      return (
-                        <sup className="citation-ref">{children}</sup>
-                      );
-                    }
                     // Detect audio links and render AudioCard
                     if (href && href.includes('/api/audio/')) {
                       return <AudioCard url={href} title={String(children)} />;
@@ -210,7 +193,7 @@ export function ChatMessage({ message, onChipSelect, isStreaming }: Props) {
                   },
                 }}
               >
-                {cleanContent.startsWith('⏳') ? '' : insertCitationLinks(cleanContent.replace(/\{\{TIMER:\d+:[^}]*\}\}/g, ''))}
+                {cleanContent.startsWith('⏳') ? '' : cleanContent.replace(/\{\{TIMER:\d+:[^}]*\}\}/g, '')}
               </ReactMarkdown>
               {cleanContent.startsWith('⏳') && (
                 <p className="text-sm text-text-muted animate-pulse">{cleanContent}</p>
