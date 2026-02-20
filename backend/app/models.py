@@ -78,7 +78,6 @@ class ProfileUpdate(BaseModel):
     schulform: Optional[str] = None
     faecher: Optional[list[str]] = None
     jahrgaenge: Optional[list[int]] = None
-    onboarding_completed: Optional[bool] = None
 
 
 class ConversationOut(BaseModel):

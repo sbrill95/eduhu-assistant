@@ -58,7 +58,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (!teacher) return;
     void getProfile().then((profile) => {
-      if (profile && !profile.onboarding_completed) {
+      if (profile && !profile.bundesland && !profile.schulform) {
         setShowOnboarding(true);
       }
     });
