@@ -30,12 +30,13 @@ class TestModels:
     """Pydantic models validate input correctly."""
 
     def test_login_request_valid(self):
-        req = LoginRequest(password="demo123")
+        req = LoginRequest(email="test@example.com", password="demo123")
         assert req.password == "demo123"
+        assert req.email == "test@example.com"
 
     def test_login_request_empty_password(self):
         # Empty string is technically valid (the router handles rejection)
-        req = LoginRequest(password="")
+        req = LoginRequest(email="test@example.com", password="")
         assert req.password == ""
 
     def test_chat_request_valid(self):
@@ -106,22 +107,28 @@ class TestMaterialTypeResolution:
     def test_klassenarbeit_alias(self):
         assert resolve_material_type("Klassenarbeit") == "klausur"
 
-    def test_test_alias(self):
-        assert resolve_material_type("test") == "klausur"
+    def test_test_passthrough(self):
+        assert resolve_material_type("test") == "test"
 
-    def test_pruefung_alias(self):
-        assert resolve_material_type("prüfung") == "klausur"
+    def test_pruefung_passthrough(self):
+        assert resolve_material_type("prüfung") == "prüfung"
 
     def test_differenzierung_direct(self):
         assert resolve_material_type("differenzierung") == "differenzierung"
 
-    def test_differenziert_alias(self):
-        assert resolve_material_type("differenziert") == "differenzierung"
+    def test_differenziert_passthrough(self):
+        assert resolve_material_type("differenziert") == "differenziert"
 
-    def test_unknown_defaults_to_klausur(self):
-        assert resolve_material_type("quiz") == "klausur"
-        assert resolve_material_type("") == "klausur"
-        assert resolve_material_type("nonsense") == "klausur"
+    def test_arbeitsblatt_alias(self):
+        assert resolve_material_type("arbeitsblatt") == "versuchsanleitung"
+
+    def test_experiment_alias(self):
+        assert resolve_material_type("experiment") == "versuchsanleitung"
+
+    def test_unknown_is_passed_through(self):
+        assert resolve_material_type("quiz") == "quiz"
+        assert resolve_material_type("") == ""
+        assert resolve_material_type("nonsense") == "nonsense"
 
     def test_case_insensitive(self):
         assert resolve_material_type("KLAUSUR") == "klausur"

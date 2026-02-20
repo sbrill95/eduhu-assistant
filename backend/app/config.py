@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     mail_port: int = 587
     mail_from_name: str = "eduhu"
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 
 @lru_cache

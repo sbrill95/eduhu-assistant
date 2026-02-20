@@ -14,6 +14,8 @@ import pytest
 import pytest_asyncio
 from unittest.mock import patch, AsyncMock
 
+from app.auth_utils import create_access_token, hash_password
+
 # ── Set test environment BEFORE any app imports ──
 os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test")
 os.environ.setdefault("ANTHROPIC_API_KEY", "fake-anthropic-key")
@@ -33,6 +35,11 @@ from app.models import (
 
 TEACHER_ID = "test-teacher-00000000-0000-0000-0000-000000000001"
 TEACHER_NAME = "Test-Lehrer"
+
+def auth_headers(teacher_id: str = TEACHER_ID, role: str = "teacher") -> dict:
+    """Generate JWT auth headers for testing."""
+    token = create_access_token(teacher_id, role)
+    return {"Authorization": f"Bearer {token}"}
 
 def make_teacher_profile(**overrides):
     """Create a sample teacher profile dict."""
@@ -150,7 +157,11 @@ class FakeDB:
 
     def __init__(self):
         self.tables: dict[str, list[dict]] = {
-            "teachers": [{"id": TEACHER_ID, "name": TEACHER_NAME, "password": "test123"}],
+            "teachers": [{
+                "id": TEACHER_ID, "name": TEACHER_NAME, "password": "test123",
+                "email": "test@example.com", "password_hash": hash_password("test123"),
+                "role": "teacher", "email_verified": True,
+            }],
             "user_profiles": [make_teacher_profile()],
             "user_memories": [],
             "conversations": [],
@@ -281,5 +292,6 @@ async def client(db_patch):
     from app.main import app
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        ac.headers["X-Teacher-ID"] = TEACHER_ID
+        token = create_access_token(TEACHER_ID, "teacher")
+        ac.headers["Authorization"] = f"Bearer {token}"
         yield ac
