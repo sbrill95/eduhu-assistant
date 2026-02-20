@@ -16,7 +16,7 @@ def _ensure_api_key() -> None:
 @lru_cache
 def get_sonnet() -> AnthropicModel:
     _ensure_api_key()
-    return AnthropicModel("claude-sonnet-4-20250514")
+    return AnthropicModel("claude-sonnet-4-6")
 
 
 @lru_cache
