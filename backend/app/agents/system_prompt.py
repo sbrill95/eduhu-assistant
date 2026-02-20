@@ -64,7 +64,10 @@ BLOCK_TOOLS = """Du hast folgende Fähigkeiten:
 Wenn die Lehrkraft nach Lehrplaninhalten fragt, nutze das Tool 'curriculum_search'.
 Wenn du Lehrplan-Inhalte verwendest, zeige die Quelle an (z.B. "📖 Basierend auf: Physik Sachsen Kl. 8").
 Wenn aktuelle Informationen aus dem Internet nötig sind, nutze 'web_search'.
-Wenn du Ergebnisse aus der Web-Suche verwendest, gib die Quellen als nummerierte Fußnoten am Ende deiner Antwort an. Nutze das Format: [1] [Titel](URL). Verweise im Text mit [1], [2] etc.
+Wenn du Ergebnisse aus der Web-Suche verwendest:
+- Verweise im Fließtext IMMER mit [1], [2] etc. auf die verwendeten Quellen.
+- Liste die Quellen am Ende als nummerierte Fußnoten auf. Format: [1] [Titel](URL)
+- Schreibe KEINE Überschrift wie "Quellen:" darüber — die Quellenangaben werden automatisch formatiert.
 Wenn die Lehrkraft Materialien erstellen will (Klassenarbeit, Klausur, Test, Differenzierung, Hilfekarte, Escape Room, Mystery, Lernsituation, Lernspiel, Versuchsanleitung, Stundenplanung, Podcast, Gesprächssimulation),
 nutze 'generate_material'. WICHTIG: Gib den Download-Link aus dem Tool-Ergebnis IMMER wörtlich weiter!
 Wenn die Lehrkraft eine YouTube-URL teilt, biete an ein Quiz daraus zu erstellen (youtube_quiz Tool).

@@ -13,7 +13,7 @@ const ICON_MAP: Record<Source['type'], string> = {
   youtube: '🎥',
 };
 
-function detectType(title: string, url?: string): Source['type'] {
+export function detectType(title: string, url?: string): Source['type'] {
   if (url && (url.includes('youtube.com') || url.includes('youtu.be'))) return 'youtube';
   if (/lehrplan|rahmenlehrplan|bildungsstandard|curriculum/i.test(title)) return 'curriculum';
   return 'web';
@@ -22,7 +22,9 @@ function detectType(title: string, url?: string): Source['type'] {
 // Pattern A: [1] [Title](URL)  or  [1] **Title**: snippet ... [Title](URL)
 const NUMBERED_SOURCE_RE = /^\[(\d+)\]\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
 const NUMBERED_BOLD_RE = /^\[(\d+)\]\s+\*\*([^*]+)\*\*.*\[([^\]]+)\]\(([^)]+)\)\s*$/;
-// Pattern B: 📖 **Quelle: Title** or 📖 Quelle: Title
+// Pattern B: plain [Title](URL) without number prefix
+const PLAIN_LINK_RE = /^\[([^\]]+)\]\(([^)]+)\)\s*$/;
+// Pattern C: 📖 **Quelle: Title** or 📖 Quelle: Title
 const CURRICULUM_RE = /^📖\s+\*{0,2}Quelle:\s*\*{0,2}\s*(.+)$/;
 
 export function extractSources(content: string): { cleanContent: string; sources: Source[] } {
@@ -40,7 +42,10 @@ export function extractSources(content: string): { cleanContent: string; sources
       continue;
     }
 
-    let match = line.match(NUMBERED_SOURCE_RE);
+    // Strip optional markdown list prefix (- , * , 1. )
+    const stripped = line.replace(/^[-*]\s+|^\d+\.\s+/, '');
+
+    let match = stripped.match(NUMBERED_SOURCE_RE);
     if (match) {
       const [, idx, title, url] = match;
       sources.push({ index: parseInt(idx!), title: title!, url: url!, type: detectType(title!, url!) });
@@ -49,7 +54,7 @@ export function extractSources(content: string): { cleanContent: string; sources
       continue;
     }
 
-    match = line.match(NUMBERED_BOLD_RE);
+    match = stripped.match(NUMBERED_BOLD_RE);
     if (match) {
       const [, idx, , title, url] = match;
       sources.push({ index: parseInt(idx!), title: title!, url: url!, type: detectType(title!, url!) });
@@ -58,7 +63,15 @@ export function extractSources(content: string): { cleanContent: string; sources
       continue;
     }
 
-    const currMatch = line.match(CURRICULUM_RE);
+    const plainMatch = stripped.match(PLAIN_LINK_RE);
+    if (plainMatch) {
+      sources.push({ index: sources.length + 1, title: plainMatch[1]!, url: plainMatch[2]!, type: detectType(plainMatch[1]!, plainMatch[2]!) });
+      reversedSourceLines.push(i);
+      inSourceBlock = true;
+      continue;
+    }
+
+    const currMatch = stripped.match(CURRICULUM_RE);
     if (currMatch) {
       sources.push({ index: sources.length + 1, title: currMatch[1]!.trim(), type: 'curriculum' });
       reversedSourceLines.push(i);
@@ -68,6 +81,24 @@ export function extractSources(content: string): { cleanContent: string; sources
 
     // Non-source line: stop scanning
     break;
+  }
+
+  // Strip "Quellen:" heading and --- separator above source block
+  if (inSourceBlock) {
+    const topSourceLine = Math.min(...reversedSourceLines);
+    for (let i = topSourceLine - 1; i >= 0; i--) {
+      const line = lines[i]!.trim();
+      if (!line) { reversedSourceLines.push(i); continue; }
+      if (/^(\*{0,2}Quellen:?\*{0,2}|#{1,3}\s*Quellen:?)$/i.test(line)) {
+        reversedSourceLines.push(i);
+        continue;
+      }
+      if (/^-{3,}$/.test(line)) {
+        reversedSourceLines.push(i);
+        continue;
+      }
+      break;
+    }
   }
 
   if (sources.length === 0) {
@@ -123,6 +154,7 @@ export function SourcesFooter({ sources }: { sources: Source[] }) {
           <ul className="mt-1 space-y-1 px-1">
             {sources.map((s) => (
               <li key={s.index} className="flex items-start gap-1.5 text-xs text-text-muted">
+                <span className="shrink-0 font-mono text-[10px] w-4 text-right">[{s.index}]</span>
                 <span className="shrink-0">{ICON_MAP[s.type]}</span>
                 {s.url ? (
                   <a

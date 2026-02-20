@@ -205,12 +205,15 @@ async def chat_send(
     except Exception as e:
         logger.debug(f"Token tracking skipped: {e}")
 
-    # Store assistant message
-    saved = await db.insert("messages", {
+    # Store assistant message (with structured sources in metadata)
+    msg_data: dict = {
         "conversation_id": conversation_id,
         "role": "assistant",
         "content": assistant_text,
-    })
+    }
+    if deps.collected_sources:
+        msg_data["metadata"] = json.dumps({"sources": deps.collected_sources})
+    saved = await db.insert("messages", msg_data)
 
     # Update conversation timestamp
     await db.update(
@@ -363,15 +366,21 @@ async def chat_send_stream(req: ChatRequest, request: Request, teacher_id: str =
             yield f"data: {json.dumps(error_payload)}\n\n"
             return
 
-        # Save message to DB after stream completes
-        saved = await db.insert("messages", {
+        # Save message to DB after stream completes (with structured sources)
+        msg_data: dict = {
             "conversation_id": conversation_id,
-            "role": "assistant", 
+            "role": "assistant",
             "content": full_text,
-        })
-        
-        # Send final event with message ID
-        yield f"data: {json.dumps({'type': 'done', 'message_id': saved.get('id', '')})}\n\n"
+        }
+        if deps.collected_sources:
+            msg_data["metadata"] = json.dumps({"sources": deps.collected_sources})
+        saved = await db.insert("messages", msg_data)
+
+        # Send final event with message ID + sources
+        done_payload: dict = {'type': 'done', 'message_id': saved.get('id', '')}
+        if deps.collected_sources:
+            done_payload['sources'] = deps.collected_sources
+        yield f"data: {json.dumps(done_payload)}\n\n"
         
         # Update conversation timestamp
         await db.update(
@@ -413,16 +422,18 @@ async def chat_history(
         raise HTTPException(status_code=403, detail="Zugriff verweigert")
     messages = await db.select(
         "messages",
-        columns="id, role, content, created_at",
+        columns="id, role, content, metadata, created_at",
         filters={"conversation_id": conversation_id},
         order="created_at.asc",
     )
-    return {
-        "messages": [
-            {"id": m["id"], "role": m["role"], "content": m["content"], "timestamp": m["created_at"]}
-            for m in (messages if isinstance(messages, list) else [])
-        ]
-    }
+    result_messages = []
+    for m in (messages if isinstance(messages, list) else []):
+        msg: dict = {"id": m["id"], "role": m["role"], "content": m["content"], "timestamp": m["created_at"]}
+        meta = m.get("metadata") or {}
+        if meta.get("sources"):
+            msg["sources"] = meta["sources"]
+        result_messages.append(msg)
+    return {"messages": result_messages}
 
 @router.get("/conversations")
 async def chat_conversations(teacher_id: str = Depends(get_current_teacher_id)):

@@ -112,7 +112,9 @@ export function useChat() {
           log.timeEnd('chat:roundtrip');
           setStreamingStep(null);
           setMessages(prev => prev.map(m =>
-            m.id === streamMsgId ? { ...m, id: done.message_id || streamMsgId } : m
+            m.id === streamMsgId
+              ? { ...m, id: done.message_id || streamMsgId, ...(done.sources?.length ? { sources: done.sources } : {}) }
+              : m
           ));
         },
         // onStep
