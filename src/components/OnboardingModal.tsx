@@ -42,6 +42,7 @@ export function OnboardingModal({ onComplete }: Props) {
         bundesland,
         schulform,
         faecher: selectedFaecher,
+        onboarding_completed: true,
       });
       onComplete();
     } catch {
