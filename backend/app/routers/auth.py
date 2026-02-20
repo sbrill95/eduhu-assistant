@@ -99,7 +99,6 @@ async def verify_email(token: str):
 
 @router.post("/login", response_model=LoginResponse)
 async def login(req: LoginRequest):
-    """Login with email+password or request a magic link. Also supports legacy password-only login for accounts without email. """
     # Find teacher by email
     teachers = await db.raw_fetch(
         "SELECT id, name, email, password_hash, role, email_verified FROM teachers WHERE email = $1",
