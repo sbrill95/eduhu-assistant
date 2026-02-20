@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSession } from '@/lib/auth';
 import { AppShell } from '@/components/layout/AppShell';
+import { DemoOnboardingModal } from '@/components/DemoOnboardingModal';
 
 const TEMPLATE_CARDS = [
   {
@@ -45,9 +46,20 @@ export default function DashboardPage() {
   const chatInputRef = useRef<HTMLInputElement>(null);
   const [chatInput, setChatInput] = useState('');
 
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
   useEffect(() => {
     if (!teacher) void navigate('/');
   }, [teacher, navigate]);
+
+  // Show demo onboarding on first visit
+  useEffect(() => {
+    if (!teacher || teacher.role !== 'demo') return;
+    const onboarded = localStorage.getItem(`eduhu_onboarded_${teacher.teacher_id}`);
+    if (!onboarded) {
+      setShowOnboarding(true);
+    }
+  }, [teacher]);
 
   function handleChatSend() {
     const val = chatInput.trim();
@@ -66,6 +78,14 @@ export default function DashboardPage() {
 
   return (
     <AppShell>
+      {showOnboarding && (
+        <DemoOnboardingModal
+          onComplete={() => {
+            setShowOnboarding(false);
+            localStorage.setItem(`eduhu_onboarded_${teacher.teacher_id}`, '1');
+          }}
+        />
+      )}
       {/* Hero Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between rounded-[var(--radius-card)] bg-bg-card p-5 md:p-6 shadow-soft mb-6 gap-4">
         <div>

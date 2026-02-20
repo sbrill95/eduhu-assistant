@@ -52,6 +52,20 @@ class UserOut(BaseModel):
     email_verified: bool
 
 
+class DemoUpgradeRequest(BaseModel):
+    email: EmailStr
+    survey_useful: Optional[str] = None
+    survey_material: Optional[str] = None
+    survey_recommend: Optional[str] = None
+    survey_feedback: Optional[str] = None
+
+
+class DemoUpgradeCompleteRequest(BaseModel):
+    token: str
+    password: str
+    name: str = ""
+
+
 class ChatRequest(BaseModel):
     message: str
     conversation_id: Optional[str] = None

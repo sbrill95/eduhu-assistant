@@ -6,6 +6,8 @@ import random
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException
 from app import db
+from fastapi import Depends
+from app.deps import get_current_teacher_id
 from app.models import (
     RegisterRequest,
     LoginRequest,
@@ -15,9 +17,11 @@ from app.models import (
     RefreshRequest,
     TokenResponse,
     UserOut,
+    DemoUpgradeRequest,
+    DemoUpgradeCompleteRequest,
 )
 from app.auth_utils import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
-from app.email_service import send_verification_email, send_reset_email, send_magic_link_email
+from app.email_service import send_verification_email, send_reset_email, send_magic_link_email, send_upgrade_email, send_invite_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
@@ -303,16 +307,131 @@ async def demo_start():
 
 @router.post("/demo-upgrade")
 async def demo_upgrade(
-    email: str,
-    password: str,
-    name: str = "",
+    req: DemoUpgradeRequest,
+    teacher_id: str = Depends(get_current_teacher_id),
 ):
-    """Upgrade a demo account to a full teacher account.
-    
-    TODO: Implement after auth-jwt-integration MR is merged.
-    Needs: JWT auth, email verification, password setting.
-    """
-    raise HTTPException(501, "Demo-Upgrade wird nach Auth-Integration aktiviert")
+    """Step 1: Save survey + email, send upgrade link."""
+    # Verify caller is a demo user
+    teachers = await db.raw_fetch(
+        "SELECT id, role, name FROM teachers WHERE id = $1", teacher_id
+    )
+    if not teachers or teachers[0]["role"] != "demo":
+        raise HTTPException(403, "Nur Demo-Accounts können upgegradet werden")
+
+    # Check email uniqueness
+    existing = await db.raw_fetch(
+        "SELECT id FROM teachers WHERE email = $1", req.email
+    )
+    if existing:
+        raise HTTPException(409, "E-Mail ist bereits registriert")
+
+    # Save survey data
+    has_survey = any([req.survey_useful, req.survey_material, req.survey_recommend, req.survey_feedback])
+    if has_survey:
+        await db.insert("demo_surveys", {
+            "teacher_id": teacher_id,
+            "useful": req.survey_useful,
+            "material": req.survey_material,
+            "recommend": req.survey_recommend,
+            "feedback": req.survey_feedback,
+        })
+
+    # Set email on teacher + generate upgrade token
+    token = secrets.token_urlsafe(32)
+    expires = datetime.now(timezone.utc) + timedelta(hours=24)
+
+    await db.raw_fetch(
+        """UPDATE teachers
+           SET email = $1, magic_link_token = $2, magic_link_expires = $3
+           WHERE id = $4""",
+        req.email, token, expires, teacher_id,
+    )
+
+    # Send upgrade email
+    sent = await send_upgrade_email(req.email, token)
+    if not sent:
+        logger.error("Upgrade email failed for %s", req.email)
+        raise HTTPException(502, "E-Mail konnte nicht gesendet werden. Bitte später erneut versuchen.")
+
+    return {"message": "Wir haben dir eine E-Mail geschickt. Klicke auf den Link, um dein Konto zu aktivieren."}
+
+
+@router.post("/demo-upgrade/complete", response_model=LoginResponse)
+async def demo_upgrade_complete(req: DemoUpgradeCompleteRequest):
+    """Step 2: Set password + name, convert demo → teacher."""
+    # Validate token
+    teachers = await db.raw_fetch(
+        "SELECT id, name, role FROM teachers WHERE magic_link_token = $1 AND magic_link_expires > $2",
+        req.token, datetime.now(timezone.utc),
+    )
+    if not teachers:
+        raise HTTPException(400, "Ungültiger oder abgelaufener Link")
+
+    teacher = teachers[0]
+    if teacher["role"] != "demo":
+        raise HTTPException(400, "Dieses Konto wurde bereits aktiviert")
+
+    # Validate password
+    if len(req.password) < 8:
+        raise HTTPException(400, "Passwort muss mindestens 8 Zeichen lang sein")
+
+    name = req.name.strip() or teacher["name"]
+
+    # Upgrade: demo → teacher
+    await db.raw_fetch(
+        """UPDATE teachers
+           SET password_hash = $1, name = $2, role = 'teacher',
+               email_verified = true, demo_expires_at = NULL,
+               magic_link_token = NULL, magic_link_expires = NULL
+           WHERE id = $3""",
+        hash_password(req.password), name, teacher["id"],
+    )
+
+    # Update profile
+    await db.upsert(
+        "user_profiles",
+        {"id": teacher["id"], "name": name},
+        on_conflict="id",
+    )
+
+    # Issue new tokens
+    access_token = create_access_token(teacher["id"], "teacher")
+    refresh_token = create_refresh_token(teacher["id"])
+
+    return LoginResponse(
+        teacher_id=teacher["id"],
+        name=name,
+        role="teacher",
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
+
+
+@router.post("/invite-colleagues")
+async def invite_colleagues(
+    emails: list[str],
+    teacher_id: str = Depends(get_current_teacher_id),
+):
+    """Send invitation emails to colleagues."""
+    if not emails or len(emails) > 10:
+        raise HTTPException(400, "Bitte 1–10 E-Mail-Adressen angeben")
+
+    # Get sender name
+    teachers = await db.raw_fetch(
+        "SELECT name FROM teachers WHERE id = $1", teacher_id
+    )
+    sender_name = teachers[0]["name"] if teachers else "Ein Kollege"
+
+    sent = 0
+    for email in emails:
+        email = email.strip()
+        if not email or "@" not in email:
+            continue
+        ok = await send_invite_email(email, sender_name)
+        if ok:
+            sent += 1
+
+    return {"sent": sent, "total": len(emails)}
 
 
 @router.post("/demo-cleanup")

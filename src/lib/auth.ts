@@ -132,6 +132,70 @@ export async function startDemo(): Promise<Teacher> {
   return teacher;
 }
 
+export async function requestDemoUpgrade(data: {
+  email: string;
+  survey_useful?: string;
+  survey_material?: string;
+  survey_recommend?: string;
+  survey_feedback?: string;
+}): Promise<string> {
+  const session = getSession();
+  if (!session) throw new Error('Nicht angemeldet');
+
+  const res = await fetch(`${API}/api/auth/demo-upgrade`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as Record<string, string>;
+    throw new Error(err['detail'] ?? 'Upgrade fehlgeschlagen');
+  }
+  const result = (await res.json()) as { message: string };
+  return result.message;
+}
+
+export async function completeDemoUpgrade(
+  token: string,
+  password: string,
+  name: string,
+): Promise<Teacher> {
+  const res = await fetch(`${API}/api/auth/demo-upgrade/complete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password, name }),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as Record<string, string>;
+    throw new Error(err['detail'] ?? 'Aktivierung fehlgeschlagen');
+  }
+  const teacher = (await res.json()) as Teacher;
+  setSession(teacher);
+  return teacher;
+}
+
+export async function inviteColleagues(emails: string[]): Promise<{ sent: number; total: number }> {
+  const session = getSession();
+  if (!session) throw new Error('Nicht angemeldet');
+
+  const res = await fetch(`${API}/api/auth/invite-colleagues`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(emails),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as Record<string, string>;
+    throw new Error(err['detail'] ?? 'Einladung fehlgeschlagen');
+  }
+  return (await res.json()) as { sent: number; total: number };
+}
+
 export async function magicLogin(token: string): Promise<Teacher> {
   const res = await fetch(`${API}/api/auth/magic-login?token=${token}`, {
     method: 'POST',

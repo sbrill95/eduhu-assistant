@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getSession, isDemoUser } from '@/lib/auth';
+import { getSession, isDemoUser, clearSession, requestDemoUpgrade } from '@/lib/auth';
 import { ExitSurvey } from '@/components/ExitSurvey';
 
 const TITLES: Record<string, string> = {
@@ -67,10 +67,18 @@ export function TopBar({ onMenuToggle }: Props) {
       {showExitSurvey && (
         <ExitSurvey
           onClose={() => setShowExitSurvey(false)}
-          onUpgrade={(email) => {
-            // TODO: call demo-upgrade endpoint
-            console.log('Upgrade to:', email);
-            setShowExitSurvey(false);
+          onEndDemo={() => {
+            clearSession();
+            void navigate('/');
+          }}
+          onUpgrade={async (email, survey) => {
+            await requestDemoUpgrade({
+              email,
+              survey_useful: survey['useful'],
+              survey_material: survey['material'],
+              survey_recommend: survey['recommend'],
+              survey_feedback: survey['feedback'],
+            });
           }}
         />
       )}
