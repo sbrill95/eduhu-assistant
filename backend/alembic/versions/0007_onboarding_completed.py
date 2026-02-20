@@ -23,11 +23,6 @@ def upgrade() -> None:
         "user_profiles",
         sa.Column("onboarding_completed", sa.Boolean(), server_default="false", nullable=False),
     )
-    # Backfill: mark existing users with profile data as onboarded
-    op.execute(
-        "UPDATE user_profiles SET onboarding_completed = true "
-        "WHERE bundesland IS NOT NULL OR schulform IS NOT NULL OR faecher IS NOT NULL"
-    )
 
 
 def downgrade() -> None:
